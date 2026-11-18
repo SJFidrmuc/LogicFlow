@@ -4,15 +4,21 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
-mod demo;
+mod catalog;
+mod examples;
+mod filedialog;
 mod i18n;
 mod panels;
 mod panes;
+mod project;
 mod schematic;
+mod symbols;
 mod theme;
 mod timing;
 
 fn main() -> eframe::Result {
+    // Soubor předaný na příkazové řádce (nebo dvojklikem) se rovnou otevře.
+    let open = std::env::args_os().nth(1).map(std::path::PathBuf::from);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("LogicFlow")
@@ -25,7 +31,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "LogicFlow",
         options,
-        Box::new(|cc| Ok(Box::new(app::LogicFlowApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(app::LogicFlowApp::new(cc, open)))),
     )
 }
 

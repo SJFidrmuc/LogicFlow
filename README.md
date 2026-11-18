@@ -2,26 +2,49 @@
 
 Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástupce programu DigitalWorks: česky, s rozhraním ve stylu Blenderu, pro Windows, macOS, Linux i Raspberry Pi.
 
-![Pracovní plocha Simulace: schéma, vlastnosti a časový diagram](docs/screenshots/simulace.png)
+![Klopný obvod RS z hradel NOR v pracovní ploše Simulace](docs/screenshots/simulace.png)
 
-> **Stav:** milník M0 (základ projektu). Aplikace zatím zobrazuje ukázkový obvod se dvěma přepínači, hradly AND a OR a dvěma LED. Kreslení vlastních schémat přijde ve verzi 0.1.
+> **Stav:** verze 0.1 (milník M1). Kreslení vlastních obvodů z hradel, přepínačů, tlačítek a LED, simulace v reálném čase, ukládání a otevírání souborů.
 
-## Co už funguje
+## Co umí
 
-- Okno rozdělené na **oblasti** jako v Blenderu. Každá oblast má v záhlaví volbu typu editoru, dá se přetáhnout za záhlaví a měnit její velikost.
-- **Pracovní plochy** Návrh, Simulace, Analýza a Paměť, přepínání i přes Ctrl+PageUp / Ctrl+PageDown.
-- **Editor schématu** s mřížkou, plynulým zoomem kolečkem myši a posunem prostředním nebo pravým tlačítkem. Klávesa Home zobrazí celé schéma.
-- **Ukázkový obvod**, který vyhodnocuje simulační jádro. Kliknutím na přepínač A nebo B změníte vstup.
-- **Časový diagram**, který zaznamenává změny signálů. Mezerník simulaci pozastaví nebo spustí.
-- **Pravdivostní tabulka** se zvýrazněným aktuálním řádkem.
-- Čeština a angličtina (přepínač CS / EN vpravo nahoře).
+- **Kreslení schémat** – součástky se přidávají přes Shift+A nebo z knihovny, vodiče se kreslí tažením z vývodu. Vodiče se při přesunu součástky samy přepojí.
+- **Součástky** – přepínač, tlačítko, konstanty 0 a 1, hradla BUF, NOT, AND, OR, NAND, NOR, XOR, XNOR (2–8 vstupů), LED. Značky podle ČSN EN 60617.
+- **Událostní simulace** se zpožděním hradel a hodnotami 0, 1, X (neurčitá, kolize) a Z (nepřipojeno). Simulátor pozná kmitající obvod a obvody s pamětí (klopný obvod z hradel) si pamatují stav i po úpravě schématu.
+- **Krokování** – při pozastavené simulaci (mezerník) se šipkou vpravo provádí jeden takt; je vidět, jak signál prochází hradly.
+- **Časový diagram** vstupů a výstupů a **pravdivostní tabulka** spočítaná simulací všech kombinací vstupů.
+- **Soubory** `.logicflow` (čitelný JSON), vlastní prohlížeč souborů, Zpět/Znovu, vestavěné příklady.
+- Okno rozdělené na **oblasti** a **pracovní plochy** (Návrh, Simulace, Analýza, Paměť) jako v Blenderu. Čeština a angličtina.
+
+| Návrh | Analýza |
+| --- | --- |
+| ![Nabídka Shift+A](docs/screenshots/navrh.png) | ![Pravdivostní tabulka poloviční sčítačky](docs/screenshots/analyza.png) |
+
+## Ovládání
+
+| Klávesa / myš | Akce |
+| --- | --- |
+| Shift+A | nabídka Přidat součástku |
+| tažení z vývodu (Ctrl+tažení odkudkoli) | nakreslit vodič |
+| klik na přepínač / držení tlačítka | změna vstupu |
+| klik, Shift+klik, tažení v prázdném místě | výběr, přidání do výběru, výběr obdélníkem |
+| tažení součástky, G | přesun výběru |
+| R | otočit o 90° (i při umisťování) |
+| X, Delete | smazat výběr |
+| Shift+D | duplikovat výběr |
+| A / Alt+A | vybrat vše / zrušit výběr |
+| kolečko, prostřední tlačítko, Home | zoom, posun, celé schéma |
+| mezerník, šipka vpravo | spustit/pozastavit simulaci, jeden takt |
+| Ctrl+Z, Ctrl+Shift+Z | zpět, znovu |
+| Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S | nový, otevřít, uložit, uložit jako |
+| Ctrl+PageUp / PageDown | předchozí / další pracovní plocha |
 
 ## Plán
 
 | Verze | Obsah | Termín (orientačně) |
 | --- | --- | --- |
-| 0.1 | kreslení schémat, hradla, přepínače, LED, ukládání | 02–03/2027 |
-| 0.2 | klopné obvody, hodiny, časový diagram, krokování – pilot ve třídě | 04/2027 |
+| ~~0.1~~ | kreslení schémat, hradla, přepínače, LED, ukládání | hotovo |
+| 0.2 | klopné obvody, generátor hodin – pilot ve třídě | 04/2027 |
 | 0.3 | podobvody, čítače, registry, MUX, dekodéry, sedmisegmentovka | 05/2027 |
 | 0.4 | paměti ROM, RAM, EEPROM, hex editor | 06/2027 |
 | 0.5 | export do VHDL | 07–08/2027 |
@@ -38,18 +61,18 @@ cd LogicFlow
 cargo run --release
 ```
 
-Testy: `cargo test --workspace`.
+Soubor obvodu jde otevřít i z příkazové řádky: `logicflow muj-obvod.logicflow`. Testy: `cargo test --workspace`.
 
 ### Raspberry Pi
 
-Podporované jsou Raspberry Pi 4 a 5 s 64bitovým Raspberry Pi OS (Debian 13 „Trixie“). Hotový program pro Raspberry Pi sestavuje automaticky GitHub Actions; najdete ho u každého běhu CI jako artefakt `logicflow-linux-arm64-raspberry-pi`. Sestavení přímo na Raspberry Pi funguje stejně jako výše, jen trvá déle.
+Podporované jsou Raspberry Pi 4 a 5 s 64bitovým Raspberry Pi OS (Debian 13 „Trixie“). Hotový program sestavuje automaticky GitHub Actions; najdete ho u každého běhu CI jako artefakt `logicflow-linux-arm64-raspberry-pi`.
 
 ## Struktura projektu
 
 | Složka | Obsah |
 | --- | --- |
-| `crates/logicflow-core` | simulační jádro bez grafického rozhraní (logické hodnoty 0/1/X/Z, hradla) |
-| `crates/logicflow` | aplikace: okno, oblasti, editory, překlady |
+| `crates/logicflow-core` | jádro bez grafického rozhraní: model obvodu, netlist, událostní simulátor, formát souboru |
+| `crates/logicflow` | aplikace: okno, oblasti, editor schématu, panely, překlady |
 | `.github/workflows` | automatické sestavení a testy pro 6 platforem |
 
 ## Licence
