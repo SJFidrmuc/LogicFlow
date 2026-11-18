@@ -1,32 +1,61 @@
-//! Editor schématu: nekonečné plátno s mřížkou, zoomem a posunem.
-//!
-//! V milníku M0 zobrazuje ukázkový obvod; kreslení vlastních obvodů přijde ve verzi 0.1.
+//! Editor schématu: nekonečné plátno s mřížkou, přidávání a úpravy součástek,
+//! kreslení vodičů. Ovládání vychází z Blenderu (Shift+A, G, R, X, Shift+D, A).
 
-use crate::demo::{DemoCircuit, Item};
+use crate::catalog;
 use crate::i18n::{Lang, T, tr};
+use crate::project::Project;
+use crate::symbols::{self, Camera, Look, UNIT, Values, dist_to_segment, point, snap};
 use crate::theme::{colors, signal_color};
 use egui::{
-    Align2, Color32, FontId, Painter, Pos2, Rect, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2,
+    Align2, Color32, FontId, Key, Modifiers, Painter, PointerButton, Pos2, Rect, Sense, Stroke, Ui,
+    Vec2, pos2, vec2,
 };
-use logicflow_core::{GateKind, LogicValue};
+use logicflow_core::{Circuit, CompId, Component, ComponentKind, Point, Rotation, WireId};
 
-/// Velikost jedné jednotky mřížky v pixelech při zoomu 100 %.
-const UNIT: f32 = 16.0;
-const MIN_ZOOM: f32 = 0.2;
+const MIN_ZOOM: f32 = 0.15;
 const MAX_ZOOM: f32 = 6.0;
 
-/// Ohraničení ukázkového obvodu ve světových souřadnicích.
-const DEMO_BOUNDS: Rect = Rect {
-    min: pos2(-16.0, -8.0),
-    max: pos2(18.0, 8.0),
-};
+#[derive(Clone, Debug)]
+enum Tool {
+    Idle,
+    /// Umisťování nové součástky (náhled sleduje myš).
+    Place {
+        kind: ComponentKind,
+        rotation: Rotation,
+    },
+    /// Přesun výběru. `origin` je stav před přesunem.
+    Grab {
+        origin: Box<Circuit>,
+        start: Point,
+        delta: (i32, i32),
+        comps: Vec<CompId>,
+        wires: Vec<WireId>,
+        by_key: bool,
+        undo_pushed: bool,
+        was_modified: bool,
+    },
+    /// Kreslení vodiče z bodu `start`.
+    Wire {
+        start: Point,
+        horizontal_first: Option<bool>,
+    },
+    /// Výběr obdélníkem (ve světových souřadnicích).
+    BoxSelect {
+        start: Pos2,
+        additive: bool,
+    },
+    /// Držené tlačítko.
+    Press(CompId),
+}
 
-/// Kamera jednoho editoru schématu (každá oblast má vlastní).
+/// Kamera a stav nástroje jednoho editoru schématu (každá oblast má vlastní).
 #[derive(Clone, Debug)]
 pub struct SchematicView {
     pub offset: Vec2,
     pub zoom: f32,
     pub needs_fit: bool,
+    tool: Tool,
+    add_menu: Option<Pos2>,
 }
 
 impl Default for SchematicView {
@@ -35,28 +64,9 @@ impl Default for SchematicView {
             offset: Vec2::ZERO,
             zoom: 1.0,
             needs_fit: true,
+            tool: Tool::Idle,
+            add_menu: None,
         }
-    }
-}
-
-/// Převod mezi světovými a obrazovkovými souřadnicemi.
-#[derive(Clone, Copy)]
-struct Camera {
-    origin: Pos2,
-    scale: f32,
-}
-
-impl Camera {
-    fn to_screen(self, p: Pos2) -> Pos2 {
-        self.origin + p.to_vec2() * self.scale
-    }
-
-    fn to_world(self, p: Pos2) -> Pos2 {
-        ((p - self.origin) / self.scale).to_pos2()
-    }
-
-    fn len(self, l: f32) -> f32 {
-        l * self.scale
     }
 }
 
@@ -68,88 +78,638 @@ impl SchematicView {
         }
     }
 
-    fn fit(&mut self, rect: Rect) {
-        let size = DEMO_BOUNDS.size() * UNIT;
-        self.zoom = (rect.width() / size.x)
-            .min(rect.height() / size.y)
-            .clamp(MIN_ZOOM, MAX_ZOOM);
-        self.offset = -DEMO_BOUNDS.center().to_vec2() * UNIT * self.zoom;
+    fn fit(&mut self, rect: Rect, circuit: &Circuit) {
+        let (x0, y0, x1, y1) = circuit.bounds().unwrap_or((-20.0, -12.0, 20.0, 12.0));
+        let size = vec2((x1 - x0).max(10.0), (y1 - y0).max(8.0)) * UNIT;
+        let margin = 0.9;
+        self.zoom = (rect.width() * margin / size.x)
+            .min(rect.height() * margin / size.y)
+            .clamp(MIN_ZOOM, 2.5);
+        let center = vec2((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+        self.offset = -center * UNIT * self.zoom;
         self.needs_fit = false;
     }
 
-    pub fn ui(&mut self, ui: &mut Ui, circuit: &mut DemoCircuit, lang: Lang) {
+    pub fn ui(&mut self, ui: &mut Ui, project: &mut Project, lang: Lang) {
         let rect = ui.available_rect_before_wrap();
         let response = ui.allocate_rect(rect, Sense::click_and_drag());
         let painter = ui.painter_at(rect);
 
         if self.needs_fit && rect.width() > 10.0 {
-            self.fit(rect);
+            self.fit(rect, &project.circuit);
         }
 
-        // Posun prostředním nebo pravým tlačítkem myši.
-        if response.dragged_by(egui::PointerButton::Middle)
-            || response.dragged_by(egui::PointerButton::Secondary)
+        // Posun prostředním tlačítkem (nebo tažením pravým).
+        if response.dragged_by(PointerButton::Middle)
+            || response.dragged_by(PointerButton::Secondary)
         {
             self.offset += response.drag_delta();
         }
-
         if response.hovered() {
-            let (scroll, pinch, home) = ui.input(|i| {
-                (
-                    i.smooth_scroll_delta.y,
-                    i.zoom_delta(),
-                    i.key_pressed(egui::Key::Home),
-                )
-            });
+            let (scroll, pinch) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
             let factor = (scroll * 0.0025).exp() * pinch;
             if (factor - 1.0).abs() > f32::EPSILON
                 && let Some(mouse) = response.hover_pos()
             {
-                // Zoom kolem kurzoru: bod pod myší zůstane na místě.
-                let new_zoom = (self.zoom * factor).clamp(MIN_ZOOM, MAX_ZOOM);
                 let world = self.camera(rect).to_world(mouse);
-                self.zoom = new_zoom;
-                let cam = self.camera(rect);
-                self.offset += mouse - cam.to_screen(world);
-            }
-            if home {
-                self.fit(rect);
+                self.zoom = (self.zoom * factor).clamp(MIN_ZOOM, MAX_ZOOM);
+                self.offset += mouse - self.camera(rect).to_screen(world);
             }
         }
 
         let cam = self.camera(rect);
+        let mouse_screen = ui
+            .input(|i| i.pointer.hover_pos())
+            .filter(|p| rect.contains(*p));
+        let mouse = mouse_screen.map(|p| cam.to_world(p));
+        let mouse_pt = mouse.map(snap);
 
-        // Výběr a přepínání kliknutím.
-        if response.clicked()
-            && let Some(p) = response.interact_pointer_pos()
+        // Součástka vybraná v knihovně se umístí do editoru, nad kterým je myš.
+        if response.hovered()
+            && let Some(kind) = project.pending_place.take()
         {
-            let hit = hit_test(cam.to_world(p));
-            circuit.selected = hit;
-            if let Some(item) = hit {
-                circuit.toggle(item);
-            }
+            self.tool = Tool::Place {
+                kind,
+                rotation: Rotation::R0,
+            };
         }
 
+        if response.hovered() && !ui.ctx().egui_wants_keyboard_input() {
+            self.keyboard(ui, rect, project, mouse_pt);
+        }
+        self.pointer(ui, &response, cam, project, mouse, mouse_pt);
+
+        // --- Kreslení ---
         painter.rect_filled(rect, 0.0, colors::CANVAS);
         draw_grid(&painter, rect, cam);
-        draw_demo(&painter, cam, circuit);
+        self.draw_circuit(&painter, cam, project, mouse);
+        self.draw_tool(&painter, cam, mouse_pt);
 
-        // Nápověda v dolní části plátna.
+        if project.circuit.components.is_empty() && project.circuit.wires.is_empty() {
+            painter.text(
+                rect.center(),
+                Align2::CENTER_CENTER,
+                tr(lang, T::EmptySchematic),
+                FontId::proportional(15.0),
+                colors::TEXT_WEAK,
+            );
+        }
+        if project.sim.is_oscillating() {
+            painter.text(
+                rect.left_top() + vec2(10.0, 10.0),
+                Align2::LEFT_TOP,
+                tr(lang, T::Oscillating),
+                FontId::proportional(13.0),
+                Color32::from_rgb(0xff, 0x70, 0x60),
+            );
+        }
+        let hint = match self.tool {
+            Tool::Idle | Tool::BoxSelect { .. } | Tool::Press(_) => T::HintIdle,
+            Tool::Place { .. } => T::HintPlace,
+            Tool::Grab { .. } => T::HintGrab,
+            Tool::Wire { .. } => T::HintWire,
+        };
         painter.text(
-            rect.left_bottom() + vec2(10.0, -10.0),
+            rect.left_bottom() + vec2(10.0, -8.0),
             Align2::LEFT_BOTTOM,
-            tr(lang, T::SchematicHint),
+            tr(lang, hint),
             FontId::proportional(12.0),
             colors::TEXT_WEAK,
         );
-        painter.text(
-            rect.left_top() + vec2(10.0, 10.0),
-            Align2::LEFT_TOP,
-            tr(lang, T::DemoNote),
-            FontId::proportional(12.0),
-            colors::TEXT_WEAK,
-        );
+
+        self.add_menu_ui(ui, lang);
     }
+
+    fn keyboard(
+        &mut self,
+        ui: &mut Ui,
+        rect: Rect,
+        project: &mut Project,
+        mouse_pt: Option<Point>,
+    ) {
+        // Konkrétnější zkratky (se Shift/Alt) se musí zkontrolovat dřív.
+        let (add, dup, deselect, all, grab, rotate, delete, esc, home) = ui.input_mut(|i| {
+            (
+                i.consume_key(Modifiers::SHIFT, Key::A),
+                i.consume_key(Modifiers::SHIFT, Key::D),
+                i.consume_key(Modifiers::ALT, Key::A),
+                i.consume_key(Modifiers::NONE, Key::A),
+                i.consume_key(Modifiers::NONE, Key::G),
+                i.consume_key(Modifiers::NONE, Key::R),
+                i.consume_key(Modifiers::NONE, Key::X)
+                    || i.consume_key(Modifiers::NONE, Key::Delete),
+                i.consume_key(Modifiers::NONE, Key::Escape),
+                i.consume_key(Modifiers::NONE, Key::Home),
+            )
+        });
+        let busy = !matches!(self.tool, Tool::Idle);
+        if esc {
+            if self.add_menu.take().is_some() {
+                // jen zavřít nabídku
+            } else if busy {
+                self.cancel(project);
+            } else {
+                project.selection.clear();
+            }
+        }
+        if home {
+            self.fit(rect, &project.circuit);
+        }
+        if add && !busy {
+            self.add_menu = ui.input(|i| i.pointer.hover_pos());
+        }
+        if rotate {
+            match &mut self.tool {
+                Tool::Place { rotation, .. } => *rotation = rotation.next(),
+                Tool::Idle if !project.selection.comps.is_empty() => {
+                    project.checkpoint();
+                    for id in project.selection.comp_vec() {
+                        if let Some(c) = project.circuit.component_mut(id) {
+                            c.rotation = c.rotation.next();
+                        }
+                    }
+                    project.after_structure_change();
+                }
+                _ => {}
+            }
+        }
+        if busy {
+            return;
+        }
+        if all {
+            project.selection.comps = project.circuit.components.iter().map(|c| c.id).collect();
+            project.selection.wires = project.circuit.wires.iter().map(|w| w.id).collect();
+        }
+        if deselect {
+            project.selection.clear();
+        }
+        if delete && !project.selection.is_empty() {
+            project.checkpoint();
+            for id in project.selection.comp_vec() {
+                project.circuit.remove_component(id);
+            }
+            for id in project.selection.wire_vec() {
+                project.circuit.remove_wire(id);
+            }
+            project.selection.clear();
+            project.after_structure_change();
+        }
+        if let Some(start) = mouse_pt {
+            if dup && !project.selection.is_empty() {
+                let before = project.circuit.clone();
+                let (comps, wires) = project
+                    .circuit
+                    .duplicate(&project.selection.comp_vec(), &project.selection.wire_vec());
+                project.push_undo(before);
+                project.selection.comps = comps.iter().copied().collect();
+                project.selection.wires = wires.iter().copied().collect();
+                project.after_structure_change();
+                self.start_grab(project, start, true, true);
+            } else if grab && !project.selection.is_empty() {
+                self.start_grab(project, start, true, false);
+            }
+        }
+    }
+
+    fn start_grab(&mut self, project: &Project, start: Point, by_key: bool, undo_pushed: bool) {
+        self.tool = Tool::Grab {
+            origin: Box::new(project.circuit.clone()),
+            start,
+            delta: (0, 0),
+            comps: project.selection.comp_vec(),
+            wires: project.selection.wire_vec(),
+            by_key,
+            undo_pushed,
+            was_modified: project.modified,
+        };
+    }
+
+    fn cancel(&mut self, project: &mut Project) {
+        match std::mem::replace(&mut self.tool, Tool::Idle) {
+            Tool::Grab {
+                origin,
+                was_modified,
+                ..
+            } => {
+                project.circuit = *origin;
+                project.after_structure_change();
+                project.modified = was_modified;
+            }
+            Tool::Press(id) => project.set_button(id, false),
+            _ => {}
+        }
+    }
+
+    fn finish_grab(&mut self, project: &mut Project) {
+        if let Tool::Grab {
+            origin,
+            delta,
+            undo_pushed,
+            was_modified,
+            ..
+        } = std::mem::replace(&mut self.tool, Tool::Idle)
+        {
+            if delta != (0, 0) {
+                if !undo_pushed {
+                    project.push_undo(*origin);
+                }
+            } else if !undo_pushed {
+                project.modified = was_modified;
+            }
+        }
+    }
+
+    fn pointer(
+        &mut self,
+        ui: &Ui,
+        response: &egui::Response,
+        cam: Camera,
+        project: &mut Project,
+        mouse: Option<Pos2>,
+        mouse_pt: Option<Point>,
+    ) {
+        let shift = ui.input(|i| i.modifiers.shift);
+        let ctrl = ui.input(|i| i.modifiers.command);
+        let primary_down = ui.input(|i| i.pointer.primary_down());
+
+        if response.secondary_clicked() && !matches!(self.tool, Tool::Idle) {
+            self.cancel(project);
+            return;
+        }
+
+        match &mut self.tool {
+            Tool::Idle => {
+                // Stisk tlačítka v obvodu.
+                if response.is_pointer_button_down_on()
+                    && primary_down
+                    && let Some(m) = mouse
+                    && let Some(id) = component_at(&project.circuit, m)
+                    && matches!(
+                        project.circuit.component(id).map(|c| c.kind),
+                        Some(ComponentKind::Button)
+                    )
+                {
+                    project.set_button(id, true);
+                    project.selection.clear();
+                    project.selection.comps.insert(id);
+                    self.tool = Tool::Press(id);
+                    return;
+                }
+                if response.drag_started_by(PointerButton::Primary) {
+                    let origin = ui
+                        .input(|i| i.pointer.press_origin())
+                        .map(|p| cam.to_world(p));
+                    if let Some(p0) = origin {
+                        self.begin_drag(project, p0, shift, ctrl);
+                    }
+                } else if response.clicked()
+                    && let Some(m) = mouse
+                {
+                    click(project, m, shift);
+                }
+            }
+            Tool::Place { kind, rotation } => {
+                if response.clicked()
+                    && let Some(p) = mouse_pt
+                {
+                    let (kind, rotation) = (*kind, *rotation);
+                    project.checkpoint();
+                    let id = project.circuit.add_component(kind, p);
+                    if let Some(c) = project.circuit.component_mut(id) {
+                        c.rotation = rotation;
+                    }
+                    project.selection.clear();
+                    project.selection.comps.insert(id);
+                    project.after_structure_change();
+                    // Se Shift zůstane nástroj aktivní pro další kus.
+                    if !shift {
+                        self.tool = Tool::Idle;
+                    }
+                }
+            }
+            Tool::Grab {
+                origin,
+                start,
+                delta,
+                comps,
+                wires,
+                by_key,
+                ..
+            } => {
+                if let Some(p) = mouse_pt {
+                    let d = (p.x - start.x, p.y - start.y);
+                    if d != *delta {
+                        *delta = d;
+                        project.circuit = origin.moved(comps, wires, d.0, d.1);
+                        project.after_structure_change();
+                    }
+                }
+                let done = if *by_key {
+                    response.clicked()
+                } else {
+                    !primary_down
+                };
+                if done {
+                    self.finish_grab(project);
+                }
+            }
+            Tool::Wire {
+                start,
+                horizontal_first,
+            } => {
+                if let Some(p) = mouse_pt {
+                    if p == *start {
+                        *horizontal_first = None;
+                    } else if horizontal_first.is_none() {
+                        *horizontal_first = Some((p.x - start.x).abs() >= (p.y - start.y).abs());
+                    }
+                }
+                if !primary_down {
+                    let start = *start;
+                    let hf = horizontal_first.unwrap_or(true);
+                    self.tool = Tool::Idle;
+                    if let Some(end) = mouse_pt
+                        && end != start
+                    {
+                        project.checkpoint();
+                        for (a, b) in wire_path(start, end, hf) {
+                            project.circuit.add_wire(a, b);
+                        }
+                        project.after_structure_change();
+                    }
+                }
+            }
+            Tool::BoxSelect { start, additive } => {
+                if !primary_down {
+                    if let Some(m) = mouse {
+                        let r = Rect::from_two_pos(*start, m);
+                        if !*additive {
+                            project.selection.clear();
+                        }
+                        for c in &project.circuit.components {
+                            if r.intersects(symbols::hit_rect(c)) {
+                                project.selection.comps.insert(c.id);
+                            }
+                        }
+                        for w in &project.circuit.wires {
+                            if r.contains(point(w.a)) && r.contains(point(w.b)) {
+                                project.selection.wires.insert(w.id);
+                            }
+                        }
+                    }
+                    self.tool = Tool::Idle;
+                }
+            }
+            Tool::Press(id) => {
+                if !primary_down {
+                    project.set_button(*id, false);
+                    self.tool = Tool::Idle;
+                }
+            }
+        }
+    }
+
+    fn begin_drag(&mut self, project: &mut Project, p0: Pos2, shift: bool, ctrl: bool) {
+        let circuit = &project.circuit;
+        if let Some(pin) = pin_at(circuit, p0) {
+            self.tool = Tool::Wire {
+                start: pin,
+                horizontal_first: None,
+            };
+        } else if let Some(id) = component_at(circuit, p0) {
+            if !project.selection.comps.contains(&id) {
+                if !shift {
+                    project.selection.clear();
+                }
+                project.selection.comps.insert(id);
+            }
+            self.start_grab(project, snap(p0), false, false);
+        } else if ctrl || wire_at(circuit, p0).is_some() {
+            // Vodič jde začít i z libovolného bodu vodiče, nebo s Ctrl kdekoli.
+            self.tool = Tool::Wire {
+                start: snap(p0),
+                horizontal_first: None,
+            };
+        } else {
+            self.tool = Tool::BoxSelect {
+                start: p0,
+                additive: shift,
+            };
+        }
+    }
+
+    fn draw_circuit(&self, painter: &Painter, cam: Camera, project: &Project, mouse: Option<Pos2>) {
+        let c = &project.circuit;
+        let lw = cam.len(0.16).clamp(1.5, 4.0);
+        for w in &c.wires {
+            let (a, b) = (cam.to_screen(point(w.a)), cam.to_screen(point(w.b)));
+            if project.selection.wires.contains(&w.id) {
+                painter.line_segment(
+                    [a, b],
+                    Stroke::new(lw + 4.0, symbols::SELECTED.gamma_multiply(0.6)),
+                );
+            }
+            painter.line_segment(
+                [a, b],
+                Stroke::new(lw, signal_color(project.sim.wire_value(w.id))),
+            );
+        }
+        for j in c.junctions() {
+            let v = c
+                .wires
+                .iter()
+                .find(|w| w.contains(j))
+                .map_or(logicflow_core::LogicValue::Z, |w| {
+                    project.sim.wire_value(w.id)
+                });
+            painter.circle_filled(
+                cam.to_screen(point(j)),
+                cam.len(0.3).max(3.0),
+                signal_color(v),
+            );
+        }
+        let hovered = if matches!(self.tool, Tool::Idle) {
+            mouse.and_then(|m| component_at(c, m))
+        } else {
+            None
+        };
+        for comp in &c.components {
+            let values = Values {
+                inputs: project.sim.inputs(comp.id),
+                output: project.sim.output_net_value(comp.id),
+            };
+            let look = Look {
+                selected: project.selection.comps.contains(&comp.id),
+                hovered: hovered == Some(comp.id),
+                ghost: false,
+            };
+            symbols::draw(painter, cam, comp, &values, look);
+        }
+        // Zvýraznění vývodu pod myší – odtud jde táhnout vodič.
+        if matches!(self.tool, Tool::Idle)
+            && let Some(m) = mouse
+            && let Some(pin) = pin_at(c, m)
+        {
+            painter.circle_stroke(
+                cam.to_screen(point(pin)),
+                cam.len(0.45).max(5.0),
+                Stroke::new(1.5, Color32::WHITE),
+            );
+        }
+    }
+
+    fn draw_tool(&self, painter: &Painter, cam: Camera, mouse_pt: Option<Point>) {
+        match &self.tool {
+            Tool::Place { kind, rotation } => {
+                if let Some(p) = mouse_pt {
+                    let ghost = Component {
+                        id: CompId(u32::MAX),
+                        kind: *kind,
+                        pos: p,
+                        rotation: *rotation,
+                        label: String::new(),
+                        pressed: false,
+                    };
+                    let values = Values {
+                        inputs: vec![],
+                        output: None,
+                    };
+                    let look = Look {
+                        ghost: true,
+                        ..Default::default()
+                    };
+                    symbols::draw(painter, cam, &ghost, &values, look);
+                }
+            }
+            Tool::Wire {
+                start,
+                horizontal_first,
+            } => {
+                if let Some(end) = mouse_pt {
+                    let lw = cam.len(0.16).clamp(1.5, 4.0);
+                    for (a, b) in wire_path(*start, end, horizontal_first.unwrap_or(true)) {
+                        painter.line_segment(
+                            [cam.to_screen(point(a)), cam.to_screen(point(b))],
+                            Stroke::new(lw, Color32::WHITE.gamma_multiply(0.8)),
+                        );
+                    }
+                    painter.circle_filled(cam.to_screen(point(end)), 3.5, Color32::WHITE);
+                }
+            }
+            Tool::BoxSelect { start, .. } => {
+                if let Some(m) = mouse_pt.map(point) {
+                    let r = Rect::from_two_pos(cam.to_screen(*start), cam.to_screen(m));
+                    painter.rect_filled(r, 0.0, colors::ACCENT.gamma_multiply(0.15));
+                    painter.rect_stroke(
+                        r,
+                        0.0,
+                        Stroke::new(1.0, colors::ACCENT),
+                        egui::StrokeKind::Middle,
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn add_menu_ui(&mut self, ui: &Ui, lang: Lang) {
+        let Some(pos) = self.add_menu else { return };
+        let mut chosen = None;
+        let area = egui::Area::new(ui.scope_id().with("add_menu"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(pos)
+            .show(ui.ctx(), |ui| {
+                egui::Frame::menu(ui.style()).show(ui, |ui| {
+                    ui.set_min_width(170.0);
+                    ui.label(egui::RichText::new(tr(lang, T::Add)).strong());
+                    for cat in catalog::catalog(lang) {
+                        ui.separator();
+                        ui.label(
+                            egui::RichText::new(tr(lang, cat.title))
+                                .small()
+                                .color(colors::TEXT_WEAK),
+                        );
+                        for (name, kind) in cat.items {
+                            if ui.add(egui::Button::new(name).frame(false)).clicked() {
+                                chosen = Some(kind);
+                            }
+                        }
+                    }
+                });
+            });
+        if let Some(kind) = chosen {
+            self.tool = Tool::Place {
+                kind,
+                rotation: Rotation::R0,
+            };
+            self.add_menu = None;
+        } else if area.response.clicked_elsewhere() {
+            self.add_menu = None;
+        }
+    }
+}
+
+fn click(project: &mut Project, m: Pos2, shift: bool) {
+    if let Some(id) = component_at(&project.circuit, m) {
+        if shift {
+            if !project.selection.comps.remove(&id) {
+                project.selection.comps.insert(id);
+            }
+        } else {
+            project.selection.clear();
+            project.selection.comps.insert(id);
+        }
+        if matches!(
+            project.circuit.component(id).map(|c| c.kind),
+            Some(ComponentKind::Switch { .. })
+        ) {
+            project.toggle_switch(id);
+        }
+    } else if let Some(w) = wire_at(&project.circuit, m) {
+        if !shift {
+            project.selection.clear();
+        }
+        project.selection.wires.insert(w);
+    } else if !shift {
+        project.selection.clear();
+    }
+}
+
+/// Lomená cesta vodiče ze `start` do `end` (nejvýše dvě úsečky).
+fn wire_path(start: Point, end: Point, horizontal_first: bool) -> Vec<(Point, Point)> {
+    let corner = if horizontal_first {
+        Point::new(end.x, start.y)
+    } else {
+        Point::new(start.x, end.y)
+    };
+    [(start, corner), (corner, end)]
+        .into_iter()
+        .filter(|(a, b)| a != b)
+        .collect()
+}
+
+/// Součástka pod bodem (nejvyšší = poslední v seznamu).
+fn component_at(c: &Circuit, p: Pos2) -> Option<CompId> {
+    c.components
+        .iter()
+        .rev()
+        .find(|k| symbols::hit_rect(k).contains(p))
+        .map(|k| k.id)
+}
+
+fn pin_at(c: &Circuit, p: Pos2) -> Option<Point> {
+    c.components
+        .iter()
+        .flat_map(|k| k.pins())
+        .filter(|q| point(*q).distance(p) < 0.5)
+        .min_by(|a, b| point(*a).distance(p).total_cmp(&point(*b).distance(p)))
+}
+
+fn wire_at(c: &Circuit, p: Pos2) -> Option<WireId> {
+    c.wires
+        .iter()
+        .find(|w| dist_to_segment(p, point(w.a), point(w.b)) < 0.35)
+        .map(|w| w.id)
 }
 
 fn draw_grid(painter: &Painter, rect: Rect, cam: Camera) {
@@ -192,333 +752,34 @@ fn draw_grid(painter: &Painter, rect: Rect, cam: Camera) {
     }
 }
 
-// --- Rozmístění ukázkového obvodu (světové souřadnice) ---
-
-const SW_X: f32 = -12.0;
-const A_Y: f32 = -5.0;
-const B_Y: f32 = 5.0;
-const GATE_X: f32 = 0.0;
-const AND_Y: f32 = -4.0;
-const OR_Y: f32 = 4.0;
-const LED_X: f32 = 9.0;
-
-fn switch_rect(y: f32) -> Rect {
-    Rect::from_center_size(pos2(SW_X, y), vec2(2.4, 1.6))
-}
-
-fn gate_rect(y: f32) -> Rect {
-    Rect::from_center_size(pos2(GATE_X, y), vec2(4.0, 5.0))
-}
-
-const LED_R: f32 = 0.9;
-
-fn hit_test(p: Pos2) -> Option<Item> {
-    let led_hit = |y: f32| pos2(LED_X, y).distance(p) <= LED_R + 0.3;
-    if switch_rect(A_Y).expand(0.3).contains(p) {
-        Some(Item::SwitchA)
-    } else if switch_rect(B_Y).expand(0.3).contains(p) {
-        Some(Item::SwitchB)
-    } else if gate_rect(AND_Y).contains(p) {
-        Some(Item::GateAnd)
-    } else if gate_rect(OR_Y).contains(p) {
-        Some(Item::GateOr)
-    } else if led_hit(AND_Y) {
-        Some(Item::LedY1)
-    } else if led_hit(OR_Y) {
-        Some(Item::LedY2)
-    } else {
-        None
-    }
-}
-
-fn wire(painter: &Painter, cam: Camera, points: &[Pos2], v: LogicValue) {
-    let pts: Vec<Pos2> = points.iter().map(|&p| cam.to_screen(p)).collect();
-    let width = cam.len(0.16).clamp(1.5, 4.0);
-    painter.add(Shape::line(pts, Stroke::new(width, signal_color(v))));
-}
-
-fn junction(painter: &Painter, cam: Camera, p: Pos2, v: LogicValue) {
-    painter.circle_filled(cam.to_screen(p), cam.len(0.3).max(3.0), signal_color(v));
-}
-
-fn label(
-    painter: &Painter,
-    cam: Camera,
-    p: Pos2,
-    text: &str,
-    size: f32,
-    align: Align2,
-    color: Color32,
-) {
-    painter.text(
-        cam.to_screen(p),
-        align,
-        text,
-        FontId::proportional(cam.len(size).max(8.0)),
-        color,
-    );
-}
-
-fn draw_demo(painter: &Painter, cam: Camera, c: &DemoCircuit) {
-    let (a, b, y1, y2) = (c.va(), c.vb(), c.y1(), c.y2());
-    let out_x = SW_X + 1.2;
-    let in_x = GATE_X - 3.0;
-
-    // Vodiče ze vstupů do hradel. A se větví u x = -8, B u x = -6.
-    wire(painter, cam, &[pos2(out_x, A_Y), pos2(in_x, A_Y)], a);
-    wire(
-        painter,
-        cam,
-        &[
-            pos2(-8.0, A_Y),
-            pos2(-8.0, OR_Y - 1.0),
-            pos2(in_x, OR_Y - 1.0),
-        ],
-        a,
-    );
-    junction(painter, cam, pos2(-8.0, A_Y), a);
-    wire(painter, cam, &[pos2(out_x, B_Y), pos2(in_x, B_Y)], b);
-    wire(
-        painter,
-        cam,
-        &[
-            pos2(-6.0, B_Y),
-            pos2(-6.0, AND_Y + 1.0),
-            pos2(in_x, AND_Y + 1.0),
-        ],
-        b,
-    );
-    junction(painter, cam, pos2(-6.0, B_Y), b);
-
-    // Výstupy do LED.
-    wire(
-        painter,
-        cam,
-        &[pos2(GATE_X + 3.0, AND_Y), pos2(LED_X - LED_R, AND_Y)],
-        y1,
-    );
-    wire(
-        painter,
-        cam,
-        &[pos2(GATE_X + 3.0, OR_Y), pos2(LED_X - LED_R, OR_Y)],
-        y2,
-    );
-
-    draw_switch(
-        painter,
-        cam,
-        A_Y,
-        "A",
-        c.a,
-        c.selected == Some(Item::SwitchA),
-    );
-    draw_switch(
-        painter,
-        cam,
-        B_Y,
-        "B",
-        c.b,
-        c.selected == Some(Item::SwitchB),
-    );
-    draw_gate(
-        painter,
-        cam,
-        AND_Y,
-        GateKind::And,
-        c.selected == Some(Item::GateAnd),
-    );
-    draw_gate(
-        painter,
-        cam,
-        OR_Y,
-        GateKind::Or,
-        c.selected == Some(Item::GateOr),
-    );
-    draw_led(
-        painter,
-        cam,
-        AND_Y,
-        "Y1 = A · B",
-        y1,
-        c.selected == Some(Item::LedY1),
-    );
-    draw_led(
-        painter,
-        cam,
-        OR_Y,
-        "Y2 = A + B",
-        y2,
-        c.selected == Some(Item::LedY2),
-    );
-}
-
-fn outline(selected: bool, cam: Camera) -> Stroke {
-    let w = cam.len(0.12).clamp(1.0, 3.0);
-    if selected {
-        Stroke::new(w + 1.0, Color32::from_rgb(0xff, 0xa0, 0x30))
-    } else {
-        Stroke::new(w, colors::SYMBOL)
-    }
-}
-
-fn draw_switch(painter: &Painter, cam: Camera, y: f32, name: &str, on: bool, selected: bool) {
-    let r = switch_rect(y);
-    let sr = Rect::from_min_max(cam.to_screen(r.min), cam.to_screen(r.max));
-    painter.rect_filled(sr, cam.len(0.3), colors::SYMBOL_FILL);
-    painter.rect_stroke(
-        sr,
-        cam.len(0.3),
-        outline(selected, cam),
-        egui::StrokeKind::Middle,
-    );
-    // Jezdec přepínače: vpravo = 1, vlevo = 0.
-    let knob_w = r.width() / 2.0 - 0.2;
-    let knob_x = if on {
-        r.max.x - 0.1 - knob_w / 2.0
-    } else {
-        r.min.x + 0.1 + knob_w / 2.0
-    };
-    let knob = Rect::from_center_size(pos2(knob_x, y), vec2(knob_w, r.height() - 0.3));
-    let fill = signal_color(on.into());
-    painter.rect_filled(
-        Rect::from_min_max(cam.to_screen(knob.min), cam.to_screen(knob.max)),
-        cam.len(0.2),
-        fill,
-    );
-    label(
-        painter,
-        cam,
-        pos2(knob_x, y),
-        if on { "1" } else { "0" },
-        0.9,
-        Align2::CENTER_CENTER,
-        Color32::BLACK,
-    );
-    label(
-        painter,
-        cam,
-        pos2(r.min.x - 0.6, y),
-        name,
-        1.2,
-        Align2::RIGHT_CENTER,
-        colors::TEXT,
-    );
-}
-
-fn draw_gate(painter: &Painter, cam: Camera, y: f32, kind: GateKind, selected: bool) {
-    let r = gate_rect(y);
-    // Vývody.
-    let pin = Stroke::new(cam.len(0.12).clamp(1.0, 3.0), colors::SYMBOL);
-    for dy in [-1.0, 1.0] {
-        painter.line_segment(
-            [
-                cam.to_screen(pos2(r.min.x - 1.0, y + dy)),
-                cam.to_screen(pos2(r.min.x, y + dy)),
-            ],
-            pin,
-        );
-    }
-    let out_start = if kind.is_inverted() {
-        r.max.x + 0.7
-    } else {
-        r.max.x
-    };
-    painter.line_segment(
-        [
-            cam.to_screen(pos2(out_start, y)),
-            cam.to_screen(pos2(r.max.x + 1.0, y)),
-        ],
-        pin,
-    );
-
-    let sr = Rect::from_min_max(cam.to_screen(r.min), cam.to_screen(r.max));
-    painter.rect_filled(sr, cam.len(0.15), colors::SYMBOL_FILL);
-    painter.rect_stroke(
-        sr,
-        cam.len(0.15),
-        outline(selected, cam),
-        egui::StrokeKind::Middle,
-    );
-    if kind.is_inverted() {
-        painter.circle_stroke(
-            cam.to_screen(pos2(r.max.x + 0.35, y)),
-            cam.len(0.35),
-            outline(selected, cam),
-        );
-    }
-    label(
-        painter,
-        cam,
-        pos2(r.center().x, r.min.y + 1.2),
-        kind.iec_label(),
-        1.4,
-        Align2::CENTER_CENTER,
-        colors::TEXT,
-    );
-}
-
-fn draw_led(painter: &Painter, cam: Camera, y: f32, text: &str, v: LogicValue, selected: bool) {
-    let c = cam.to_screen(pos2(LED_X, y));
-    let lit = v == LogicValue::One;
-    if lit {
-        // Jemná záře rozsvícené LED.
-        painter.circle_filled(
-            c,
-            cam.len(LED_R * 1.6),
-            Color32::from_rgba_unmultiplied(255, 60, 40, 40),
-        );
-    }
-    let fill = if lit {
-        Color32::from_rgb(0xff, 0x45, 0x30)
-    } else {
-        Color32::from_rgb(0x55, 0x22, 0x1e)
-    };
-    painter.circle_filled(c, cam.len(LED_R), fill);
-    painter.circle_stroke(c, cam.len(LED_R), outline(selected, cam));
-    label(
-        painter,
-        cam,
-        pos2(LED_X + LED_R + 0.6, y),
-        text,
-        1.0,
-        Align2::LEFT_CENTER,
-        colors::TEXT,
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn camera_roundtrip() {
-        let cam = Camera {
-            origin: pos2(100.0, 50.0),
-            scale: 24.0,
-        };
-        let p = pos2(-3.5, 7.25);
-        let back = cam.to_world(cam.to_screen(p));
-        assert!((back - p).length() < 1e-4);
+    fn wire_path_shapes() {
+        let a = Point::new(0, 0);
+        assert_eq!(
+            wire_path(a, Point::new(5, 0), true),
+            vec![(a, Point::new(5, 0))]
+        );
+        assert_eq!(
+            wire_path(a, Point::new(5, 3), true),
+            vec![(a, Point::new(5, 0)), (Point::new(5, 0), Point::new(5, 3))]
+        );
+        assert_eq!(
+            wire_path(a, Point::new(5, 3), false),
+            vec![(a, Point::new(0, 3)), (Point::new(0, 3), Point::new(5, 3))]
+        );
     }
 
     #[test]
-    fn hit_switches_and_empty_space() {
-        assert_eq!(hit_test(pos2(SW_X, A_Y)), Some(Item::SwitchA));
-        assert_eq!(hit_test(pos2(SW_X, B_Y)), Some(Item::SwitchB));
-        assert_eq!(hit_test(pos2(GATE_X, OR_Y)), Some(Item::GateOr));
-        assert_eq!(hit_test(pos2(LED_X, AND_Y)), Some(Item::LedY1));
-        assert_eq!(hit_test(pos2(-14.0, 0.0)), None);
-    }
-
-    #[test]
-    fn demo_fits_inside_bounds() {
-        for r in [
-            switch_rect(A_Y),
-            switch_rect(B_Y),
-            gate_rect(AND_Y),
-            gate_rect(OR_Y),
-        ] {
-            assert!(DEMO_BOUNDS.contains_rect(r));
-        }
+    fn picking() {
+        let c = crate::examples::and_or();
+        // Výstup přepínače A je na (2, 0).
+        assert_eq!(pin_at(&c, pos2(2.2, 0.1)), Some(Point::new(2, 0)));
+        assert!(component_at(&c, pos2(0.0, 0.0)).is_some());
+        assert!(wire_at(&c, pos2(4.0, 0.1)).is_some());
+        assert!(component_at(&c, pos2(30.0, 30.0)).is_none());
     }
 }

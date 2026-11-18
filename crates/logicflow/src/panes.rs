@@ -3,11 +3,12 @@
 //! Každá oblast má záhlaví s volbou typu editoru. Oblasti jde přetahovat
 //! za záhlaví, měnit jejich velikost a skládat do záložek.
 
-use crate::demo::DemoCircuit;
 use crate::i18n::{Lang, T, tr};
+use crate::panels::{self, TruthCache};
+use crate::project::Project;
 use crate::schematic::SchematicView;
 use crate::theme::colors;
-use crate::{panels, timing};
+use crate::timing;
 use egui::{RichText, Sense, Ui};
 use egui_tiles::{Behavior, SimplificationOptions, TileId, Tiles, Tree, UiResponse};
 
@@ -68,7 +69,8 @@ impl Pane {
 
 /// Sdílený kontext pro vykreslení oblastí v jednom snímku.
 pub struct AreaBehavior<'a> {
-    pub circuit: &'a mut DemoCircuit,
+    pub project: &'a mut Project,
+    pub truth_cache: &'a mut TruthCache,
     pub lang: Lang,
 }
 
@@ -102,7 +104,11 @@ impl Behavior<Pane> for AreaBehavior<'_> {
                         .on_hover_text(tr(lang, T::EditorType));
 
                     if pane.kind == EditorKind::Schematic {
-                        if ui.button(tr(lang, T::FitView)).clicked() {
+                        if ui
+                            .button(tr(lang, T::FitView))
+                            .on_hover_text("Home")
+                            .clicked()
+                        {
                             pane.view.needs_fit = true;
                         }
                         ui.label(
@@ -122,13 +128,14 @@ impl Behavior<Pane> for AreaBehavior<'_> {
             });
 
         // Obsah oblasti.
+        let p = &mut *self.project;
         match pane.kind {
-            EditorKind::Schematic => pane.view.ui(ui, self.circuit, lang),
-            EditorKind::Timing => timing::ui(ui, self.circuit, lang),
-            EditorKind::Properties => panels::properties(ui, self.circuit, lang),
-            EditorKind::Hierarchy => panels::hierarchy(ui, self.circuit, lang),
-            EditorKind::Library => panels::library(ui, &mut pane.search, lang),
-            EditorKind::TruthTable => panels::truth_table(ui, self.circuit),
+            EditorKind::Schematic => pane.view.ui(ui, p, lang),
+            EditorKind::Timing => timing::ui(ui, p, lang),
+            EditorKind::Properties => panels::properties(ui, p, lang),
+            EditorKind::Hierarchy => panels::hierarchy(ui, p, lang),
+            EditorKind::Library => panels::library(ui, &mut pane.search, p, lang),
+            EditorKind::TruthTable => panels::truth_table(ui, p, self.truth_cache, lang),
             EditorKind::Memory => panels::memory(ui, lang),
         }
 
@@ -182,6 +189,7 @@ impl Workspace {
     /// Výchozí rozložení oblastí pracovní plochy.
     pub fn default_tree(self) -> Tree<Pane> {
         use EditorKind as E;
+        use egui_tiles::LinearDir::{Horizontal, Vertical};
         let mut tiles: Tiles<Pane> = Tiles::default();
         let mut pane = |k: E| tiles.insert_pane(Pane::new(k));
         let root = match self {
@@ -190,14 +198,10 @@ impl Workspace {
                 let lib = pane(E::Library);
                 let schem = pane(E::Schematic);
                 let props = pane(E::Properties);
-                let left = linear(
-                    &mut tiles,
-                    egui_tiles::LinearDir::Vertical,
-                    &[(hier, 1.0), (lib, 1.4)],
-                );
+                let left = linear(&mut tiles, Vertical, &[(hier, 1.0), (lib, 1.4)]);
                 linear(
                     &mut tiles,
-                    egui_tiles::LinearDir::Horizontal,
+                    Horizontal,
                     &[(left, 1.0), (schem, 4.0), (props, 1.2)],
                 )
             }
@@ -205,34 +209,18 @@ impl Workspace {
                 let schem = pane(E::Schematic);
                 let props = pane(E::Properties);
                 let timing = pane(E::Timing);
-                let top = linear(
-                    &mut tiles,
-                    egui_tiles::LinearDir::Horizontal,
-                    &[(schem, 4.0), (props, 1.2)],
-                );
-                linear(
-                    &mut tiles,
-                    egui_tiles::LinearDir::Vertical,
-                    &[(top, 2.0), (timing, 1.0)],
-                )
+                let top = linear(&mut tiles, Horizontal, &[(schem, 4.0), (props, 1.2)]);
+                linear(&mut tiles, Vertical, &[(top, 2.0), (timing, 1.0)])
             }
             Self::Analysis => {
                 let schem = pane(E::Schematic);
                 let table = pane(E::TruthTable);
-                linear(
-                    &mut tiles,
-                    egui_tiles::LinearDir::Horizontal,
-                    &[(schem, 2.0), (table, 1.0)],
-                )
+                linear(&mut tiles, Horizontal, &[(schem, 2.0), (table, 1.0)])
             }
             Self::Memory => {
                 let schem = pane(E::Schematic);
                 let mem = pane(E::Memory);
-                linear(
-                    &mut tiles,
-                    egui_tiles::LinearDir::Horizontal,
-                    &[(schem, 2.0), (mem, 1.0)],
-                )
+                linear(&mut tiles, Horizontal, &[(schem, 2.0), (mem, 1.0)])
             }
         };
         Tree::new(
@@ -253,4 +241,13 @@ fn linear(
         lin.shares.set_share(id, share);
     }
     tiles.insert_container(lin)
+}
+
+/// Po otevření jiného obvodu: všechny editory schématu se přizpůsobí novému obsahu.
+pub fn reset_views(tree: &mut Tree<Pane>) {
+    for tile in tree.tiles.tiles_mut() {
+        if let egui_tiles::Tile::Pane(p) = tile {
+            p.view = SchematicView::default();
+        }
+    }
 }
