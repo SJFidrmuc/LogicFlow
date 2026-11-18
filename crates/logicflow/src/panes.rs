@@ -1,0 +1,256 @@
+//! Oblasti (areas) ve stylu Blenderu.
+//!
+//! Každá oblast má záhlaví s volbou typu editoru. Oblasti jde přetahovat
+//! za záhlaví, měnit jejich velikost a skládat do záložek.
+
+use crate::demo::DemoCircuit;
+use crate::i18n::{Lang, T, tr};
+use crate::schematic::SchematicView;
+use crate::theme::colors;
+use crate::{panels, timing};
+use egui::{RichText, Sense, Ui};
+use egui_tiles::{Behavior, SimplificationOptions, TileId, Tiles, Tree, UiResponse};
+
+/// Typ editoru zobrazeného v oblasti.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EditorKind {
+    Schematic,
+    Timing,
+    Properties,
+    Hierarchy,
+    Library,
+    TruthTable,
+    Memory,
+}
+
+impl EditorKind {
+    pub const ALL: [Self; 7] = [
+        Self::Schematic,
+        Self::Timing,
+        Self::Properties,
+        Self::Hierarchy,
+        Self::Library,
+        Self::TruthTable,
+        Self::Memory,
+    ];
+
+    pub fn title(self, lang: Lang) -> &'static str {
+        tr(
+            lang,
+            match self {
+                Self::Schematic => T::EdSchematic,
+                Self::Timing => T::EdTiming,
+                Self::Properties => T::EdProperties,
+                Self::Hierarchy => T::EdHierarchy,
+                Self::Library => T::EdLibrary,
+                Self::TruthTable => T::EdTruthTable,
+                Self::Memory => T::EdMemory,
+            },
+        )
+    }
+}
+
+pub struct Pane {
+    pub kind: EditorKind,
+    pub view: SchematicView,
+    pub search: String,
+}
+
+impl Pane {
+    pub fn new(kind: EditorKind) -> Self {
+        Self {
+            kind,
+            view: SchematicView::default(),
+            search: String::new(),
+        }
+    }
+}
+
+/// Sdílený kontext pro vykreslení oblastí v jednom snímku.
+pub struct AreaBehavior<'a> {
+    pub circuit: &'a mut DemoCircuit,
+    pub lang: Lang,
+}
+
+const HEADER_H: f32 = 26.0;
+
+impl Behavior<Pane> for AreaBehavior<'_> {
+    fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
+        pane.kind.title(self.lang).into()
+    }
+
+    fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut Pane) -> UiResponse {
+        let lang = self.lang;
+        let mut drag_started = false;
+
+        // Záhlaví oblasti.
+        egui::Frame::new()
+            .fill(colors::HEADER)
+            .inner_margin(egui::Margin::symmetric(6, 2))
+            .show(ui, |ui| {
+                ui.set_height(HEADER_H - 4.0);
+                ui.horizontal_centered(|ui| {
+                    egui::ComboBox::from_id_salt(("editor", tile_id))
+                        .selected_text(pane.kind.title(lang))
+                        .width(150.0)
+                        .show_ui(ui, |ui| {
+                            for kind in EditorKind::ALL {
+                                ui.selectable_value(&mut pane.kind, kind, kind.title(lang));
+                            }
+                        })
+                        .response
+                        .on_hover_text(tr(lang, T::EditorType));
+
+                    if pane.kind == EditorKind::Schematic {
+                        if ui.button(tr(lang, T::FitView)).clicked() {
+                            pane.view.needs_fit = true;
+                        }
+                        ui.label(
+                            RichText::new(format!("{:.0} %", pane.view.zoom * 100.0))
+                                .color(colors::TEXT_WEAK),
+                        );
+                    }
+
+                    // Zbytek záhlaví slouží jako úchyt pro přetažení oblasti.
+                    let rest = ui.available_rect_before_wrap();
+                    let handle = ui.allocate_rect(rest, Sense::drag());
+                    if handle.hovered() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                    }
+                    drag_started = handle.drag_started();
+                });
+            });
+
+        // Obsah oblasti.
+        match pane.kind {
+            EditorKind::Schematic => pane.view.ui(ui, self.circuit, lang),
+            EditorKind::Timing => timing::ui(ui, self.circuit, lang),
+            EditorKind::Properties => panels::properties(ui, self.circuit, lang),
+            EditorKind::Hierarchy => panels::hierarchy(ui, self.circuit, lang),
+            EditorKind::Library => panels::library(ui, &mut pane.search, lang),
+            EditorKind::TruthTable => panels::truth_table(ui, self.circuit),
+            EditorKind::Memory => panels::memory(ui, lang),
+        }
+
+        if drag_started {
+            UiResponse::DragStarted
+        } else {
+            UiResponse::None
+        }
+    }
+
+    fn simplification_options(&self) -> SimplificationOptions {
+        SimplificationOptions {
+            all_panes_must_have_tabs: false,
+            ..Default::default()
+        }
+    }
+
+    fn gap_width(&self, _style: &egui::Style) -> f32 {
+        3.0
+    }
+
+    fn tab_bar_color(&self, _visuals: &egui::Visuals) -> egui::Color32 {
+        colors::GAP
+    }
+}
+
+/// Pracovní plocha = pojmenované rozložení oblastí (jako v Blenderu).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Workspace {
+    Design,
+    Simulation,
+    Analysis,
+    Memory,
+}
+
+impl Workspace {
+    pub const ALL: [Self; 4] = [Self::Design, Self::Simulation, Self::Analysis, Self::Memory];
+
+    pub fn title(self, lang: Lang) -> &'static str {
+        tr(
+            lang,
+            match self {
+                Self::Design => T::WsDesign,
+                Self::Simulation => T::WsSimulation,
+                Self::Analysis => T::WsAnalysis,
+                Self::Memory => T::WsMemory,
+            },
+        )
+    }
+
+    /// Výchozí rozložení oblastí pracovní plochy.
+    pub fn default_tree(self) -> Tree<Pane> {
+        use EditorKind as E;
+        let mut tiles: Tiles<Pane> = Tiles::default();
+        let mut pane = |k: E| tiles.insert_pane(Pane::new(k));
+        let root = match self {
+            Self::Design => {
+                let hier = pane(E::Hierarchy);
+                let lib = pane(E::Library);
+                let schem = pane(E::Schematic);
+                let props = pane(E::Properties);
+                let left = linear(
+                    &mut tiles,
+                    egui_tiles::LinearDir::Vertical,
+                    &[(hier, 1.0), (lib, 1.4)],
+                );
+                linear(
+                    &mut tiles,
+                    egui_tiles::LinearDir::Horizontal,
+                    &[(left, 1.0), (schem, 4.0), (props, 1.2)],
+                )
+            }
+            Self::Simulation => {
+                let schem = pane(E::Schematic);
+                let props = pane(E::Properties);
+                let timing = pane(E::Timing);
+                let top = linear(
+                    &mut tiles,
+                    egui_tiles::LinearDir::Horizontal,
+                    &[(schem, 4.0), (props, 1.2)],
+                );
+                linear(
+                    &mut tiles,
+                    egui_tiles::LinearDir::Vertical,
+                    &[(top, 2.0), (timing, 1.0)],
+                )
+            }
+            Self::Analysis => {
+                let schem = pane(E::Schematic);
+                let table = pane(E::TruthTable);
+                linear(
+                    &mut tiles,
+                    egui_tiles::LinearDir::Horizontal,
+                    &[(schem, 2.0), (table, 1.0)],
+                )
+            }
+            Self::Memory => {
+                let schem = pane(E::Schematic);
+                let mem = pane(E::Memory);
+                linear(
+                    &mut tiles,
+                    egui_tiles::LinearDir::Horizontal,
+                    &[(schem, 2.0), (mem, 1.0)],
+                )
+            }
+        };
+        Tree::new(
+            egui::Id::unique(("logicflow-workspace", self as u8)),
+            root,
+            tiles,
+        )
+    }
+}
+
+fn linear(
+    tiles: &mut Tiles<Pane>,
+    dir: egui_tiles::LinearDir,
+    children: &[(TileId, f32)],
+) -> TileId {
+    let mut lin = egui_tiles::Linear::new(dir, children.iter().map(|(id, _)| *id).collect());
+    for &(id, share) in children {
+        lin.shares.set_share(id, share);
+    }
+    tiles.insert_container(lin)
+}

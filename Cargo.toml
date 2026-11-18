@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["crates/logicflow-core", "crates/logicflow"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+authors = ["Stanislav Jan Fidrmuc"]
+repository = "https://github.com/SJFidrmuc/LogicFlow"
+
+[workspace.dependencies]
+logicflow-core = { path = "crates/logicflow-core" }
+eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts", "wayland", "x11", "clipboard", "accesskit", "links"] }
+egui = "0.37"
+egui_tiles = "0.18"
+serde = { version = "1", features = ["derive"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
