@@ -1,0 +1,16 @@
+[package]
+name = "logicflow"
+description = "LogicFlow – simulátor logických obvodů"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+logicflow-core.workspace = true
+eframe.workspace = true
+egui.workspace = true
+egui_tiles.workspace = true
+serde.workspace = true
