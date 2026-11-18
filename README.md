@@ -14,7 +14,9 @@ Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástup
 - **Krokování** – při pozastavené simulaci (mezerník) se šipkou vpravo provádí jeden takt; je vidět, jak signál prochází hradly.
 - **Časový diagram** vstupů a výstupů a **pravdivostní tabulka** spočítaná simulací všech kombinací vstupů.
 - **Soubory** `.logicflow` (čitelný JSON), vlastní prohlížeč souborů, Zpět/Znovu, vestavěné příklady.
-- Okno rozdělené na **oblasti** a **pracovní plochy** (Návrh, Simulace, Analýza, Paměť) jako v Blenderu. Čeština a angličtina.
+- Okno rozdělené na **oblasti** a **pracovní plochy** (Návrh, Simulace, Analýza, Paměť) jako v Blenderu. Oblasti jde rozdělovat a zavírat (nabídka **Oblast** v záhlaví nebo pravé tlačítko na záhlaví) a v každé zvolit typ editoru.
+- **Nápověda** v aplikaci (F1 nebo nabídka Nápověda) – postup pro první obvod, popis ovládání, součástek, simulace a klávesových zkratek. Nápovědu jde zobrazit i jako oblast vedle schématu.
+- Čeština a angličtina.
 
 | Návrh | Analýza |
 | --- | --- |
@@ -24,6 +26,7 @@ Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástup
 
 | Klávesa / myš | Akce |
 | --- | --- |
+| F1 | nápověda |
 | Shift+A | nabídka Přidat součástku |
 | tažení z vývodu (Ctrl+tažení odkudkoli) | nakreslit vodič |
 | klik na přepínač / držení tlačítka | změna vstupu |
@@ -38,6 +41,15 @@ Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástup
 | Ctrl+Z, Ctrl+Shift+Z | zpět, znovu |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S | nový, otevřít, uložit, uložit jako |
 | Ctrl+PageUp / PageDown | předchozí / další pracovní plocha |
+
+## Windows hlásí „nebezpečnou“ aplikaci
+
+Program zatím není digitálně podepsaný, proto ho Windows SmartScreen po stažení označí jako nerozpoznanou aplikaci. Zdrojový kód je veřejný a soubory sestavuje automaticky GitHub.
+
+1. V okně *Systém Windows ochránil váš počítač* klikněte na **Další informace** a pak na **Přesto spustit**.
+2. Aby se upozornění neopakovalo: před rozbalením klikněte na stažený ZIP pravým tlačítkem → **Vlastnosti** → zaškrtněte **Odblokovat** → OK.
+
+Ve škole může program povolit správce sítě pro všechny počítače najednou. Podepsaná verze (SignPath Foundation nebo Microsoft Store) je v plánu.
 
 ## Plán
 

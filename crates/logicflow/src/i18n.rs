@@ -49,6 +49,15 @@ pub enum T {
     EdMemory,
     EditorType,
     FitView,
+    EdHelp,
+    Manual,
+    Shortcuts,
+    WindowsWarning,
+    AreaMenu,
+    AreaMenuHint,
+    SplitSide,
+    SplitBelow,
+    CloseArea,
     // Schéma
     Add,
     EmptySchematic,
@@ -158,11 +167,20 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             EdMemory => "Editor paměti",
             EditorType => "Typ editoru",
             FitView => "Celé schéma",
+            EdHelp => "Nápověda",
+            Manual => "Příručka",
+            Shortcuts => "Klávesové zkratky",
+            WindowsWarning => "Windows hlásí nebezpečnou aplikaci",
+            AreaMenu => "Oblast",
+            AreaMenuHint => "Rozdělit nebo zavřít oblast (také pravým tlačítkem na záhlaví)",
+            SplitSide => "Rozdělit vedle sebe",
+            SplitBelow => "Rozdělit pod sebe",
+            CloseArea => "Zavřít oblast",
             Add => "Přidat",
             EmptySchematic => "Prázdné schéma – Shift+A přidá součástku",
             Oscillating => "Obvod kmitá – nemá ustálený stav",
             HintIdle => {
-                "Shift+A přidat · tažením z vývodu kreslíte vodič · G přesunout · R otočit · X smazat · Shift+D duplikovat · kolečko zoom · prostřední tlačítko posun"
+                "F1 nápověda · Shift+A přidat · tažením z vývodu kreslíte vodič · G přesunout · R otočit · X smazat · Shift+D duplikovat · kolečko zoom · prostřední tlačítko posun"
             }
             HintPlace => "Klikněte pro umístění · Shift+klik umístí další · R otočit · Esc zrušit",
             HintGrab => "Přesouvání – klikněte nebo pusťte tlačítko · Esc zrušit",
@@ -264,11 +282,20 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             EdMemory => "Memory editor",
             EditorType => "Editor type",
             FitView => "Fit view",
+            EdHelp => "Help",
+            Manual => "Manual",
+            Shortcuts => "Keyboard shortcuts",
+            WindowsWarning => "Windows says the app is unsafe",
+            AreaMenu => "Area",
+            AreaMenuHint => "Split or close the area (also right-click the header)",
+            SplitSide => "Split side by side",
+            SplitBelow => "Split below",
+            CloseArea => "Close area",
             Add => "Add",
             EmptySchematic => "Empty schematic – Shift+A adds a component",
             Oscillating => "The circuit oscillates – no stable state",
             HintIdle => {
-                "Shift+A add · drag from a pin to draw a wire · G move · R rotate · X delete · Shift+D duplicate · wheel zoom · middle button pan"
+                "F1 help · Shift+A add · drag from a pin to draw a wire · G move · R rotate · X delete · Shift+D duplicate · wheel zoom · middle button pan"
             }
             HintPlace => "Click to place · Shift+click places another · R rotate · Esc cancel",
             HintGrab => "Moving – click or release · Esc cancel",

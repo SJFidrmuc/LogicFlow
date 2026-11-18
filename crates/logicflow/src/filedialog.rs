@@ -167,7 +167,7 @@ impl FileDialog {
                             let mut go: Option<PathBuf> = None;
                             for e in &self.entries {
                                 let label = if e.is_dir {
-                                    format!("▸ {}", e.name)
+                                    format!("{}/", e.name)
                                 } else {
                                     e.name.clone()
                                 };

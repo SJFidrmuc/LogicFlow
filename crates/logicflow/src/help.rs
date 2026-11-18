@@ -1,0 +1,603 @@
+//! Vestavěná nápověda (F1 nebo oblast typu „Nápověda“).
+
+use crate::i18n::{Lang, T, tr};
+use crate::theme::colors;
+use egui::{RichText, Ui};
+
+enum Block {
+    /// Podnadpis.
+    H(&'static str),
+    /// Odstavec.
+    P(&'static str),
+    /// Odrážky.
+    List(&'static [&'static str]),
+    /// Číslovaný postup.
+    Steps(&'static [&'static str]),
+    /// Tabulka klávesa > akce.
+    Keys(&'static [(&'static str, &'static str)]),
+    /// Zvýrazněný tip.
+    Tip(&'static str),
+}
+
+struct Section {
+    title: &'static str,
+    blocks: &'static [Block],
+}
+
+use Block::*;
+
+const CS: &[Section] = &[
+    Section {
+        title: "Začínáme",
+        blocks: &[
+            P(
+                "LogicFlow je simulátor logických obvodů pro výuku číslicové techniky. Obvod nakreslíte ze součástek a vodičů a hned vidíte, jak pracuje: vodiče mění barvu podle logické hodnoty a LED svítí.",
+            ),
+            H("První obvod za minutu"),
+            Steps(&[
+                "Soubor > Nový (Ctrl+N) otevře prázdné schéma.",
+                "Najeďte myší do schématu a stiskněte Shift+A. Vyberte Přepínač a klikněte do schématu. Totéž ještě jednou – vzniknou vstupy A a B.",
+                "Shift+A > AND [&] a umístěte hradlo vpravo od přepínačů. Pak Shift+A > LED a umístěte ji vpravo od hradla.",
+                "Najeďte na výstup přepínače A (bod u pravé strany, zvýrazní se kroužkem), stiskněte levé tlačítko a táhněte ke vstupu hradla. Pusťte – vznikne vodič. Stejně propojte B a výstup hradla s LED.",
+                "Klikněte na přepínače. LED se rozsvítí, jen když jsou oba vstupy 1.",
+            ]),
+            Tip(
+                "Hotové obvody najdete v nabídce Soubor > Příklady. Klopný obvod RS z hradel NOR je dobrá ukázka toho, jak si obvod pamatuje stav.",
+            ),
+        ],
+    },
+    Section {
+        title: "Okno a oblasti",
+        blocks: &[
+            P(
+                "Okno je stejně jako v Blenderu rozdělené na oblasti. Každá oblast má nahoře záhlaví a v něm volbu typu editoru: Schéma, Časový diagram, Vlastnosti, Hierarchie, Knihovna součástek, Pravdivostní tabulka, Editor paměti nebo Nápověda. Typ jde kdykoli přepnout.",
+            ),
+            H("Přidání a zavření oblasti"),
+            List(&[
+                "Vpravo v záhlaví oblasti je nabídka Oblast (nebo klikněte na záhlaví pravým tlačítkem).",
+                "Rozdělit vedle sebe / Rozdělit pod sebe vytvoří novou oblast se stejným editorem; v ní pak přepněte typ.",
+                "Zavřít oblast ji odstraní; poslední oblast zavřít nejde.",
+                "Velikost oblastí změníte tažením hranice mezi nimi.",
+                "Oblast přesunete tažením za prázdné místo v záhlaví; když ji pustíte doprostřed jiné oblasti, vzniknou záložky.",
+            ]),
+            H("Pracovní plochy"),
+            P(
+                "Záložky Návrh, Simulace, Analýza a Paměť v horní liště jsou pracovní plochy – každá má vlastní rozložení oblastí, ale všechny pracují se stejným obvodem. Přepínají se i klávesami Ctrl+PageUp a Ctrl+PageDown. Zobrazit > Obnovit rozložení oblastí vrátí výchozí stav.",
+            ),
+            Tip(
+                "Každý editor schématu má vlastní pohled. Můžete mít v jedné oblasti celek a ve druhé přiblížený detail.",
+            ),
+        ],
+    },
+    Section {
+        title: "Kreslení schématu",
+        blocks: &[
+            H("Přidání součástky"),
+            List(&[
+                "Shift+A nad schématem otevře nabídku Přidat. Nebo klikněte na součástku v Knihovně součástek a pak do schématu.",
+                "Při umisťování klávesa R otáčí o 90°, Shift+klik umístí další kus, Esc nebo pravé tlačítko zruší.",
+            ]),
+            H("Vodiče"),
+            List(&[
+                "Vodič začíná tažením z vývodu součástky (vývod se pod myší zvýrazní kroužkem) nebo z libovolného bodu existujícího vodiče. S klávesou Ctrl jde začít kdekoli.",
+                "Vodič se láme do pravého úhlu. Směr prvního úseku určuje první pohyb myši.",
+                "Kde konec vodiče leží na jiném vodiči, vznikne spoj a zobrazí se tečka. Vodiče, které se jen kříží (bez tečky), propojené nejsou.",
+            ]),
+            H("Úpravy"),
+            Keys(&[
+                ("klik", "vybrat součástku nebo vodič"),
+                ("Shift+klik", "přidat do výběru / odebrat z výběru"),
+                ("tažení v prázdném místě", "výběr obdélníkem"),
+                ("tažení součástky, G", "přesun výběru (vodiče se přepojí)"),
+                ("R", "otočit o 90°"),
+                ("X, Delete", "smazat výběr"),
+                ("Shift+D", "duplikovat výběr"),
+                ("A / Alt+A", "vybrat vše / zrušit výběr"),
+                ("Ctrl+Z / Ctrl+Shift+Z", "zpět / znovu"),
+            ]),
+            P(
+                "V oblasti Vlastnosti jde u vybrané součástky změnit popisek, druh hradla, počet vstupů (2–8), hodnotu konstanty a otočení.",
+            ),
+        ],
+    },
+    Section {
+        title: "Součástky",
+        blocks: &[
+            Keys(&[
+                ("Přepínač", "vstup, kliknutím se přepíná mezi 0 a 1"),
+                ("Tlačítko", "vstup, dává 1 jen po dobu stisku"),
+                ("Konstanta 0 / 1", "pevná logická hodnota"),
+                ("BUF  [1]", "opakovač (budič)"),
+                ("NOT  [1] s kroužkem", "invertor"),
+                ("AND  [&]", "logický součin – 1, když jsou všechny vstupy 1"),
+                (
+                    "OR  [≥1]",
+                    "logický součet – 1, když je aspoň jeden vstup 1",
+                ),
+                ("NAND, NOR", "negovaný součin / součet (kroužek na výstupu)"),
+                ("XOR  [=1]", "nonekvivalence – 1 při lichém počtu jedniček"),
+                ("XNOR", "ekvivalence – negovaný XOR"),
+                ("LED", "výstup, svítí při 1; při X nebo Z ukáže písmeno"),
+            ]),
+            P(
+                "Značky hradel odpovídají normě ČSN EN 60617 (obdélníkové značky). Negace je kroužek na výstupu.",
+            ),
+            Tip(
+                "Klopné obvody, generátor hodin, sedmisegmentovka, paměti a obvody 74xx přibudou v dalších verzích.",
+            ),
+        ],
+    },
+    Section {
+        title: "Simulace",
+        blocks: &[
+            P(
+                "Simulace běží neustále. Každé hradlo má zpoždění jeden takt, takže signál se obvodem šíří postupně – stejně jako ve skutečném obvodu.",
+            ),
+            H("Barvy vodičů"),
+            Keys(&[
+                ("světle zelená", "logická 1"),
+                ("tmavě zelená", "logická 0"),
+                (
+                    "červená (X)",
+                    "neurčitá hodnota – nepřipojený vstup, kolize dvou výstupů, neinicializovaná paměť",
+                ),
+                ("modrá (Z)", "nepřipojený vodič (vysoká impedance)"),
+            ]),
+            H("Krokování"),
+            List(&[
+                "Mezerník simulaci pozastaví nebo spustí.",
+                "Při pozastavení provede šipka vpravo (nebo Simulace > Krok) jeden takt. Je vidět, jak změna prochází hradlo po hradle.",
+                "Pokud se obvod nikdy neustálí (např. invertor zapojený sám do sebe), zobrazí se upozornění „Obvod kmitá“.",
+            ]),
+            Tip(
+                "Obvody s pamětí, například klopný obvod RS z hradel NOR, začínají ve stavu X. Teprve nastavení (S) nebo nulování (R) určí jejich stav.",
+            ),
+        ],
+    },
+    Section {
+        title: "Analýza",
+        blocks: &[
+            H("Časový diagram"),
+            P(
+                "Zaznamenává průběh všech přepínačů, tlačítek a LED za posledních 20 sekund. Signály jsou seřazené podle popisku. Při pozastavené simulaci posune každý krok diagram o čtvrt sekundy.",
+            ),
+            H("Pravdivostní tabulka"),
+            P(
+                "Spočítá se simulací všech kombinací vstupů (nejvýše 8 vstupů, tj. 256 řádků). Vstupy jsou přepínače a tlačítka, výstupy LED. Zvýrazněný řádek odpovídá aktuálnímu nastavení přepínačů. U obvodů s pamětí tabulka nemusí dávat smysl.",
+            ),
+        ],
+    },
+    Section {
+        title: "Soubory",
+        blocks: &[List(&[
+            "Ctrl+S uloží obvod, Ctrl+Shift+S uloží pod jiným názvem, Ctrl+O otevře, Ctrl+N vytvoří nový.",
+            "Obvody se ukládají do souborů .logicflow. Je to čitelný text (JSON), takže se dá odevzdat, poslat e-mailem nebo uložit do Gitu.",
+            "Okno pro výběr souboru má tlačítka pro domovskou složku a Dokumenty; do řádku s cestou jde napsat libovolnou složku.",
+            "Před zavřením nebo otevřením jiného obvodu se aplikace zeptá na neuložené změny.",
+            "Soubor jde otevřít i z příkazové řádky: logicflow obvod.logicflow",
+        ])],
+    },
+    Section {
+        title: "Klávesové zkratky",
+        blocks: &[Keys(&[
+            ("F1", "nápověda"),
+            ("Shift+A", "přidat součástku"),
+            ("G", "přesunout výběr"),
+            ("R", "otočit"),
+            ("X, Delete", "smazat"),
+            ("Shift+D", "duplikovat"),
+            ("A / Alt+A", "vybrat vše / nic"),
+            ("Esc", "zrušit nástroj nebo výběr"),
+            ("Home", "zobrazit celé schéma"),
+            ("kolečko myši", "zoom"),
+            ("prostřední / pravé tlačítko + tažení", "posun pohledu"),
+            ("Mezerník", "spustit / pozastavit simulaci"),
+            ("šipka vpravo", "jeden takt (při pozastavení)"),
+            ("Ctrl+Z / Ctrl+Shift+Z", "zpět / znovu"),
+            ("Ctrl+N / O / S", "nový / otevřít / uložit"),
+            ("Ctrl+Shift+S", "uložit jako"),
+            (
+                "Ctrl+PageUp / PageDown",
+                "předchozí / další pracovní plocha",
+            ),
+            ("Ctrl+Q", "ukončit"),
+        ])],
+    },
+    Section {
+        title: "Windows hlásí nebezpečnou aplikaci",
+        blocks: &[
+            P(
+                "Windows SmartScreen upozorní na každý program stažený z internetu, který zatím nemá digitální podpis a „pověst“. LogicFlow je otevřený program, jehož zdrojový kód je veřejně na GitHubu, a hotové soubory sestavuje automaticky GitHub.",
+            ),
+            H("Jak program spustit"),
+            Steps(&[
+                "V okně „Systém Windows ochránil váš počítač“ klikněte na Další informace.",
+                "Zobrazí se tlačítko Přesto spustit – klikněte na něj.",
+            ]),
+            H("Aby se upozornění neopakovalo"),
+            Steps(&[
+                "Klikněte na stažený soubor logicflow.exe (nebo ZIP před rozbalením) pravým tlačítkem a zvolte Vlastnosti.",
+                "Dole na kartě Obecné zaškrtněte Odblokovat a potvrďte OK.",
+            ]),
+            Tip(
+                "Ve škole může program povolit správce sítě pro všechny počítače najednou. Podepsaná verze programu je v plánu.",
+            ),
+        ],
+    },
+];
+
+const EN: &[Section] = &[
+    Section {
+        title: "Getting started",
+        blocks: &[
+            P(
+                "LogicFlow is a logic circuit simulator for teaching digital electronics. Draw a circuit from components and wires and watch it work right away: wires change colour with their logic value and LEDs light up.",
+            ),
+            H("Your first circuit in a minute"),
+            Steps(&[
+                "File > New (Ctrl+N) opens an empty schematic.",
+                "Move the mouse over the schematic and press Shift+A. Choose Switch and click in the schematic. Repeat – you get inputs A and B.",
+                "Shift+A > AND [&] and place the gate to the right of the switches. Then Shift+A > LED and place it right of the gate.",
+                "Hover the output of switch A (the point on its right side gets a ring), press the left button and drag to a gate input. Release – a wire is created. Connect B and the gate output to the LED the same way.",
+                "Click the switches. The LED lights only when both inputs are 1.",
+            ]),
+            Tip(
+                "Ready-made circuits are in File > Examples. The SR latch built from NOR gates shows nicely how a circuit remembers its state.",
+            ),
+        ],
+    },
+    Section {
+        title: "Window and areas",
+        blocks: &[
+            P(
+                "Like in Blender, the window is divided into areas. Every area has a header with an editor type selector: Schematic, Timing diagram, Properties, Hierarchy, Component library, Truth table, Memory editor or Help. You can switch the type at any time.",
+            ),
+            H("Adding and closing areas"),
+            List(&[
+                "On the right of an area header there is the Area menu (or right-click the header).",
+                "Split side by side / Split below creates a new area with the same editor; switch its type afterwards.",
+                "Close area removes it; the last area cannot be closed.",
+                "Drag the border between areas to resize them.",
+                "Drag an area by the empty part of its header; dropping it onto the middle of another area creates tabs.",
+            ]),
+            H("Workspaces"),
+            P(
+                "The Design, Simulation, Analysis and Memory tabs in the top bar are workspaces – each has its own area layout but all work with the same circuit. Ctrl+PageUp and Ctrl+PageDown switch them too. View > Reset area layout restores the default.",
+            ),
+            Tip(
+                "Every schematic editor has its own view: one area can show the whole circuit while another zooms into a detail.",
+            ),
+        ],
+    },
+    Section {
+        title: "Drawing schematics",
+        blocks: &[
+            H("Adding components"),
+            List(&[
+                "Shift+A over the schematic opens the Add menu. Or click a component in the Component library and then in the schematic.",
+                "While placing, R rotates by 90°, Shift+click places another one, Esc or the right button cancels.",
+            ]),
+            H("Wires"),
+            List(&[
+                "A wire starts by dragging from a component pin (highlighted with a ring) or from any point of an existing wire. With Ctrl held you can start anywhere.",
+                "Wires bend at right angles. The first mouse movement decides the direction of the first segment.",
+                "Where a wire end lies on another wire, a connection with a dot is made. Wires that merely cross (no dot) are not connected.",
+            ]),
+            H("Editing"),
+            Keys(&[
+                ("click", "select a component or wire"),
+                ("Shift+click", "add to / remove from selection"),
+                ("drag on empty space", "box select"),
+                ("drag a component, G", "move the selection (wires follow)"),
+                ("R", "rotate by 90°"),
+                ("X, Delete", "delete selection"),
+                ("Shift+D", "duplicate selection"),
+                ("A / Alt+A", "select all / deselect"),
+                ("Ctrl+Z / Ctrl+Shift+Z", "undo / redo"),
+            ]),
+            P(
+                "The Properties area lets you change the label, gate type, number of inputs (2–8), constant value and rotation of the selected component.",
+            ),
+        ],
+    },
+    Section {
+        title: "Components",
+        blocks: &[
+            Keys(&[
+                ("Switch", "input, click to toggle between 0 and 1"),
+                ("Push button", "input, 1 only while pressed"),
+                ("Constant 0 / 1", "fixed logic value"),
+                ("BUF  [1]", "buffer"),
+                ("NOT  [1] with bubble", "inverter"),
+                ("AND  [&]", "1 when all inputs are 1"),
+                ("OR  [≥1]", "1 when at least one input is 1"),
+                ("NAND, NOR", "negated AND / OR (bubble on the output)"),
+                ("XOR  [=1]", "1 for an odd number of ones"),
+                ("XNOR", "negated XOR"),
+                ("LED", "output, lit at 1; shows a letter for X or Z"),
+            ]),
+            P(
+                "Gate symbols follow IEC 60617 (rectangular symbols). Negation is a bubble on the output.",
+            ),
+            Tip(
+                "Flip-flops, clock generator, seven-segment display, memories and 74xx chips arrive in later versions.",
+            ),
+        ],
+    },
+    Section {
+        title: "Simulation",
+        blocks: &[
+            P(
+                "The simulation runs continuously. Each gate has a delay of one tick, so a signal travels through the circuit step by step – just like in a real circuit.",
+            ),
+            H("Wire colours"),
+            Keys(&[
+                ("light green", "logic 1"),
+                ("dark green", "logic 0"),
+                (
+                    "red (X)",
+                    "undefined – unconnected input, two outputs colliding, uninitialised memory",
+                ),
+                ("blue (Z)", "unconnected wire (high impedance)"),
+            ]),
+            H("Stepping"),
+            List(&[
+                "Space pauses or resumes the simulation.",
+                "While paused, the right arrow (or Simulation > Step) performs one tick. You can watch a change pass gate by gate.",
+                "If the circuit never settles (e.g. an inverter feeding itself), an “oscillating” warning appears.",
+            ]),
+            Tip(
+                "Circuits with memory, such as an SR latch made of NOR gates, start in state X. Only set (S) or reset (R) defines their state.",
+            ),
+        ],
+    },
+    Section {
+        title: "Analysis",
+        blocks: &[
+            H("Timing diagram"),
+            P(
+                "Records all switches, buttons and LEDs over the last 20 seconds, sorted by label. While paused, every step moves the diagram by a quarter of a second.",
+            ),
+            H("Truth table"),
+            P(
+                "Computed by simulating every input combination (at most 8 inputs, i.e. 256 rows). Inputs are switches and buttons, outputs are LEDs. The highlighted row matches the current switch settings. For circuits with memory the table may not make sense.",
+            ),
+        ],
+    },
+    Section {
+        title: "Files",
+        blocks: &[List(&[
+            "Ctrl+S saves, Ctrl+Shift+S saves under a new name, Ctrl+O opens, Ctrl+N creates a new circuit.",
+            "Circuits are stored in .logicflow files. They are readable text (JSON), easy to hand in, e-mail or keep in Git.",
+            "The file browser has buttons for the home folder and Documents; you can type any folder into the path line.",
+            "Before closing or opening another circuit the app asks about unsaved changes.",
+            "A file can also be opened from the command line: logicflow circuit.logicflow",
+        ])],
+    },
+    Section {
+        title: "Keyboard shortcuts",
+        blocks: &[Keys(&[
+            ("F1", "help"),
+            ("Shift+A", "add component"),
+            ("G", "move selection"),
+            ("R", "rotate"),
+            ("X, Delete", "delete"),
+            ("Shift+D", "duplicate"),
+            ("A / Alt+A", "select all / none"),
+            ("Esc", "cancel tool or selection"),
+            ("Home", "fit the whole schematic"),
+            ("mouse wheel", "zoom"),
+            ("middle / right button + drag", "pan"),
+            ("Space", "run / pause simulation"),
+            ("right arrow", "one tick (while paused)"),
+            ("Ctrl+Z / Ctrl+Shift+Z", "undo / redo"),
+            ("Ctrl+N / O / S", "new / open / save"),
+            ("Ctrl+Shift+S", "save as"),
+            ("Ctrl+PageUp / PageDown", "previous / next workspace"),
+            ("Ctrl+Q", "quit"),
+        ])],
+    },
+    Section {
+        title: "Windows says the app is unsafe",
+        blocks: &[
+            P(
+                "Windows SmartScreen warns about every downloaded program that does not yet have a digital signature and reputation. LogicFlow is open source, its code is public on GitHub and the binaries are built automatically by GitHub.",
+            ),
+            H("How to run it"),
+            Steps(&[
+                "In the “Windows protected your PC” window click More info.",
+                "A Run anyway button appears – click it.",
+            ]),
+            H("To stop the warning from coming back"),
+            Steps(&[
+                "Right-click the downloaded logicflow.exe (or the ZIP before extracting) and choose Properties.",
+                "At the bottom of the General tab tick Unblock and confirm with OK.",
+            ]),
+            Tip(
+                "At school, the network administrator can allow the program on all computers at once. A signed version is planned.",
+            ),
+        ],
+    },
+];
+
+fn sections(lang: Lang) -> &'static [Section] {
+    match lang {
+        Lang::Cs => CS,
+        Lang::En => EN,
+    }
+}
+
+fn render(ui: &mut Ui, section: &Section) {
+    ui.heading(section.title);
+    ui.add_space(4.0);
+    for block in section.blocks {
+        match block {
+            H(t) => {
+                ui.add_space(8.0);
+                ui.label(RichText::new(*t).strong().size(15.0));
+            }
+            P(t) => {
+                ui.label(*t);
+                ui.add_space(4.0);
+            }
+            List(items) => {
+                for t in *items {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(RichText::new("•").color(colors::ACCENT));
+                        ui.label(*t);
+                    });
+                }
+                ui.add_space(4.0);
+            }
+            Steps(items) => {
+                for (i, t) in items.iter().enumerate() {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(
+                            RichText::new(format!("{}.", i + 1))
+                                .strong()
+                                .color(colors::ACCENT),
+                        );
+                        ui.label(*t);
+                    });
+                }
+                ui.add_space(4.0);
+            }
+            Keys(rows) => {
+                egui::Grid::new(("help_keys", section.title, rows.len()))
+                    .striped(true)
+                    .num_columns(2)
+                    .spacing([16.0, 4.0])
+                    .show(ui, |ui| {
+                        for (k, d) in *rows {
+                            ui.label(RichText::new(*k).monospace().strong());
+                            ui.label(*d);
+                            ui.end_row();
+                        }
+                    });
+                ui.add_space(4.0);
+            }
+            Tip(t) => {
+                ui.add_space(4.0);
+                egui::Frame::new()
+                    .fill(colors::ACCENT.gamma_multiply(0.18))
+                    .stroke(egui::Stroke::new(1.0, colors::ACCENT))
+                    .corner_radius(4)
+                    .inner_margin(8)
+                    .show(ui, |ui| {
+                        ui.set_min_width(ui.available_width());
+                        ui.label(*t);
+                    });
+            }
+        }
+    }
+}
+
+/// Okno nápovědy (F1).
+pub struct HelpWindow {
+    pub open: bool,
+    pub section: usize,
+}
+
+impl HelpWindow {
+    pub fn new() -> Self {
+        Self {
+            open: false,
+            section: 0,
+        }
+    }
+
+    /// Otevře nápovědu na kapitole podle jejího pořadí.
+    pub fn show_section(&mut self, section: usize) {
+        self.open = true;
+        self.section = section;
+    }
+
+    pub fn ui(&mut self, ctx: &egui::Context, lang: Lang) {
+        if !self.open {
+            return;
+        }
+        let secs = sections(lang);
+        let mut open = self.open;
+        egui::Window::new(tr(lang, T::Manual))
+            .open(&mut open)
+            .default_size([780.0, 540.0])
+            .min_size([520.0, 300.0])
+            .resizable(true)
+            .collapsible(false)
+            .show(ctx, |ui| {
+                egui::Panel::left("help_nav")
+                    .resizable(false)
+                    .exact_size(200.0)
+                    .show(ui, |ui| {
+                        egui::ScrollArea::vertical()
+                            .id_salt("help_nav_scroll")
+                            .show(ui, |ui| {
+                                for (i, s) in secs.iter().enumerate() {
+                                    if ui
+                                        .add(
+                                            egui::Button::selectable(self.section == i, s.title)
+                                                .wrap(),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.section = i;
+                                    }
+                                }
+                            });
+                    });
+                egui::CentralPanel::default_margins().show(ui, |ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt(("help_body", self.section))
+                        .show(ui, |ui| {
+                            if let Some(s) = secs.get(self.section) {
+                                render(ui, s);
+                            }
+                        });
+                });
+            });
+        self.open = open;
+    }
+}
+
+/// Nápověda zobrazená v oblasti (typ editoru „Nápověda“).
+pub fn area(ui: &mut Ui, section: &mut usize, lang: Lang) {
+    let secs = sections(lang);
+    egui::Frame::new().inner_margin(8).show(ui, |ui| {
+        let current = secs.get(*section).map_or("", |s| s.title);
+        egui::ComboBox::from_id_salt("help_area_section")
+            .selected_text(current)
+            .width(ui.available_width().min(320.0))
+            .show_ui(ui, |ui| {
+                for (i, s) in secs.iter().enumerate() {
+                    ui.selectable_value(section, i, s.title);
+                }
+            });
+        ui.add_space(6.0);
+        egui::ScrollArea::vertical()
+            .auto_shrink(false)
+            .show(ui, |ui| {
+                if let Some(s) = secs.get(*section) {
+                    render(ui, s);
+                }
+            });
+    });
+}
+
+/// Pořadí kapitoly s klávesovými zkratkami a s upozorněním Windows (pro nabídku Nápověda).
+pub const SECTION_SHORTCUTS: usize = 7;
+pub const SECTION_WINDOWS: usize = 8;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn languages_have_same_structure() {
+        assert_eq!(CS.len(), EN.len());
+        for (c, e) in CS.iter().zip(EN) {
+            assert_eq!(c.blocks.len(), e.blocks.len(), "kapitola {}", c.title);
+        }
+        assert_eq!(CS[SECTION_SHORTCUTS].title, "Klávesové zkratky");
+        assert!(CS[SECTION_WINDOWS].title.starts_with("Windows"));
+    }
+}
