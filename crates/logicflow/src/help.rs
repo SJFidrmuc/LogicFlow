@@ -108,19 +108,22 @@ const CS: &[Section] = &[
                 ("Tlačítko", "vstup, dává 1 jen po dobu stisku"),
                 ("Konstanta 0 / 1", "pevná logická hodnota"),
                 ("BUF  [1]", "opakovač (budič)"),
-                ("NOT  [1] s kroužkem", "invertor"),
+                ("NOT  [1] s trojúhelníkem", "invertor"),
                 ("AND  [&]", "logický součin – 1, když jsou všechny vstupy 1"),
                 (
                     "OR  [≥1]",
                     "logický součet – 1, když je aspoň jeden vstup 1",
                 ),
-                ("NAND, NOR", "negovaný součin / součet (kroužek na výstupu)"),
+                (
+                    "NAND, NOR",
+                    "negovaný součin / součet (trojúhelník na výstupu)",
+                ),
                 ("XOR  [=1]", "nonekvivalence – 1 při lichém počtu jedniček"),
                 ("XNOR", "ekvivalence – negovaný XOR"),
                 ("LED", "výstup, svítí při 1; při X nebo Z ukáže písmeno"),
             ]),
             P(
-                "Značky hradel odpovídají normě ČSN EN 60617 (obdélníkové značky). Negace je kroužek na výstupu.",
+                "Značky hradel odpovídají normě ČSN EN 60617 (obdélníkové značky). Negace se značí indikátorem negace – malým pravoúhlým trojúhelníkem na vývodu.",
             ),
             Tip(
                 "Klopné obvody, generátor hodin, sedmisegmentovka, paměti a obvody 74xx přibudou v dalších verzích.",
@@ -151,7 +154,7 @@ const CS: &[Section] = &[
                 ("T", "při hraně: T = 1 překlopí, T = 0 drží"),
             ]),
             P(
-                "Každý klopný obvod má výstupy Q a Qn (negovaný). Vstup řízený hranou je ve značce označený trojúhelníkem; kroužek před ním znamená sestupnou hranu. V oblasti Vlastnosti jde zvolit druh obvodu, spouštění náběžnou nebo sestupnou hranou a počáteční stav (0 nebo 1).",
+                "Každý klopný obvod má výstupy Q a Qn (negovaný). Vstup řízený hranou je ve značce označený trojúhelníkem uvnitř obrysu; indikátor negace (malý trojúhelník) na vývodu před ním znamená sestupnou hranu. V oblasti Vlastnosti jde zvolit druh obvodu, spouštění náběžnou nebo sestupnou hranou a počáteční stav (0 nebo 1).",
             ),
             H("Generátor hodin"),
             List(&[
@@ -350,16 +353,16 @@ const EN: &[Section] = &[
                 ("Push button", "input, 1 only while pressed"),
                 ("Constant 0 / 1", "fixed logic value"),
                 ("BUF  [1]", "buffer"),
-                ("NOT  [1] with bubble", "inverter"),
+                ("NOT  [1] with triangle", "inverter"),
                 ("AND  [&]", "1 when all inputs are 1"),
                 ("OR  [≥1]", "1 when at least one input is 1"),
-                ("NAND, NOR", "negated AND / OR (bubble on the output)"),
+                ("NAND, NOR", "negated AND / OR (triangle on the output)"),
                 ("XOR  [=1]", "1 for an odd number of ones"),
                 ("XNOR", "negated XOR"),
                 ("LED", "output, lit at 1; shows a letter for X or Z"),
             ]),
             P(
-                "Gate symbols follow IEC 60617 (rectangular symbols). Negation is a bubble on the output.",
+                "Gate symbols follow IEC 60617 (rectangular symbols). Negation is shown by the polarity indicator – a small right triangle on the pin.",
             ),
             Tip(
                 "Flip-flops, clock generator, seven-segment display, memories and 74xx chips arrive in later versions.",
@@ -387,7 +390,7 @@ const EN: &[Section] = &[
                 ("T", "on the edge: T = 1 toggles, T = 0 holds"),
             ]),
             P(
-                "Every flip-flop has outputs Q and Qn (negated). An edge-triggered input is marked with a triangle; a bubble in front of it means the falling edge. In Properties you can choose the type, rising or falling edge and the initial state (0 or 1).",
+                "Every flip-flop has outputs Q and Qn (negated). An edge-triggered input is marked with a triangle inside the outline; a polarity indicator (small triangle) on its pin means the falling edge. In Properties you can choose the type, rising or falling edge and the initial state (0 or 1).",
             ),
             H("Clock generator"),
             List(&[
