@@ -113,33 +113,20 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
     let (x0, _y0, x1, _y1) = comp.kind.body_local();
     let (ins, outs) = comp.kind.pins_local();
     let inverted = matches!(comp.kind, ComponentKind::Gate { gate, .. } if gate.is_inverted());
-    // Klopný obvod spouštěný sestupnou hranou má na hodinovém vstupu kroužek.
-    let clock_bubble = match comp.kind {
-        ComponentKind::FlipFlop {
-            ff, falling: true, ..
-        } if ff.is_edge_triggered() => ff.clock_input(),
-        _ => None,
-    };
     let lead = Stroke::new(lw, fade(colors::SYMBOL, look));
 
     // Vývody: krátká čára od těla k bodu mřížky a tečka obarvená hodnotou.
     let pin_color = |v: LogicValue| fade(signal_color(v), look);
     for (i, (px, py)) in ins.iter().enumerate() {
         let v = values.inputs.get(i).copied().unwrap_or(LogicValue::Z);
-        let start = if clock_bubble == Some(i) {
-            x0 - 0.7
-        } else {
-            x0
-        };
-        let a = local(comp, start, *py as f32);
+        let a = local(comp, x0, *py as f32);
         let b = local(comp, *px as f32, *py as f32);
         painter.line_segment([cam.to_screen(a), cam.to_screen(b)], lead);
         painter.circle_filled(cam.to_screen(b), cam.len(0.16).max(2.0), pin_color(v));
     }
     for (k, (px, py)) in outs.iter().enumerate() {
         let v = values.outputs.get(k).copied().unwrap_or(LogicValue::Z);
-        let start = if inverted { x1 + 0.7 } else { x1 };
-        let a = local(comp, start, *py as f32);
+        let a = local(comp, x1, *py as f32);
         let b = local(comp, *px as f32, *py as f32);
         painter.line_segment([cam.to_screen(a), cam.to_screen(b)], lead);
         painter.circle_filled(cam.to_screen(b), cam.len(0.16).max(2.0), pin_color(v));
@@ -152,11 +139,7 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
             painter.rect_filled(body, cam.len(0.15), fill);
             painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
             if inverted {
-                painter.circle_stroke(
-                    cam.to_screen(local(comp, x1 + 0.35, 0.0)),
-                    cam.len(0.35),
-                    outline,
-                );
+                negation(painter, cam, comp, x1, 0.0, 1.0, outline);
             }
             // Značka v horní části těla (u otočených hradel uprostřed).
             let label_pos = if gate.is_unary() || inputs <= 1 || comp.rotation.is_vertical() {
@@ -331,6 +314,27 @@ fn draw_label(painter: &Painter, cam: Camera, comp: &Component, dx: f32, look: L
     );
 }
 
+/// Indikátor negace podle ČSN EN 60617-12: pravoúhlý trojúhelník na vývodu.
+/// Pravý úhel leží na obrysu těla (`edge`), přepona klesá k vodiči směrem od těla
+/// (`dir` = +1 pro výstup vpravo, −1 pro vstup vlevo).
+fn negation(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    edge: f32,
+    y: f32,
+    dir: f32,
+    stroke: Stroke,
+) {
+    let tri = [
+        local(comp, edge, y - 0.45),
+        local(comp, edge, y),
+        local(comp, edge + dir * 0.7, y),
+    ]
+    .map(|p| cam.to_screen(p));
+    painter.add(egui::Shape::closed_line(tri.to_vec(), stroke));
+}
+
 /// Frekvence hodin pro popisek („0,5 Hz“).
 pub fn format_hz(hz: f32) -> String {
     if (hz - hz.round()).abs() < 0.01 {
@@ -373,11 +377,7 @@ fn draw_flip_flop(
                 Stroke::new(cam.line_width(), ink),
             ));
             if falling {
-                painter.circle_stroke(
-                    cam.to_screen(local(comp, x0 - 0.35, y)),
-                    cam.len(0.35),
-                    outline,
-                );
+                negation(painter, cam, comp, x0, y, -1.0, outline);
             }
             x = x0 + 0.85;
         }
