@@ -223,7 +223,9 @@ impl Project {
     /// Volá se každý snímek.
     pub fn update(&mut self, dt: f64) {
         if self.running {
+            let prev = self.time;
             self.time += dt;
+            self.advance_clocks(prev, self.time);
             self.sim.run(EVENT_BUDGET);
         }
         self.record_signals();
@@ -232,8 +234,63 @@ impl Project {
     /// Jeden takt simulace (při pozastavení). Časový diagram se posune o čtvrt sekundy,
     /// aby byl každý krok vidět.
     pub fn step(&mut self) {
-        self.sim.step();
         self.time += 0.25;
+        self.drive_clocks();
+        self.sim.step();
+        self.record_signals();
+    }
+
+    fn clocks(&self) -> Vec<(CompId, f64)> {
+        self.circuit
+            .components
+            .iter()
+            .filter_map(|c| match c.kind {
+                ComponentKind::Clock { period_ms } => {
+                    Some((c.id, f64::from(period_ms.max(2)) / 2000.0))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Nastaví výstupy generátorů hodin podle aktuálního času projektu.
+    fn drive_clocks(&mut self) {
+        for (id, half) in self.clocks() {
+            let v = LogicValue::from_bool((self.time / half).floor() as u64 % 2 == 1);
+            if self.sim.output(id) != Some(v) {
+                self.sim.set_source(id, v);
+            }
+        }
+    }
+
+    /// Projde všechny hrany hodin mezi `from` a `to` v časovém pořadí a po každé
+    /// nechá obvod ustálit – žádná hrana se neztratí ani při pomalém snímku.
+    fn advance_clocks(&mut self, from: f64, to: f64) {
+        let mut edges: Vec<(f64, CompId, LogicValue)> = Vec::new();
+        for (id, half) in self.clocks() {
+            let first = (from / half).floor() as u64 + 1;
+            let last = (to / half).floor() as u64;
+            // Při extrémně dlouhém snímku stačí posledních pár hran.
+            for k in first.max(last.saturating_sub(64))..=last {
+                edges.push((k as f64 * half, id, LogicValue::from_bool(k % 2 == 1)));
+            }
+        }
+        edges.sort_by(|a, b| a.0.total_cmp(&b.0));
+        for (_, id, v) in edges {
+            if self.sim.output(id) != Some(v) {
+                self.sim.set_source(id, v);
+                self.sim.run(EVENT_BUDGET);
+            }
+        }
+        self.drive_clocks();
+    }
+
+    /// Restart simulace: klopné obvody se vrátí do počátečního stavu, hodiny na 0.
+    pub fn reset_simulation(&mut self) {
+        self.sim = Simulator::new(&self.circuit, None);
+        self.time = 0.0;
+        self.signals.clear();
+        self.sim.run(EVENT_BUDGET);
         self.record_signals();
     }
 
@@ -274,7 +331,14 @@ impl Project {
 
     fn record_signals(&mut self) {
         let (ins, outs) = self.io_components();
-        let ids: Vec<CompId> = ins.into_iter().chain(outs).collect();
+        let mut clocks: Vec<&logicflow_core::Component> = self
+            .circuit
+            .components
+            .iter()
+            .filter(|c| matches!(c.kind, ComponentKind::Clock { .. }))
+            .collect();
+        clocks.sort_by(|a, b| natural_cmp(&a.label, &b.label));
+        let ids: Vec<CompId> = clocks.iter().map(|c| c.id).chain(ins).chain(outs).collect();
         let mut old: HashMap<CompId, Signal> = self.signals.drain(..).map(|s| (s.id, s)).collect();
         for id in ids {
             let label = self
@@ -365,6 +429,33 @@ mod tests {
         assert_eq!(p.signal_value(y), LogicValue::One);
         let led = p.signals.iter().find(|s| s.id == y).unwrap();
         assert_eq!(led.changes.len(), 2);
+    }
+
+    #[test]
+    fn clock_drives_flip_flop_counter() {
+        // Hodiny 1 Hz → klopný obvod T (T = 1) → LED: LED mění stav každou sekundu.
+        let mut c = Circuit::default();
+        c.add_component(ComponentKind::Clock { period_ms: 1000 }, Point::new(0, 1));
+        c.add_component(ComponentKind::Constant { value: true }, Point::new(0, -1));
+        let ff = c.add_component(
+            ComponentKind::flip_flop(logicflow_core::FlipFlopKind::T),
+            Point::new(10, 0),
+        );
+        // výstup hodin (3,1) → vstup C (7,1); konstanta (2,-1) → vstup T (7,-1)
+        c.add_wire(Point::new(3, 1), Point::new(7, 1));
+        c.add_wire(Point::new(2, -1), Point::new(7, -1));
+        let mut p = Project::new(c);
+        let mut states = Vec::new();
+        for _ in 0..8 {
+            p.update(0.5);
+            states.push(p.sim.flip_flop_state(ff).unwrap());
+        }
+        use LogicValue::*;
+        // Náběžná hrana hodin každou sekundu (v čase 0,5; 1,5; …) překlopí T.
+        assert_eq!(states, [One, One, Zero, Zero, One, One, Zero, Zero]);
+        p.reset_simulation();
+        assert_eq!(p.sim.flip_flop_state(ff), Some(Zero));
+        assert_eq!(p.signals[0].label, "CLK", "hodiny jsou v diagramu první");
     }
 
     #[test]

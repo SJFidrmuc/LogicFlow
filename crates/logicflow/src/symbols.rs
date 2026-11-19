@@ -2,7 +2,7 @@
 
 use crate::theme::{colors, signal_color};
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Vec2, pos2, vec2};
-use logicflow_core::{Component, ComponentKind, LogicValue, Rotation};
+use logicflow_core::{Component, ComponentKind, FlipFlopKind, LogicValue, Rotation};
 
 /// Velikost jedné jednotky mřížky v pixelech při zoomu 100 %.
 pub const UNIT: f32 = 16.0;
@@ -48,7 +48,7 @@ pub struct Look {
 /// Hodnoty potřebné ke kreslení (ze simulátoru).
 pub struct Values {
     pub inputs: Vec<LogicValue>,
-    pub output: Option<LogicValue>,
+    pub outputs: Vec<LogicValue>,
 }
 
 pub const SELECTED: Color32 = Color32::from_rgb(0xff, 0xa0, 0x30);
@@ -111,30 +111,37 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
         Stroke::new(lw, fade(colors::SYMBOL, look))
     };
     let (x0, _y0, x1, _y1) = comp.kind.body_local();
-    let (ins, out) = comp.kind.pins_local();
+    let (ins, outs) = comp.kind.pins_local();
     let inverted = matches!(comp.kind, ComponentKind::Gate { gate, .. } if gate.is_inverted());
+    // Klopný obvod spouštěný sestupnou hranou má na hodinovém vstupu kroužek.
+    let clock_bubble = match comp.kind {
+        ComponentKind::FlipFlop {
+            ff, falling: true, ..
+        } if ff.is_edge_triggered() => ff.clock_input(),
+        _ => None,
+    };
+    let lead = Stroke::new(lw, fade(colors::SYMBOL, look));
 
     // Vývody: krátká čára od těla k bodu mřížky a tečka obarvená hodnotou.
     let pin_color = |v: LogicValue| fade(signal_color(v), look);
     for (i, (px, py)) in ins.iter().enumerate() {
         let v = values.inputs.get(i).copied().unwrap_or(LogicValue::Z);
-        let a = local(comp, x0, *py as f32);
+        let start = if clock_bubble == Some(i) {
+            x0 - 0.7
+        } else {
+            x0
+        };
+        let a = local(comp, start, *py as f32);
         let b = local(comp, *px as f32, *py as f32);
-        painter.line_segment(
-            [cam.to_screen(a), cam.to_screen(b)],
-            Stroke::new(lw, fade(colors::SYMBOL, look)),
-        );
+        painter.line_segment([cam.to_screen(a), cam.to_screen(b)], lead);
         painter.circle_filled(cam.to_screen(b), cam.len(0.16).max(2.0), pin_color(v));
     }
-    if let Some((px, py)) = out {
-        let v = values.output.unwrap_or(LogicValue::Z);
+    for (k, (px, py)) in outs.iter().enumerate() {
+        let v = values.outputs.get(k).copied().unwrap_or(LogicValue::Z);
         let start = if inverted { x1 + 0.7 } else { x1 };
-        let a = local(comp, start, py as f32);
-        let b = local(comp, px as f32, py as f32);
-        painter.line_segment(
-            [cam.to_screen(a), cam.to_screen(b)],
-            Stroke::new(lw, fade(colors::SYMBOL, look)),
-        );
+        let a = local(comp, start, *py as f32);
+        let b = local(comp, *px as f32, *py as f32);
+        painter.line_segment([cam.to_screen(a), cam.to_screen(b)], lead);
         painter.circle_filled(cam.to_screen(b), cam.len(0.16).max(2.0), pin_color(v));
     }
 
@@ -208,7 +215,7 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
             painter.rect_filled(body, cam.len(0.3), fill);
             painter.rect_stroke(body, cam.len(0.3), outline, egui::StrokeKind::Middle);
             let c = cam.to_screen(local(comp, 0.0, 0.0));
-            let pressed = values.output == Some(LogicValue::One);
+            let pressed = values.outputs.first() == Some(&LogicValue::One);
             let fill = if pressed {
                 signal_color(LogicValue::One)
             } else {
@@ -234,6 +241,45 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
                 1.1,
                 Align2::CENTER_CENTER,
                 fade(signal_color(v), look),
+            );
+        }
+        ComponentKind::FlipFlop { ff, falling, .. } => {
+            draw_flip_flop(painter, cam, comp, ff, falling, outline, look);
+        }
+        ComponentKind::Clock { period_ms } => {
+            painter.rect_filled(body, cam.len(0.3), fill);
+            painter.rect_stroke(body, cam.len(0.3), outline, egui::StrokeKind::Middle);
+            // Obdélníkový průběh obarvený aktuální hodnotou.
+            let v = values.outputs.first().copied().unwrap_or(LogicValue::Z);
+            let wave = [
+                (-1.0, 0.45),
+                (-0.5, 0.45),
+                (-0.5, -0.45),
+                (0.0, -0.45),
+                (0.0, 0.45),
+                (0.5, 0.45),
+                (0.5, -0.45),
+                (1.0, -0.45),
+            ];
+            let pts: Vec<Pos2> = wave
+                .iter()
+                .map(|&(x, y)| cam.to_screen(local(comp, x, y)))
+                .collect();
+            painter.add(egui::Shape::line(
+                pts,
+                Stroke::new(lw.max(1.5), fade(signal_color(v), look)),
+            ));
+            draw_label(painter, cam, comp, -2.0, look);
+            let hz = 1000.0 / period_ms.max(1) as f32;
+            let (_, _, _, y1) = comp.body();
+            text(
+                painter,
+                cam,
+                pos2(comp.pos.x as f32, y1 + 0.3),
+                &format_hz(hz),
+                0.8,
+                Align2::CENTER_TOP,
+                fade(colors::TEXT_WEAK, look),
             );
         }
         ComponentKind::Led => {
@@ -285,6 +331,122 @@ fn draw_label(painter: &Painter, cam: Camera, comp: &Component, dx: f32, look: L
     );
 }
 
+/// Frekvence hodin pro popisek („0,5 Hz“).
+pub fn format_hz(hz: f32) -> String {
+    if (hz - hz.round()).abs() < 0.01 {
+        format!("{} Hz", hz.round())
+    } else {
+        format!("{hz:.1} Hz").replace('.', ",")
+    }
+}
+
+fn draw_flip_flop(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    ff: FlipFlopKind,
+    falling: bool,
+    outline: Stroke,
+    look: Look,
+) {
+    let body = cam.rect(comp.body());
+    painter.rect_filled(body, cam.len(0.15), fade(colors::SYMBOL_FILL, look));
+    painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
+    let (x0, _, x1, _) = comp.kind.body_local();
+    let (ins, outs) = comp.kind.pins_local();
+    let ink = fade(colors::TEXT, look);
+    let size = 0.85;
+
+    for (i, ((_, py), name)) in ins.iter().zip(ff.input_names()).enumerate() {
+        let y = *py as f32;
+        let mut x = x0 + 0.4;
+        if ff.is_edge_triggered() && ff.clock_input() == Some(i) {
+            // Dynamický vstup: trojúhelník u okraje těla.
+            let tri = [
+                local(comp, x0, y - 0.45),
+                local(comp, x0 + 0.6, y),
+                local(comp, x0, y + 0.45),
+            ]
+            .map(|p| cam.to_screen(p));
+            painter.add(egui::Shape::closed_line(
+                tri.to_vec(),
+                Stroke::new(cam.line_width(), ink),
+            ));
+            if falling {
+                painter.circle_stroke(
+                    cam.to_screen(local(comp, x0 - 0.35, y)),
+                    cam.len(0.35),
+                    outline,
+                );
+            }
+            x = x0 + 0.85;
+        }
+        text(
+            painter,
+            cam,
+            local(comp, x, y),
+            name,
+            size,
+            align_for(comp.rotation, 1.0),
+            ink,
+        );
+    }
+    for (k, (_, py)) in outs.iter().enumerate() {
+        let p = local(comp, x1 - 0.4, *py as f32);
+        text(
+            painter,
+            cam,
+            p,
+            "Q",
+            size,
+            align_for(comp.rotation, -1.0),
+            ink,
+        );
+        if k == 1 && cam.len(size) >= 5.0 {
+            // Negovaný výstup: čára nad Q.
+            let (lx0, lx1, ly) = (x1 - 1.05, x1 - 0.45, *py as f32 - 0.55);
+            painter.line_segment(
+                [
+                    cam.to_screen(local(comp, lx0, ly)),
+                    cam.to_screen(local(comp, lx1, ly)),
+                ],
+                Stroke::new(1.0, ink),
+            );
+        }
+    }
+    let short = match ff {
+        FlipFlopKind::DLatch => "D",
+        other => other.name(),
+    };
+    // U JK je uprostřed hodinový vstup, název typu proto o řádek výš.
+    let center = if ff == FlipFlopKind::Jk {
+        local(comp, 0.3, -1.0)
+    } else {
+        local(comp, 0.0, 0.0)
+    };
+    text(
+        painter,
+        cam,
+        center,
+        short,
+        1.1,
+        Align2::CENTER_CENTER,
+        fade(colors::TEXT_WEAK, look),
+    );
+    if !comp.label.is_empty() {
+        let (_, y0, _, _) = comp.body();
+        text(
+            painter,
+            cam,
+            pos2(comp.pos.x as f32, y0 - 0.4),
+            &comp.label,
+            0.9,
+            Align2::CENTER_BOTTOM,
+            fade(colors::TEXT_WEAK, look),
+        );
+    }
+}
+
 /// Obdélník, na který jde kliknout (tělo s malou rezervou), ve světových souřadnicích.
 pub fn hit_rect(comp: &Component) -> Rect {
     let (x0, y0, x1, y1) = comp.body();
@@ -332,6 +494,12 @@ mod tests {
         assert!(
             (dist_to_segment(pos2(-3.0, 4.0), pos2(0.0, 0.0), pos2(10.0, 0.0)) - 5.0).abs() < 1e-6
         );
+    }
+
+    #[test]
+    fn hz_format() {
+        assert_eq!(format_hz(1.0), "1 Hz");
+        assert_eq!(format_hz(0.5), "0,5 Hz");
     }
 
     #[test]

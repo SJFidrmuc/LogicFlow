@@ -12,7 +12,8 @@ pub mod sim;
 pub mod value;
 
 pub use circuit::{
-    Circuit, CompId, Component, ComponentKind, Point, ProjectFile, Rotation, Wire, WireId,
+    Circuit, CompId, Component, ComponentKind, FlipFlopKind, Point, ProjectFile, Rotation, Wire,
+    WireId,
 };
 pub use gate::GateKind;
 pub use sim::Simulator;

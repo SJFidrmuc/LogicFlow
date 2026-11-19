@@ -308,6 +308,12 @@ impl LogicFlowApp {
                         if ui.add_enabled(!self.project.running, step).clicked() {
                             self.project.step();
                         }
+                        ui.separator();
+                        let reset =
+                            egui::Button::new(tr(lang, T::ResetSim)).shortcut_text("Ctrl+R");
+                        if ui.add(reset).clicked() {
+                            self.project.reset_simulation();
+                        }
                     });
                     ui.menu_button(tr(lang, T::MenuHelp), |ui| {
                         if ui

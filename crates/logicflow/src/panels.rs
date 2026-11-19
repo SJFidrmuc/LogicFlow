@@ -1,11 +1,11 @@
 //! Menší editory: vlastnosti, hierarchie, knihovna, pravdivostní tabulka, paměť.
 
-use crate::catalog::{self, kind_name};
+use crate::catalog::{self, ff_name, kind_name};
 use crate::i18n::{Lang, T, tr};
 use crate::project::{Project, natural_cmp};
 use crate::theme::colors;
 use egui::{RichText, Ui};
-use logicflow_core::{ComponentKind, GateKind, LogicValue};
+use logicflow_core::{ComponentKind, FlipFlopKind, GateKind, LogicValue};
 
 fn padded(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     egui::ScrollArea::vertical()
@@ -214,6 +214,89 @@ fn component_properties(
                     });
                     ui.end_row();
                 }
+                ComponentKind::FlipFlop {
+                    ff,
+                    falling,
+                    initial,
+                } => {
+                    ui.label(weak(tr(lang, T::FlipFlop)));
+                    let mut new_ff = ff;
+                    egui::ComboBox::from_id_salt("ff_kind")
+                        .selected_text(ff_name(ff, lang))
+                        .show_ui(ui, |ui| {
+                            for f in FlipFlopKind::ALL {
+                                ui.selectable_value(&mut new_ff, f, ff_name(f, lang));
+                            }
+                        });
+                    ui.end_row();
+
+                    ui.label(weak(tr(lang, T::Trigger)));
+                    let mut new_falling = falling;
+                    if ff.is_edge_triggered() {
+                        ui.vertical(|ui| {
+                            ui.radio_value(&mut new_falling, false, tr(lang, T::RisingEdge));
+                            ui.radio_value(&mut new_falling, true, tr(lang, T::FallingEdge));
+                        });
+                    } else if ff == FlipFlopKind::DLatch {
+                        ui.label(tr(lang, T::LevelTrigger));
+                    } else {
+                        ui.label("–");
+                    }
+                    ui.end_row();
+
+                    ui.label(weak(tr(lang, T::InitialState)));
+                    let mut new_initial = initial;
+                    ui.horizontal(|ui| {
+                        ui.radio_value(&mut new_initial, false, "0");
+                        ui.radio_value(&mut new_initial, true, "1");
+                    });
+                    ui.end_row();
+
+                    if let Some(q) = project.sim.flip_flop_state(id) {
+                        ui.label(weak(tr(lang, T::StateQ)));
+                        ui.label(value_text(q));
+                        ui.end_row();
+                    }
+
+                    if (new_ff, new_falling, new_initial) != (ff, falling, initial) {
+                        project.checkpoint();
+                        if let Some(c) = project.circuit.component_mut(id) {
+                            c.kind = ComponentKind::FlipFlop {
+                                ff: new_ff,
+                                falling: new_falling,
+                                initial: new_initial,
+                            };
+                        }
+                        structure_changed = true;
+                    }
+                }
+                ComponentKind::Clock { period_ms } => {
+                    ui.label(weak(tr(lang, T::Frequency)));
+                    let mut new_period = period_ms;
+                    let current = 1000.0 / period_ms.max(1) as f32;
+                    egui::ComboBox::from_id_salt("clock_hz")
+                        .selected_text(crate::symbols::format_hz(current))
+                        .show_ui(ui, |ui| {
+                            for hz in [0.2_f32, 0.5, 1.0, 2.0, 5.0, 10.0] {
+                                let p = (1000.0 / hz).round() as u32;
+                                ui.selectable_value(
+                                    &mut new_period,
+                                    p,
+                                    crate::symbols::format_hz(hz),
+                                );
+                            }
+                        });
+                    if new_period != period_ms {
+                        project.checkpoint();
+                        if let Some(c) = project.circuit.component_mut(id) {
+                            c.kind = ComponentKind::Clock {
+                                period_ms: new_period,
+                            };
+                        }
+                        structure_changed = true;
+                    }
+                    ui.end_row();
+                }
                 ComponentKind::Button | ComponentKind::Led => {}
             }
 
@@ -277,7 +360,12 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
         egui::CollapsingHeader::new(name)
             .default_open(true)
             .show(ui, |ui| {
-                for (title, group) in [(T::Inputs, 0), (T::Gates, 1), (T::Outputs, 2)] {
+                for (title, group) in [
+                    (T::Inputs, 0),
+                    (T::Gates, 1),
+                    (T::CatFlipFlops, 3),
+                    (T::Outputs, 2),
+                ] {
                     let mut items: Vec<(logicflow_core::CompId, String)> = project
                         .circuit
                         .components
@@ -285,9 +373,11 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                         .filter(|c| match c.kind {
                             ComponentKind::Switch { .. }
                             | ComponentKind::Button
-                            | ComponentKind::Constant { .. } => group == 0,
+                            | ComponentKind::Constant { .. }
+                            | ComponentKind::Clock { .. } => group == 0,
                             ComponentKind::Gate { .. } => group == 1,
                             ComponentKind::Led => group == 2,
+                            ComponentKind::FlipFlop { .. } => group == 3,
                         })
                         .map(|c| {
                             let kind = kind_name(&c.kind, lang);

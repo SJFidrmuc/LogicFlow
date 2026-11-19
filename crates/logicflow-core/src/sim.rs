@@ -1,12 +1,12 @@
 //! Překlad obvodu na netlist a událostní simulátor.
 //!
-//! Každá součástka s výstupem má zpoždění (hradla 1 takt, zdroje 0). Změna
-//! výstupu se naplánuje do fronty událostí; po jejím provedení se přepočítají
-//! sítě (propojené vodiče) a vyhodnotí součástky, které z nich čtou.
-//! Díky tomu jde ukázat šíření signálu krok po kroku, hazardy i kmitání.
+//! Každá součástka s výstupem má zpoždění (hradla a klopné obvody 1 takt,
+//! zdroje 0). Změna výstupu se naplánuje do fronty událostí; po jejím provedení
+//! se přepočítají sítě (propojené vodiče) a vyhodnotí součástky, které z nich
+//! čtou. Díky tomu jde ukázat šíření signálu krok po kroku, hazardy i kmitání.
 
 use crate::LogicValue;
-use crate::circuit::{Circuit, CompId, ComponentKind, Point, WireId};
+use crate::circuit::{Circuit, CompId, ComponentKind, FlipFlopKind, Point, WireId};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 
@@ -17,7 +17,8 @@ pub const GATE_DELAY: u64 = 1;
 struct Event {
     time: u64,
     seq: u64,
-    comp: usize,
+    /// Globální index výstupu.
+    out: usize,
     value: LogicValue,
 }
 
@@ -65,12 +66,12 @@ impl UnionFind {
 #[derive(Clone, Debug, Default)]
 pub struct Netlist {
     pub net_count: usize,
-    /// Síť každého vodiče (ve stejném pořadí jako `Circuit::wires`).
+    /// Síť každého vodiče.
     pub wire_net: HashMap<WireId, usize>,
     /// Sítě vstupů každé součástky (pořadí jako `Circuit::components`).
     pub input_nets: Vec<Vec<usize>>,
-    /// Síť výstupu každé součástky.
-    pub output_net: Vec<Option<usize>>,
+    /// Sítě výstupů každé součástky.
+    pub output_nets: Vec<Vec<usize>>,
 }
 
 impl Netlist {
@@ -110,21 +111,21 @@ impl Netlist {
             .map(|(wi, wire)| (wire.id, net(&mut uf, wi)))
             .collect();
         let mut input_nets = Vec::with_capacity(circuit.components.len());
-        let mut output_net = Vec::with_capacity(circuit.components.len());
+        let mut output_nets = Vec::with_capacity(circuit.components.len());
         for c in &circuit.components {
-            input_nets.push(
-                c.input_pins()
-                    .into_iter()
+            let mut nets_of = |pins: Vec<Point>| -> Vec<usize> {
+                pins.into_iter()
                     .map(|p| net(&mut uf, w + point_index[&p]))
-                    .collect(),
-            );
-            output_net.push(c.output_pin().map(|p| net(&mut uf, w + point_index[&p])));
+                    .collect()
+            };
+            input_nets.push(nets_of(c.input_pins()));
+            output_nets.push(nets_of(c.output_pins()));
         }
         Self {
             net_count: net_of_root.len(),
             wire_net,
             input_nets,
-            output_net,
+            output_nets,
         }
     }
 }
@@ -137,11 +138,18 @@ pub struct Simulator {
     index: HashMap<CompId, usize>,
     kinds: Vec<ComponentKind>,
     sources: Vec<Option<LogicValue>>,
+    /// Začátek výstupů každé součástky v `outputs`.
+    out_start: Vec<usize>,
+    /// Vlastník každého výstupu: (součástka, pořadí výstupu).
+    out_owner: Vec<(usize, usize)>,
     net_drivers: Vec<Vec<usize>>,
     net_readers: Vec<Vec<usize>>,
     outputs: Vec<LogicValue>,
     pending: Vec<Option<LogicValue>>,
     net_values: Vec<LogicValue>,
+    /// Vnitřní stav klopných obvodů (Q) a poslední hodnota hodinového vstupu.
+    ff_q: Vec<LogicValue>,
+    ff_clock: Vec<LogicValue>,
     queue: BinaryHeap<Event>,
     seq: u64,
     time: u64,
@@ -150,16 +158,22 @@ pub struct Simulator {
 
 impl Simulator {
     /// Postaví simulátor pro obvod. Pokud je zadán předchozí simulátor,
-    /// převezme z něj výstupy součástek se stejným id – paměťové obvody
-    /// (třeba klopný obvod z hradel) si tak po úpravě schématu pamatují stav.
+    /// převezme z něj výstupy a stav součástek se stejným id – paměťové obvody
+    /// si tak po úpravě schématu pamatují stav.
     pub fn new(circuit: &Circuit, previous: Option<&Simulator>) -> Self {
         let netlist = Netlist::build(circuit);
         let n = circuit.components.len();
+        let mut out_start = Vec::with_capacity(n);
+        let mut out_owner = Vec::new();
+        for (i, outs) in netlist.output_nets.iter().enumerate() {
+            out_start.push(out_owner.len());
+            out_owner.extend((0..outs.len()).map(|k| (i, k)));
+        }
         let mut net_drivers = vec![Vec::new(); netlist.net_count];
         let mut net_readers = vec![Vec::new(); netlist.net_count];
-        for i in 0..n {
-            if let Some(net) = netlist.output_net[i] {
-                net_drivers[net].push(i);
+        for (i, &start) in out_start.iter().enumerate() {
+            for (k, &net) in netlist.output_nets[i].iter().enumerate() {
+                net_drivers[net].push(start + k);
             }
             for &net in &netlist.input_nets[i] {
                 if !net_readers[net].contains(&i) {
@@ -168,14 +182,33 @@ impl Simulator {
             }
         }
         let ids: Vec<CompId> = circuit.components.iter().map(|c| c.id).collect();
-        let outputs = ids
+        let outputs = out_owner
             .iter()
-            .map(|id| {
+            .map(|&(i, k)| {
                 previous
-                    .and_then(|p| p.output(*id))
+                    .and_then(|p| p.outputs(ids[i]).get(k).copied())
                     .unwrap_or(LogicValue::X)
             })
             .collect();
+        let ff_q = circuit
+            .components
+            .iter()
+            .map(|c| match c.kind {
+                ComponentKind::FlipFlop { initial, .. } => previous
+                    .and_then(|p| p.flip_flop_state(c.id))
+                    .unwrap_or(initial.into()),
+                _ => LogicValue::X,
+            })
+            .collect();
+        let ff_clock = ids
+            .iter()
+            .map(|id| {
+                previous
+                    .and_then(|p| p.index.get(id).map(|&j| p.ff_clock[j]))
+                    .unwrap_or(LogicValue::X)
+            })
+            .collect();
+        let total_outputs = out_owner.len();
         let mut sim = Self {
             index: ids.iter().enumerate().map(|(i, id)| (*id, i)).collect(),
             ids,
@@ -185,29 +218,50 @@ impl Simulator {
                 .iter()
                 .map(|c| c.source_value())
                 .collect(),
+            out_start,
+            out_owner,
             net_drivers,
             net_readers,
             outputs,
-            pending: vec![None; n],
+            pending: vec![None; total_outputs],
             net_values: vec![LogicValue::Z; netlist.net_count],
+            ff_q,
+            ff_clock,
             netlist,
             queue: BinaryHeap::new(),
             seq: 0,
             time: previous.map_or(0, |p| p.time),
             oscillating: false,
         };
+        // Hodnoty zdrojů (např. hodin) převezme z předchozího simulátoru.
+        if let Some(p) = previous {
+            for (i, id) in sim.ids.iter().enumerate() {
+                if matches!(sim.kinds[i], ComponentKind::Clock { .. })
+                    && let Some(v) = p.output(*id)
+                    && v != LogicValue::X
+                {
+                    sim.sources[i] = Some(v);
+                }
+            }
+        }
         for net in 0..sim.net_values.len() {
             sim.net_values[net] = sim.resolve_net(net);
         }
         for i in 0..n {
-            sim.evaluate(i);
+            if sim.kinds[i].is_sequential() {
+                // Klopné obvody jen vystaví uložený stav; jejich vstupy se teprve ustalují.
+                let q = sim.ff_q[i];
+                sim.schedule(i, vec![q, q.not()]);
+            } else {
+                sim.evaluate(i);
+            }
         }
         sim
     }
 
     fn delay(&self, i: usize) -> u64 {
         match self.kinds[i] {
-            ComponentKind::Gate { .. } => GATE_DELAY,
+            ComponentKind::Gate { .. } | ComponentKind::FlipFlop { .. } => GATE_DELAY,
             _ => 0,
         }
     }
@@ -226,27 +280,101 @@ impl Simulator {
             .collect()
     }
 
-    /// Vyhodnotí součástku a případnou změnu výstupu naplánuje.
-    fn evaluate(&mut self, i: usize) {
-        let new = match self.kinds[i] {
-            ComponentKind::Gate { gate, .. } => gate.eval(&self.input_values(i)),
-            ComponentKind::Led => return,
-            _ => self.sources[i].unwrap_or(LogicValue::X),
+    /// Nový stav klopného obvodu podle vstupů. Mění uložený stav i poslední hodnotu hodin.
+    fn step_flip_flop(&mut self, i: usize, ff: FlipFlopKind, falling: bool) -> LogicValue {
+        use LogicValue::{One, X, Zero};
+        let ins: Vec<LogicValue> = self
+            .input_values(i)
+            .into_iter()
+            .map(LogicValue::as_input)
+            .collect();
+        let q = self.ff_q[i];
+        let new_q = match ff {
+            FlipFlopKind::Rs => match (ins[0], ins[1]) {
+                (Zero, Zero) => q,
+                (One, Zero) => One,
+                (Zero, One) => Zero,
+                // S = R = 1 je zakázaný stav.
+                _ => X,
+            },
+            FlipFlopKind::DLatch => match ins[1] {
+                One => ins[0],
+                Zero => q,
+                _ if q == ins[0] => q,
+                _ => X,
+            },
+            FlipFlopKind::D | FlipFlopKind::Jk | FlipFlopKind::T => {
+                let clk = ins[1];
+                let prev = self.ff_clock[i];
+                self.ff_clock[i] = clk;
+                let edge = if falling {
+                    prev == One && clk == Zero
+                } else {
+                    prev == Zero && clk == One
+                };
+                if !edge {
+                    q
+                } else {
+                    match ff {
+                        FlipFlopKind::D => ins[0],
+                        FlipFlopKind::Jk => match (ins[0], ins[2]) {
+                            (Zero, Zero) => q,
+                            (One, Zero) => One,
+                            (Zero, One) => Zero,
+                            (One, One) => q.not(),
+                            _ => X,
+                        },
+                        _ => match ins[0] {
+                            Zero => q,
+                            One => q.not(),
+                            _ => X,
+                        },
+                    }
+                }
+            }
         };
-        let expected = self.pending[i].unwrap_or(self.outputs[i]);
-        if new != expected {
-            self.seq += 1;
-            self.queue.push(Event {
-                time: self.time + self.delay(i),
-                seq: self.seq,
-                comp: i,
-                value: new,
-            });
-            self.pending[i] = Some(new);
+        self.ff_q[i] = new_q;
+        new_q
+    }
+
+    /// Vyhodnotí součástku a případné změny výstupů naplánuje.
+    fn evaluate(&mut self, i: usize) {
+        let new: Vec<LogicValue> = match self.kinds[i] {
+            ComponentKind::Gate { gate, .. } => vec![gate.eval(&self.input_values(i))],
+            ComponentKind::Led => return,
+            ComponentKind::FlipFlop { ff, falling, .. } => {
+                let q = self.step_flip_flop(i, ff, falling);
+                vec![q, q.not()]
+            }
+            _ => vec![self.sources[i].unwrap_or(LogicValue::X)],
+        };
+        self.schedule(i, new);
+    }
+
+    /// Naplánuje změny výstupů součástky po jejím zpoždění.
+    fn schedule(&mut self, i: usize, new: Vec<LogicValue>) {
+        let delay = self.delay(i);
+        for (k, v) in new
+            .into_iter()
+            .enumerate()
+            .take(self.netlist.output_nets[i].len())
+        {
+            let g = self.out_start[i] + k;
+            let expected = self.pending[g].unwrap_or(self.outputs[g]);
+            if v != expected {
+                self.seq += 1;
+                self.queue.push(Event {
+                    time: self.time + delay,
+                    seq: self.seq,
+                    out: g,
+                    value: v,
+                });
+                self.pending[g] = Some(v);
+            }
         }
     }
 
-    /// Změní hodnotu zdroje (přepínač, tlačítko, konstanta).
+    /// Změní hodnotu zdroje (přepínač, tlačítko, konstanta, hodiny).
     pub fn set_source(&mut self, id: CompId, value: LogicValue) {
         if let Some(&i) = self.index.get(&id) {
             self.sources[i] = Some(value);
@@ -265,14 +393,13 @@ impl Simulator {
         while self.queue.peek().is_some_and(|e| e.time == self.time) {
             let e = self.queue.pop().expect("fronta není prázdná");
             count += 1;
-            if self.pending[e.comp] == Some(e.value) {
-                self.pending[e.comp] = None;
+            if self.pending[e.out] == Some(e.value) {
+                self.pending[e.out] = None;
             }
-            if self.outputs[e.comp] != e.value {
-                self.outputs[e.comp] = e.value;
-                if let Some(net) = self.netlist.output_net[e.comp] {
-                    changed_nets.push(net);
-                }
+            if self.outputs[e.out] != e.value {
+                self.outputs[e.out] = e.value;
+                let (i, k) = self.out_owner[e.out];
+                changed_nets.push(self.netlist.output_nets[i][k]);
             }
         }
         let mut to_eval = Vec::new();
@@ -332,10 +459,17 @@ impl Simulator {
             .map_or(LogicValue::Z, |&n| self.net_values[n])
     }
 
-    /// Hodnota výstupu součástky.
+    /// Hodnoty všech výstupů součástky.
+    pub fn outputs(&self, id: CompId) -> Vec<LogicValue> {
+        self.index.get(&id).map_or_else(Vec::new, |&i| {
+            let start = self.out_start[i];
+            self.outputs[start..start + self.netlist.output_nets[i].len()].to_vec()
+        })
+    }
+
+    /// Hodnota prvního (hlavního) výstupu součástky.
     pub fn output(&self, id: CompId) -> Option<LogicValue> {
-        let &i = self.index.get(&id)?;
-        self.netlist.output_net[i].map(|_| self.outputs[i])
+        self.outputs(id).first().copied()
     }
 
     /// Hodnoty na vstupních vývodech součástky.
@@ -345,10 +479,24 @@ impl Simulator {
             .map_or_else(Vec::new, |&i| self.input_values(i))
     }
 
-    /// Hodnota sítě připojené k výstupu (může se lišit od výstupu při kolizi).
+    /// Hodnoty sítí připojených k výstupům (mohou se lišit od výstupů při kolizi).
+    pub fn output_net_values(&self, id: CompId) -> Vec<LogicValue> {
+        self.index.get(&id).map_or_else(Vec::new, |&i| {
+            self.netlist.output_nets[i]
+                .iter()
+                .map(|&n| self.net_values[n])
+                .collect()
+        })
+    }
+
     pub fn output_net_value(&self, id: CompId) -> Option<LogicValue> {
+        self.output_net_values(id).first().copied()
+    }
+
+    /// Vnitřní stav (Q) klopného obvodu.
+    pub fn flip_flop_state(&self, id: CompId) -> Option<LogicValue> {
         let &i = self.index.get(&id)?;
-        self.netlist.output_net[i].map(|n| self.net_values[n])
+        self.kinds[i].is_sequential().then(|| self.ff_q[i])
     }
 
     pub fn component_ids(&self) -> &[CompId] {
@@ -495,6 +643,153 @@ mod tests {
         sim.set_source(en, Zero);
         assert!(sim.run(1000));
         assert_eq!(sim.output(g), Some(One));
+    }
+
+    /// Klopný obvod daného druhu: vstupy z přepínačů, vrací (obvod, id přepínačů, id KO).
+    fn ff_circuit(ff: FlipFlopKind, falling: bool) -> (Circuit, Vec<CompId>, CompId) {
+        let mut c = Circuit::default();
+        let kind = ComponentKind::FlipFlop {
+            ff,
+            falling,
+            initial: false,
+        };
+        let id = c.add_component(kind, Point::new(10, 0));
+        let pins = c.component(id).unwrap().input_pins();
+        let mut switches = Vec::new();
+        for (k, p) in pins.iter().enumerate() {
+            let k = k as i32;
+            // Přepínače pod sebou vlevo dole, každý vodič má vlastní svislou dráhu.
+            let s = c.add_component(
+                ComponentKind::Switch { on: false },
+                Point::new(-20, 20 + 10 * k),
+            );
+            let out = c.component(s).unwrap().output_pin().unwrap();
+            let x = 5 - k;
+            c.add_wire(out, Point::new(x, out.y));
+            c.add_wire(Point::new(x, out.y), Point::new(x, p.y));
+            c.add_wire(Point::new(x, p.y), *p);
+            switches.push(s);
+        }
+        (c, switches, id)
+    }
+
+    fn q(sim: &Simulator, id: CompId) -> (LogicValue, LogicValue) {
+        let o = sim.outputs(id);
+        (o[0], o[1])
+    }
+
+    #[test]
+    fn rs_flip_flop() {
+        let (c, sw, ff) = ff_circuit(FlipFlopKind::Rs, false);
+        let mut sim = Simulator::new(&c, None);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff), (Zero, One), "počáteční stav 0");
+        sim.set_source(sw[0], One);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff), (One, Zero));
+        sim.set_source(sw[0], Zero);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff), (One, Zero), "pamatuje si 1");
+        sim.set_source(sw[0], One);
+        sim.set_source(sw[1], One);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, X, "zakázaný stav");
+    }
+
+    #[test]
+    fn d_flip_flop_samples_on_rising_edge() {
+        let (c, sw, ff) = ff_circuit(FlipFlopKind::D, false);
+        let (d, clk) = (sw[0], sw[1]);
+        let mut sim = Simulator::new(&c, None);
+        sim.run(1000);
+        sim.set_source(d, One);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, Zero, "bez hrany se nic nemění");
+        sim.set_source(clk, One);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff), (One, Zero), "náběžná hrana uloží D");
+        sim.set_source(d, Zero);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, One, "při C = 1 se D neprojeví");
+        sim.set_source(clk, Zero);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, One, "sestupná hrana nic nedělá");
+    }
+
+    #[test]
+    fn d_latch_is_transparent() {
+        let (c, sw, ff) = ff_circuit(FlipFlopKind::DLatch, false);
+        let (d, en) = (sw[0], sw[1]);
+        let mut sim = Simulator::new(&c, None);
+        sim.set_source(en, One);
+        sim.set_source(d, One);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, One);
+        sim.set_source(d, Zero);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, Zero, "při C = 1 sleduje D");
+        sim.set_source(en, Zero);
+        sim.set_source(d, One);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, Zero, "při C = 0 drží");
+    }
+
+    fn pulse(sim: &mut Simulator, clk: CompId) {
+        sim.set_source(clk, One);
+        sim.run(1000);
+        sim.set_source(clk, Zero);
+        sim.run(1000);
+    }
+
+    #[test]
+    fn jk_flip_flop_truth_table() {
+        let (c, sw, ff) = ff_circuit(FlipFlopKind::Jk, false);
+        let (j, clk, k) = (sw[0], sw[1], sw[2]);
+        let mut sim = Simulator::new(&c, None);
+        sim.run(1000);
+        sim.set_source(j, One);
+        pulse(&mut sim, clk);
+        assert_eq!(q(&sim, ff).0, One, "J = 1 nastaví");
+        sim.set_source(j, Zero);
+        pulse(&mut sim, clk);
+        assert_eq!(q(&sim, ff).0, One, "J = K = 0 drží");
+        sim.set_source(k, One);
+        pulse(&mut sim, clk);
+        assert_eq!(q(&sim, ff).0, Zero, "K = 1 nuluje");
+        sim.set_source(j, One);
+        pulse(&mut sim, clk);
+        assert_eq!(q(&sim, ff).0, One, "J = K = 1 překlápí");
+        pulse(&mut sim, clk);
+        assert_eq!(q(&sim, ff).0, Zero);
+    }
+
+    #[test]
+    fn t_flip_flop_on_falling_edge() {
+        let (c, sw, ff) = ff_circuit(FlipFlopKind::T, true);
+        let (t, clk) = (sw[0], sw[1]);
+        let mut sim = Simulator::new(&c, None);
+        sim.set_source(t, One);
+        sim.run(1000);
+        sim.set_source(clk, One);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, Zero, "náběžná hrana nic");
+        sim.set_source(clk, Zero);
+        sim.run(1000);
+        assert_eq!(q(&sim, ff).0, One, "sestupná hrana překlopí");
+        pulse(&mut sim, clk);
+        assert_eq!(q(&sim, ff).0, Zero);
+    }
+
+    #[test]
+    fn flip_flop_state_survives_rebuild() {
+        let (c, sw, ff) = ff_circuit(FlipFlopKind::T, false);
+        let mut sim = Simulator::new(&c, None);
+        sim.run(1000);
+        sim.set_source(sw[0], One);
+        pulse(&mut sim, sw[1]);
+        assert_eq!(q(&sim, ff).0, One);
+        let rebuilt = Simulator::new(&c, Some(&sim));
+        assert_eq!(rebuilt.flip_flop_state(ff), Some(One));
     }
 
     #[test]

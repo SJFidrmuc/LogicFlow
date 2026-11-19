@@ -128,6 +128,47 @@ const CS: &[Section] = &[
         ],
     },
     Section {
+        title: "Sekvenční obvody",
+        blocks: &[
+            P(
+                "Sekvenční obvody si pamatují stav. Jejich výstup závisí nejen na vstupech, ale i na tom, co se dělo předtím. LogicFlow má hotové klopné obvody (Shift+A > Klopné obvody) a generátor hodin (Shift+A > Vstupy).",
+            ),
+            H("Klopné obvody"),
+            Keys(&[
+                (
+                    "RS",
+                    "S = 1 nastaví Q = 1, R = 1 vynuluje Q = 0, S = R = 0 drží stav, S = R = 1 je zakázaný stav (X)",
+                ),
+                (
+                    "D (úroveň)",
+                    "dokud je C = 1, výstup Q sleduje vstup D; při C = 0 drží",
+                ),
+                ("D", "při hraně hodin uloží hodnotu D"),
+                (
+                    "JK",
+                    "při hraně: J = 1 nastaví, K = 1 vynuluje, J = K = 1 překlopí, J = K = 0 drží",
+                ),
+                ("T", "při hraně: T = 1 překlopí, T = 0 drží"),
+            ]),
+            P(
+                "Každý klopný obvod má výstupy Q a Qn (negovaný). Vstup řízený hranou je ve značce označený trojúhelníkem; kroužek před ním znamená sestupnou hranu. V oblasti Vlastnosti jde zvolit druh obvodu, spouštění náběžnou nebo sestupnou hranou a počáteční stav (0 nebo 1).",
+            ),
+            H("Generátor hodin"),
+            List(&[
+                "Vytváří pravidelný obdélníkový signál. Frekvence se nastavuje ve Vlastnostech (0,2 až 10 Hz).",
+                "Hodiny běží jen při spuštěné simulaci. Při pozastavení se posunou s každým krokem (šipka vpravo) o čtvrt sekundy.",
+                "V časovém diagramu jsou hodiny vždy nahoře, takže je vidět, při které hraně se výstupy mění.",
+            ]),
+            H("Restart simulace"),
+            P(
+                "Simulace > Restartovat simulaci (Ctrl+R) vrátí všechny klopné obvody do počátečního stavu, hodiny na 0 a vymaže časový diagram.",
+            ),
+            Tip(
+                "Vyzkoušejte příklady Čítač 0–7 z klopných obvodů T a Posuvný registr 4 bity. U čítače jsou výstupy zapojené tak, že každý další stupeň řídí výstup Qn předchozího – to je asynchronní čítač nahoru.",
+            ),
+        ],
+    },
+    Section {
         title: "Simulace",
         blocks: &[
             P(
@@ -148,6 +189,7 @@ const CS: &[Section] = &[
                 "Mezerník simulaci pozastaví nebo spustí.",
                 "Při pozastavení provede šipka vpravo (nebo Simulace > Krok) jeden takt. Je vidět, jak změna prochází hradlo po hradle.",
                 "Pokud se obvod nikdy neustálí (např. invertor zapojený sám do sebe), zobrazí se upozornění „Obvod kmitá“.",
+                "Simulace > Restartovat simulaci (Ctrl+R) začne znovu od počátečního stavu.",
             ]),
             Tip(
                 "Obvody s pamětí, například klopný obvod RS z hradel NOR, začínají ve stavu X. Teprve nastavení (S) nebo nulování (R) určí jejich stav.",
@@ -325,6 +367,44 @@ const EN: &[Section] = &[
         ],
     },
     Section {
+        title: "Sequential circuits",
+        blocks: &[
+            P(
+                "Sequential circuits remember their state: the output depends not only on the inputs but also on what happened before. LogicFlow has ready-made flip-flops (Shift+A > Flip-flops) and a clock generator (Shift+A > Inputs).",
+            ),
+            H("Flip-flops"),
+            Keys(&[
+                (
+                    "RS",
+                    "S = 1 sets Q = 1, R = 1 resets Q = 0, S = R = 0 holds, S = R = 1 is forbidden (X)",
+                ),
+                ("D (level)", "while C = 1, Q follows D; with C = 0 it holds"),
+                ("D", "stores D on the clock edge"),
+                (
+                    "JK",
+                    "on the edge: J = 1 sets, K = 1 resets, J = K = 1 toggles, J = K = 0 holds",
+                ),
+                ("T", "on the edge: T = 1 toggles, T = 0 holds"),
+            ]),
+            P(
+                "Every flip-flop has outputs Q and Qn (negated). An edge-triggered input is marked with a triangle; a bubble in front of it means the falling edge. In Properties you can choose the type, rising or falling edge and the initial state (0 or 1).",
+            ),
+            H("Clock generator"),
+            List(&[
+                "Produces a regular square wave. Set the frequency in Properties (0.2 to 10 Hz).",
+                "The clock runs only while the simulation runs. While paused it advances by a quarter of a second with every step (right arrow).",
+                "Clocks are always at the top of the timing diagram, so you can see on which edge the outputs change.",
+            ]),
+            H("Restarting the simulation"),
+            P(
+                "Simulation > Restart simulation (Ctrl+R) returns all flip-flops to their initial state, sets clocks to 0 and clears the timing diagram.",
+            ),
+            Tip(
+                "Try the examples 0–7 counter from T flip-flops and 4-bit shift register. In the counter each stage is clocked by Qn of the previous one – an asynchronous up counter.",
+            ),
+        ],
+    },
+    Section {
         title: "Simulation",
         blocks: &[
             P(
@@ -345,6 +425,7 @@ const EN: &[Section] = &[
                 "Space pauses or resumes the simulation.",
                 "While paused, the right arrow (or Simulation > Step) performs one tick. You can watch a change pass gate by gate.",
                 "If the circuit never settles (e.g. an inverter feeding itself), an “oscillating” warning appears.",
+                "Simulation > Restart simulation (Ctrl+R) starts again from the initial state.",
             ]),
             Tip(
                 "Circuits with memory, such as an SR latch made of NOR gates, start in state X. Only set (S) or reset (R) defines their state.",
@@ -584,8 +665,8 @@ pub fn area(ui: &mut Ui, section: &mut usize, lang: Lang) {
 }
 
 /// Pořadí kapitoly s klávesovými zkratkami a s upozorněním Windows (pro nabídku Nápověda).
-pub const SECTION_SHORTCUTS: usize = 7;
-pub const SECTION_WINDOWS: usize = 8;
+pub const SECTION_SHORTCUTS: usize = 8;
+pub const SECTION_WINDOWS: usize = 9;
 
 #[cfg(test)]
 mod tests {
