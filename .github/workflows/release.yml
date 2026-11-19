@@ -1,0 +1,116 @@
+# Vydání verze: po zveřejnění vydání (Release) na GitHubu se sestaví program
+# pro všechny platformy a balíčky se automaticky připojí k vydání.
+#
+# Postup: Releases → Draft a new release → tag např. v0.2.0 → Publish release.
+# Pro dodatečné sestavení existujícího vydání: Actions → Vydání → Run workflow.
+name: Vydání
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag existujícího vydání (např. v0.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+          - name: windows-arm64
+            os: windows-11-arm
+          - name: macos-arm64
+            os: macos-latest
+          - name: macos-x64
+            os: macos-15-intel
+          - name: linux-x64
+            os: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+      - name: Balíček (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = "LogicFlow-$($env:TAG.TrimStart('v'))-${{ matrix.name }}"
+          New-Item -ItemType Directory -Path $name | Out-Null
+          Copy-Item target/release/logicflow.exe, README.md, LICENSE -Destination $name
+          Compress-Archive -Path $name -DestinationPath "$name.zip"
+          "PACKAGE=$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Balíček (macOS, Linux)
+        if: runner.os != 'Windows'
+        run: |
+          name="LogicFlow-${TAG#v}-${{ matrix.name }}"
+          mkdir "$name"
+          cp target/release/logicflow README.md LICENSE "$name/"
+          tar -czf "$name.tar.gz" "$name"
+          echo "PACKAGE=$name.tar.gz" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.PACKAGE }}
+          if-no-files-found: error
+
+  raspberry-pi:
+    # Sestavení v Debianu 13 (Trixie), na kterém stojí Raspberry Pi OS.
+    name: linux-arm64 (Raspberry Pi OS)
+    runs-on: ubuntu-24.04-arm
+    container: debian:trixie
+    steps:
+      - name: Nástroje
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git build-essential pkg-config
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - run: cargo build --release
+      - name: Balíček
+        run: |
+          name="LogicFlow-${TAG#v}-raspberry-pi-arm64"
+          mkdir "$name"
+          cp target/release/logicflow README.md LICENSE "$name/"
+          tar -czf "$name.tar.gz" "$name"
+          echo "PACKAGE=$name.tar.gz" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raspberry-pi-arm64
+          path: ${{ env.PACKAGE }}
+          if-no-files-found: error
+
+  publish:
+    name: Připojit k vydání
+    needs: [build, raspberry-pi]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Nahrát soubory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l dist
+          gh release upload "$TAG" dist/* --clobber --repo "${{ github.repository }}"

@@ -6,6 +6,23 @@ Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástup
 
 > **Stav:** verze 0.2 (milník M2). Kreslení obvodů z hradel, klopných obvodů a generátorů hodin, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, ukládání souborů a vestavěná nápověda.
 
+## Stažení
+
+Hotové programy jsou na stránce **[Releases → nejnovější verze](https://github.com/SJFidrmuc/LogicFlow/releases/latest)** (bez přihlášení, bez instalace).
+
+| Systém | Soubor |
+| --- | --- |
+| Windows (běžné PC) | `LogicFlow-…-windows-x64.zip` |
+| Windows na procesoru ARM | `LogicFlow-…-windows-arm64.zip` |
+| macOS (Apple M1 a novější) | `LogicFlow-…-macos-arm64.tar.gz` |
+| macOS (Intel) | `LogicFlow-…-macos-x64.tar.gz` |
+| Linux (PC) | `LogicFlow-…-linux-x64.tar.gz` |
+| Raspberry Pi 4 a 5 (64bitový Raspberry Pi OS) | `LogicFlow-…-raspberry-pi-arm64.tar.gz` |
+
+- **Windows:** rozbalte ZIP a spusťte `logicflow.exe`. Pokud Windows zobrazí varování, viz [níže](#windows-hlásí-nebezpečnou-aplikaci).
+- **Linux a Raspberry Pi:** `tar -xzf LogicFlow-…tar.gz`, pak `./logicflow` ve vzniklé složce.
+- **macOS:** po rozbalení při prvním spuštění klikněte na `logicflow` pravým tlačítkem → Otevřít (program zatím není podepsaný).
+
 ## Co umí
 
 - **Kreslení schémat** – součástky se přidávají přes Shift+A nebo z knihovny, vodiče se kreslí tažením z vývodu. Vodiče se při přesunu součástky samy přepojí.
@@ -79,7 +96,11 @@ Soubor obvodu jde otevřít i z příkazové řádky: `logicflow muj-obvod.logic
 
 ### Raspberry Pi
 
-Podporované jsou Raspberry Pi 4 a 5 s 64bitovým Raspberry Pi OS (Debian 13 „Trixie“). Hotový program sestavuje automaticky GitHub Actions; najdete ho u každého běhu CI jako artefakt `logicflow-linux-arm64-raspberry-pi`.
+Podporované jsou Raspberry Pi 4 a 5 s 64bitovým Raspberry Pi OS (Debian 13 „Trixie“). Hotový program je ke stažení na stránce Releases (viz Stažení); sestavuje se v Debianu 13, aby odpovídal knihovnám Raspberry Pi OS.
+
+### Vydání nové verze
+
+V GitHubu zvolte *Releases → Draft a new release*, zadejte nový tag (např. `v0.3.0`) a klikněte na *Publish release*. Workflow *Vydání* pak během několika minut sestaví program pro všech šest platforem a soubory sám připojí k vydání.
 
 ## Struktura projektu
 
