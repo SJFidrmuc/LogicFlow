@@ -3,6 +3,7 @@
 
 use crate::examples;
 use crate::filedialog::{self, FileDialog};
+use crate::help::{self, HelpWindow};
 use crate::i18n::{Lang, T, tr};
 use crate::panels::TruthCache;
 use crate::panes::{self, AreaBehavior, Pane, Workspace};
@@ -29,6 +30,7 @@ pub struct LogicFlowApp {
     project: Project,
     truth_cache: TruthCache,
     about_open: bool,
+    help: HelpWindow,
     file_dialog: Option<FileDialog>,
     /// Akce, která se provede po úspěšném uložení přes dialog.
     after_save: Option<Pending>,
@@ -62,6 +64,7 @@ impl LogicFlowApp {
             project,
             truth_cache: None,
             about_open: false,
+            help: HelpWindow::new(),
             file_dialog: None,
             after_save: None,
             confirm: None,
@@ -160,6 +163,9 @@ impl LogicFlowApp {
                 )
             })
         };
+        if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::F1)) {
+            self.help.open = !self.help.open;
+        }
         if save_as {
             self.save(true);
         } else if save {
@@ -282,17 +288,47 @@ impl LogicFlowApp {
                             T::Run
                         };
                         if ui
-                            .add(egui::Button::new(tr(lang, label)).shortcut_text("Space"))
+                            .add(egui::Button::new(tr(lang, label)).shortcut_text(
+                                if lang == Lang::Cs {
+                                    "mezerník"
+                                } else {
+                                    "Space"
+                                },
+                            ))
                             .clicked()
                         {
                             self.project.running = !self.project.running;
                         }
-                        let step = egui::Button::new(tr(lang, T::Step)).shortcut_text("→");
+                        let arrow = if lang == Lang::Cs {
+                            "šipka vpravo"
+                        } else {
+                            "Right arrow"
+                        };
+                        let step = egui::Button::new(tr(lang, T::Step)).shortcut_text(arrow);
                         if ui.add_enabled(!self.project.running, step).clicked() {
                             self.project.step();
                         }
+                        ui.separator();
+                        let reset =
+                            egui::Button::new(tr(lang, T::ResetSim)).shortcut_text("Ctrl+R");
+                        if ui.add(reset).clicked() {
+                            self.project.reset_simulation();
+                        }
                     });
                     ui.menu_button(tr(lang, T::MenuHelp), |ui| {
+                        if ui
+                            .add(egui::Button::new(tr(lang, T::Manual)).shortcut_text("F1"))
+                            .clicked()
+                        {
+                            self.help.show_section(0);
+                        }
+                        if ui.button(tr(lang, T::Shortcuts)).clicked() {
+                            self.help.show_section(help::SECTION_SHORTCUTS);
+                        }
+                        if ui.button(tr(lang, T::WindowsWarning)).clicked() {
+                            self.help.show_section(help::SECTION_WINDOWS);
+                        }
+                        ui.separator();
                         if ui.button(tr(lang, T::About)).clicked() {
                             self.about_open = true;
                         }
@@ -377,6 +413,7 @@ impl LogicFlowApp {
 
     fn dialogs(&mut self, ctx: &egui::Context) {
         let lang = self.lang;
+        self.help.ui(ctx, lang);
 
         if let Some(dialog) = &mut self.file_dialog {
             match dialog.show(ctx, lang) {
@@ -531,12 +568,17 @@ impl eframe::App for LogicFlowApp {
         egui::CentralPanel::no_frame()
             .frame(egui::Frame::new().fill(colors::GAP).inner_margin(3))
             .show(ui, |ui| {
+                let tree = &mut self.trees[self.workspace];
                 let mut behavior = AreaBehavior {
                     project: &mut self.project,
                     truth_cache: &mut self.truth_cache,
                     lang: self.lang,
+                    requests: Vec::new(),
+                    can_close: panes::count_panes(tree) > 1,
                 };
-                self.trees[self.workspace].ui(&mut behavior, ui);
+                tree.ui(&mut behavior, ui);
+                let requests = std::mem::take(&mut behavior.requests);
+                panes::apply_requests(tree, requests);
             });
         self.dialogs(&ctx);
         self.update_title(&ctx);

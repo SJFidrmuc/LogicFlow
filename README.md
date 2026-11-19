@@ -2,19 +2,22 @@
 
 Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástupce programu DigitalWorks: česky, s rozhraním ve stylu Blenderu, pro Windows, macOS, Linux i Raspberry Pi.
 
-![Klopný obvod RS z hradel NOR v pracovní ploše Simulace](docs/screenshots/simulace.png)
+![Čítač 0–7 z klopných obvodů T v pracovní ploše Simulace](docs/screenshots/simulace.png)
 
-> **Stav:** verze 0.1 (milník M1). Kreslení vlastních obvodů z hradel, přepínačů, tlačítek a LED, simulace v reálném čase, ukládání a otevírání souborů.
+> **Stav:** verze 0.2 (milník M2). Kreslení obvodů z hradel, klopných obvodů a generátorů hodin, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, ukládání souborů a vestavěná nápověda.
 
 ## Co umí
 
 - **Kreslení schémat** – součástky se přidávají přes Shift+A nebo z knihovny, vodiče se kreslí tažením z vývodu. Vodiče se při přesunu součástky samy přepojí.
-- **Součástky** – přepínač, tlačítko, konstanty 0 a 1, hradla BUF, NOT, AND, OR, NAND, NOR, XOR, XNOR (2–8 vstupů), LED. Značky podle ČSN EN 60617.
+- **Součástky** – přepínač, tlačítko, konstanty 0 a 1, generátor hodin (0,2–10 Hz), hradla BUF, NOT, AND, OR, NAND, NOR, XOR, XNOR (2–8 vstupů), LED. Značky podle ČSN EN 60617.
+- **Klopné obvody** RS, D řízený úrovní, D, JK a T řízené náběžnou nebo sestupnou hranou, s výstupy Q a Q̄ a volitelným počátečním stavem.
 - **Událostní simulace** se zpožděním hradel a hodnotami 0, 1, X (neurčitá, kolize) a Z (nepřipojeno). Simulátor pozná kmitající obvod a obvody s pamětí (klopný obvod z hradel) si pamatují stav i po úpravě schématu.
 - **Krokování** – při pozastavené simulaci (mezerník) se šipkou vpravo provádí jeden takt; je vidět, jak signál prochází hradly.
 - **Časový diagram** vstupů a výstupů a **pravdivostní tabulka** spočítaná simulací všech kombinací vstupů.
-- **Soubory** `.logicflow` (čitelný JSON), vlastní prohlížeč souborů, Zpět/Znovu, vestavěné příklady.
-- Okno rozdělené na **oblasti** a **pracovní plochy** (Návrh, Simulace, Analýza, Paměť) jako v Blenderu. Čeština a angličtina.
+- **Soubory** `.logicflow` (čitelný JSON), vlastní prohlížeč souborů, Zpět/Znovu, vestavěné příklady (hradla, poloviční sčítačka, klopný obvod RS z hradel, klopný obvod D s hodinami, čítač 0–7, posuvný registr).
+- Okno rozdělené na **oblasti** a **pracovní plochy** (Návrh, Simulace, Analýza, Paměť) jako v Blenderu. Oblasti jde rozdělovat a zavírat (nabídka **Oblast** v záhlaví nebo pravé tlačítko na záhlaví) a v každé zvolit typ editoru.
+- **Nápověda** v aplikaci (F1 nebo nabídka Nápověda) – postup pro první obvod, popis ovládání, součástek, simulace a klávesových zkratek. Nápovědu jde zobrazit i jako oblast vedle schématu.
+- Čeština a angličtina.
 
 | Návrh | Analýza |
 | --- | --- |
@@ -24,6 +27,7 @@ Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástup
 
 | Klávesa / myš | Akce |
 | --- | --- |
+| F1 | nápověda |
 | Shift+A | nabídka Přidat součástku |
 | tažení z vývodu (Ctrl+tažení odkudkoli) | nakreslit vodič |
 | klik na přepínač / držení tlačítka | změna vstupu |
@@ -35,16 +39,26 @@ Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástup
 | A / Alt+A | vybrat vše / zrušit výběr |
 | kolečko, prostřední tlačítko, Home | zoom, posun, celé schéma |
 | mezerník, šipka vpravo | spustit/pozastavit simulaci, jeden takt |
+| Ctrl+R | restartovat simulaci (klopné obvody do počátečního stavu) |
 | Ctrl+Z, Ctrl+Shift+Z | zpět, znovu |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S | nový, otevřít, uložit, uložit jako |
 | Ctrl+PageUp / PageDown | předchozí / další pracovní plocha |
+
+## Windows hlásí „nebezpečnou“ aplikaci
+
+Program zatím není digitálně podepsaný, proto ho Windows SmartScreen po stažení označí jako nerozpoznanou aplikaci. Zdrojový kód je veřejný a soubory sestavuje automaticky GitHub.
+
+1. V okně *Systém Windows ochránil váš počítač* klikněte na **Další informace** a pak na **Přesto spustit**.
+2. Aby se upozornění neopakovalo: před rozbalením klikněte na stažený ZIP pravým tlačítkem → **Vlastnosti** → zaškrtněte **Odblokovat** → OK.
+
+Ve škole může program povolit správce sítě pro všechny počítače najednou. Podepsaná verze (SignPath Foundation nebo Microsoft Store) je v plánu.
 
 ## Plán
 
 | Verze | Obsah | Termín (orientačně) |
 | --- | --- | --- |
 | ~~0.1~~ | kreslení schémat, hradla, přepínače, LED, ukládání | hotovo |
-| 0.2 | klopné obvody, generátor hodin – pilot ve třídě | 04/2027 |
+| ~~0.2~~ | klopné obvody, generátor hodin, nápověda – připraveno na pilot ve třídě | hotovo |
 | 0.3 | podobvody, čítače, registry, MUX, dekodéry, sedmisegmentovka | 05/2027 |
 | 0.4 | paměti ROM, RAM, EEPROM, hex editor | 06/2027 |
 | 0.5 | export do VHDL | 07–08/2027 |

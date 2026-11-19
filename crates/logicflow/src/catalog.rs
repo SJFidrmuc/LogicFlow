@@ -1,7 +1,7 @@
 //! Nabídka součástek pro Shift+A a knihovnu.
 
 use crate::i18n::{Lang, T, tr};
-use logicflow_core::{ComponentKind, GateKind};
+use logicflow_core::{ComponentKind, FlipFlopKind, GateKind};
 
 pub struct Category {
     pub title: T,
@@ -26,6 +26,7 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
                     tr(lang, T::ConstOne).to_owned(),
                     ComponentKind::Constant { value: true },
                 ),
+                (tr(lang, T::Clock).to_owned(), ComponentKind::DEFAULT_CLOCK),
             ],
         },
         Category {
@@ -41,6 +42,13 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
                 .collect(),
         },
         Category {
+            title: T::CatFlipFlops,
+            items: FlipFlopKind::ALL
+                .iter()
+                .map(|f| (ff_name(*f, lang), ComponentKind::flip_flop(*f)))
+                .collect(),
+        },
+        Category {
             title: T::CatOutputs,
             items: vec![(tr(lang, T::Led).to_owned(), ComponentKind::Led)],
         },
@@ -48,14 +56,9 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
 }
 
 /// Součástky, které přibudou v dalších verzích (jen pro zobrazení v knihovně).
-pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 4] {
+pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 3] {
     [
         (T::CatOutputs, &["Sedmisegmentovka", "Hex displej"], "0.3"),
-        (
-            T::CatFlipFlops,
-            &["RS", "D", "JK", "T", "Generátor hodin"],
-            "0.2",
-        ),
         (T::CatMemory, &["ROM", "RAM", "EEPROM"], "0.4"),
         (
             T::Cat74xx,
@@ -75,5 +78,17 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
             tr(lang, if *value { T::ConstOne } else { T::ConstZero }).to_owned()
         }
         ComponentKind::Led => tr(lang, T::Led).to_owned(),
+        ComponentKind::FlipFlop { ff, .. } => {
+            format!("{} {}", tr(lang, T::FlipFlop), ff_name(*ff, lang))
+        }
+        ComponentKind::Clock { .. } => tr(lang, T::Clock).to_owned(),
+    }
+}
+
+/// Název druhu klopného obvodu.
+pub fn ff_name(ff: FlipFlopKind, lang: Lang) -> String {
+    match ff {
+        FlipFlopKind::DLatch => format!("D ({})", tr(lang, T::LevelShort)),
+        other => other.name().to_owned(),
     }
 }

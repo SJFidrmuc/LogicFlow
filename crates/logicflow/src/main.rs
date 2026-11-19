@@ -7,6 +7,7 @@ mod app;
 mod catalog;
 mod examples;
 mod filedialog;
+mod help;
 mod i18n;
 mod panels;
 mod panes;

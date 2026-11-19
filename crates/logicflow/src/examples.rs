@@ -1,13 +1,13 @@
 //! Vestavěné příklady.
 
-use logicflow_core::{Circuit, ComponentKind, GateKind, Point};
+use logicflow_core::{Circuit, CompId, ComponentKind, FlipFlopKind, GateKind, Point, Rotation};
 
 pub struct Example {
     pub name: &'static str,
     pub build: fn() -> Circuit,
 }
 
-pub const ALL: [Example; 3] = [
+pub const ALL: [Example; 6] = [
     Example {
         name: "Hradla AND a OR",
         build: and_or,
@@ -19,6 +19,18 @@ pub const ALL: [Example; 3] = [
     Example {
         name: "Klopný obvod RS z hradel NOR",
         build: sr_latch,
+    },
+    Example {
+        name: "Klopný obvod D s hodinami",
+        build: d_flip_flop,
+    },
+    Example {
+        name: "Čítač 0–7 z klopných obvodů T",
+        build: counter,
+    },
+    Example {
+        name: "Posuvný registr 4 bity",
+        build: shift_register,
     },
 ];
 
@@ -32,7 +44,13 @@ fn wire_path(c: &mut Circuit, points: &[(i32, i32)]) {
     }
 }
 
-fn label(c: &mut Circuit, id: logicflow_core::CompId, text: &str) {
+fn rotate(c: &mut Circuit, id: CompId, r: Rotation) {
+    if let Some(k) = c.component_mut(id) {
+        k.rotation = r;
+    }
+}
+
+fn label(c: &mut Circuit, id: CompId, text: &str) {
     if let Some(k) = c.component_mut(id) {
         k.label = text.to_owned();
     }
@@ -92,6 +110,84 @@ fn sr_latch() -> Circuit {
     c
 }
 
+fn d_flip_flop() -> Circuit {
+    let mut c = Circuit::default();
+    let d = c.add_component(ComponentKind::Switch { on: true }, p(0, -1));
+    label(&mut c, d, "D");
+    c.add_component(ComponentKind::Clock { period_ms: 2000 }, p(0, 5));
+    c.add_component(ComponentKind::flip_flop(FlipFlopKind::D), p(12, 0));
+    let q = c.add_component(ComponentKind::Led, p(20, -1));
+    let qn = c.add_component(ComponentKind::Led, p(20, 3));
+    label(&mut c, q, "Q");
+    label(&mut c, qn, "Qn");
+    wire_path(&mut c, &[(2, -1), (9, -1)]);
+    wire_path(&mut c, &[(3, 5), (6, 5), (6, 1), (9, 1)]);
+    wire_path(&mut c, &[(15, -1), (18, -1)]);
+    wire_path(&mut c, &[(15, 1), (16, 1), (16, 3), (18, 3)]);
+    c
+}
+
+/// LED nad vodičem: vstup míří dolů na bod (x, y + 2).
+fn led_above(c: &mut Circuit, x: i32, y: i32, text: &str) {
+    let id = c.add_component(ComponentKind::Led, p(x, y));
+    rotate(c, id, Rotation::R270);
+    label(c, id, text);
+}
+
+/// Asynchronní čítač nahoru: každý další stupeň je hodinován výstupem Q̄ předchozího.
+pub fn counter() -> Circuit {
+    let mut c = Circuit::default();
+    c.add_component(ComponentKind::Clock { period_ms: 500 }, p(0, 5));
+    c.add_component(ComponentKind::Constant { value: true }, p(0, -5));
+    for k in 0..3 {
+        c.add_component(ComponentKind::flip_flop(FlipFlopKind::T), p(12 + 12 * k, 0));
+    }
+    // hodiny → C prvního stupně
+    wire_path(&mut c, &[(3, 5), (6, 5), (6, 1), (9, 1)]);
+    // konstanta 1 → všechny vstupy T
+    wire_path(&mut c, &[(2, -5), (31, -5)]);
+    for k in 0..3 {
+        let x = 7 + 12 * k;
+        wire_path(&mut c, &[(x, -5), (x, -1), (x + 2, -1)]);
+    }
+    // Q̄ → C dalšího stupně
+    wire_path(&mut c, &[(15, 1), (21, 1)]);
+    wire_path(&mut c, &[(27, 1), (33, 1)]);
+    // výstupy Q do LED
+    for k in 0..3 {
+        let x = 15 + 12 * k;
+        wire_path(&mut c, &[(x, -1), (x + 1, -1), (x + 1, -10)]);
+        led_above(&mut c, x + 1, -12, &format!("Q{k}"));
+    }
+    c
+}
+
+pub fn shift_register() -> Circuit {
+    let mut c = Circuit::default();
+    let d = c.add_component(ComponentKind::Switch { on: true }, p(0, -1));
+    label(&mut c, d, "D");
+    c.add_component(ComponentKind::Clock { period_ms: 1000 }, p(0, 6));
+    for k in 0..4 {
+        c.add_component(ComponentKind::flip_flop(FlipFlopKind::D), p(12 + 12 * k, 0));
+    }
+    wire_path(&mut c, &[(2, -1), (9, -1)]);
+    // hodinová sběrnice a přípojky k vstupům C
+    wire_path(&mut c, &[(3, 6), (43, 6)]);
+    for k in 0..4 {
+        let x = 7 + 12 * k;
+        wire_path(&mut c, &[(x, 6), (x, 1), (x + 2, 1)]);
+    }
+    // Q → D dalšího stupně, odbočka do LED
+    for k in 0..4 {
+        let x = 15 + 12 * k;
+        let end = if k < 3 { x + 6 } else { x + 2 };
+        wire_path(&mut c, &[(x, -1), (end, -1)]);
+        wire_path(&mut c, &[(x + 2, -1), (x + 2, -8)]);
+        led_above(&mut c, x + 2, -10, &format!("Q{k}"));
+    }
+    c
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,6 +210,71 @@ mod tests {
         assert_eq!(leds(&half_adder()), [LogicValue::One, LogicValue::Zero]);
         // RS bez nastavení: neurčitý stav.
         assert_eq!(leds(&sr_latch()), [LogicValue::X, LogicValue::X]);
+    }
+
+    /// Hodnota čítače z LED Q0..Q2.
+    fn count(p: &crate::project::Project) -> u32 {
+        (0..3)
+            .map(|k| {
+                let id = p
+                    .circuit
+                    .components
+                    .iter()
+                    .find(|c| c.label == format!("Q{k}"))
+                    .unwrap()
+                    .id;
+                u32::from(p.signal_value(id) == LogicValue::One) << k
+            })
+            .sum()
+    }
+
+    #[test]
+    fn counter_counts_up() {
+        let mut p = crate::project::Project::new(counter());
+        // Hodiny 2 Hz: náběžná hrana v čase 0,25; 0,75; 1,25; …
+        let mut seen = Vec::new();
+        for _ in 0..9 {
+            p.update(0.5);
+            seen.push(count(&p));
+        }
+        assert_eq!(seen, [1, 2, 3, 4, 5, 6, 7, 0, 1]);
+    }
+
+    #[test]
+    fn shift_register_shifts() {
+        let mut p = crate::project::Project::new(shift_register());
+        let q = |p: &crate::project::Project, k: usize| {
+            let id = p
+                .circuit
+                .components
+                .iter()
+                .find(|c| c.label == format!("Q{k}"))
+                .unwrap()
+                .id;
+            p.signal_value(id)
+        };
+        // Hodiny 1 Hz: náběžné hrany v 0,5 s, 1,5 s, …
+        p.update(0.75);
+        assert_eq!(q(&p, 0), LogicValue::One);
+        assert_eq!(q(&p, 1), LogicValue::Zero);
+        p.update(1.0);
+        p.update(1.0);
+        assert_eq!(q(&p, 2), LogicValue::One);
+        assert_eq!(q(&p, 3), LogicValue::Zero);
+    }
+
+    #[test]
+    fn d_example_builds() {
+        let mut p = crate::project::Project::new(d_flip_flop());
+        p.update(1.5);
+        let qid = p
+            .circuit
+            .components
+            .iter()
+            .find(|c| c.label == "Q")
+            .unwrap()
+            .id;
+        assert_eq!(p.signal_value(qid), LogicValue::One);
     }
 
     #[test]

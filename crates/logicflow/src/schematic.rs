@@ -536,7 +536,7 @@ impl SchematicView {
         for comp in &c.components {
             let values = Values {
                 inputs: project.sim.inputs(comp.id),
-                output: project.sim.output_net_value(comp.id),
+                outputs: project.sim.output_net_values(comp.id),
             };
             let look = Look {
                 selected: project.selection.comps.contains(&comp.id),
@@ -572,7 +572,7 @@ impl SchematicView {
                     };
                     let values = Values {
                         inputs: vec![],
-                        output: None,
+                        outputs: vec![],
                     };
                     let look = Look {
                         ghost: true,
@@ -622,18 +622,17 @@ impl SchematicView {
                 egui::Frame::menu(ui.style()).show(ui, |ui| {
                     ui.set_min_width(170.0);
                     ui.label(egui::RichText::new(tr(lang, T::Add)).strong());
+                    ui.separator();
+                    // Kategorie jako podnabídky (jako Shift+A v Blenderu).
                     for cat in catalog::catalog(lang) {
-                        ui.separator();
-                        ui.label(
-                            egui::RichText::new(tr(lang, cat.title))
-                                .small()
-                                .color(colors::TEXT_WEAK),
-                        );
-                        for (name, kind) in cat.items {
-                            if ui.add(egui::Button::new(name).frame(false)).clicked() {
-                                chosen = Some(kind);
+                        ui.menu_button(tr(lang, cat.title), |ui| {
+                            for (name, kind) in cat.items {
+                                if ui.button(name).clicked() {
+                                    chosen = Some(kind);
+                                    ui.close();
+                                }
                             }
-                        }
+                        });
                     }
                 });
             });

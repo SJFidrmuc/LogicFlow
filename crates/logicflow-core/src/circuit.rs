@@ -86,6 +86,71 @@ pub enum ComponentKind {
     Constant { value: bool },
     /// Svítivá dioda.
     Led,
+    /// Klopný obvod s výstupy Q a Q̄. `initial` je stav Q po spuštění simulace.
+    FlipFlop {
+        ff: FlipFlopKind,
+        /// Spouštění sestupnou hranou (jinak náběžnou). Jen u obvodů řízených hranou.
+        #[serde(default)]
+        falling: bool,
+        #[serde(default)]
+        initial: bool,
+    },
+    /// Generátor hodinového signálu s periodou v milisekundách.
+    Clock { period_ms: u32 },
+}
+
+/// Druh klopného obvodu.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FlipFlopKind {
+    /// Asynchronní RS (vstupy S, R).
+    Rs,
+    /// D řízený úrovní (vstupy D, C) – „průhledný“, dokud je C = 1.
+    DLatch,
+    /// D řízený hranou (vstupy D, C).
+    D,
+    /// JK řízený hranou (vstupy J, C, K).
+    Jk,
+    /// T řízený hranou (vstupy T, C).
+    T,
+}
+
+impl FlipFlopKind {
+    pub const ALL: [Self; 5] = [Self::Rs, Self::DLatch, Self::D, Self::Jk, Self::T];
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Rs => "RS",
+            Self::DLatch => "D (úroveň)",
+            Self::D => "D",
+            Self::Jk => "JK",
+            Self::T => "T",
+        }
+    }
+
+    /// Názvy vstupů shora dolů.
+    pub const fn input_names(self) -> &'static [&'static str] {
+        match self {
+            Self::Rs => &["S", "R"],
+            Self::DLatch | Self::D => &["D", "C"],
+            Self::Jk => &["J", "C", "K"],
+            Self::T => &["T", "C"],
+        }
+    }
+
+    /// Index hodinového (řídicího) vstupu.
+    pub const fn clock_input(self) -> Option<usize> {
+        match self {
+            Self::Rs => None,
+            Self::DLatch | Self::D | Self::T => Some(1),
+            Self::Jk => Some(1),
+        }
+    }
+
+    /// Řízený hranou hodinového signálu?
+    pub const fn is_edge_triggered(self) -> bool {
+        matches!(self, Self::D | Self::Jk | Self::T)
+    }
 }
 
 impl ComponentKind {
@@ -97,16 +162,31 @@ impl ComponentKind {
         Self::Gate { gate, inputs }
     }
 
-    pub fn input_count(&self) -> usize {
-        match self {
-            Self::Gate { inputs, .. } => *inputs as usize,
-            Self::Led => 1,
-            Self::Switch { .. } | Self::Button | Self::Constant { .. } => 0,
+    pub fn flip_flop(ff: FlipFlopKind) -> Self {
+        Self::FlipFlop {
+            ff,
+            falling: false,
+            initial: false,
         }
     }
 
+    pub const DEFAULT_CLOCK: Self = Self::Clock { period_ms: 1000 };
+
+    pub fn input_count(&self) -> usize {
+        self.pins_local().0.len()
+    }
+
+    pub fn output_count(&self) -> usize {
+        self.pins_local().1.len()
+    }
+
     pub fn has_output(&self) -> bool {
-        !matches!(self, Self::Led)
+        self.output_count() > 0
+    }
+
+    /// Obsahuje součástka paměť (stav)?
+    pub fn is_sequential(&self) -> bool {
+        matches!(self, Self::FlipFlop { .. })
     }
 
     /// Je to vstup obvodu (zdroj signálu ovládaný uživatelem)?
@@ -121,6 +201,8 @@ impl ComponentKind {
             Self::Switch { .. } | Self::Button => "",
             Self::Constant { .. } => "K",
             Self::Led => "Y",
+            Self::FlipFlop { .. } => "KO",
+            Self::Clock { .. } => "CLK",
         }
     }
 
@@ -138,25 +220,37 @@ impl ComponentKind {
             Self::Switch { .. } | Self::Button => (-1.2, -0.8, 1.2, 0.8),
             Self::Constant { .. } => (-0.8, -0.8, 0.8, 0.8),
             Self::Led => (-0.9, -0.9, 0.9, 0.9),
+            Self::FlipFlop {
+                ff: FlipFlopKind::Jk,
+                ..
+            } => (-2.0, -3.5, 2.0, 3.5),
+            Self::FlipFlop { .. } => (-2.0, -2.5, 2.0, 2.5),
+            Self::Clock { .. } => (-1.4, -1.0, 1.4, 1.0),
         }
     }
 
-    /// Vývody v místních souřadnicích: (vstupy, výstup).
+    /// Vývody v místních souřadnicích: (vstupy, výstupy).
     pub fn pins_local(&self) -> LocalPins {
         match self {
             Self::Gate { inputs, .. } => {
                 let n = *inputs as i32;
                 let ins = (0..n).map(|i| (-3, -(n - 1) + 2 * i)).collect();
-                (ins, Some((3, 0)))
+                (ins, vec![(3, 0)])
             }
-            Self::Switch { .. } | Self::Button | Self::Constant { .. } => (vec![], Some((2, 0))),
-            Self::Led => (vec![(-2, 0)], None),
+            Self::Switch { .. } | Self::Button | Self::Constant { .. } => (vec![], vec![(2, 0)]),
+            Self::Led => (vec![(-2, 0)], vec![]),
+            Self::FlipFlop {
+                ff: FlipFlopKind::Jk,
+                ..
+            } => (vec![(-3, -2), (-3, 0), (-3, 2)], vec![(3, -2), (3, 2)]),
+            Self::FlipFlop { .. } => (vec![(-3, -1), (-3, 1)], vec![(3, -1), (3, 1)]),
+            Self::Clock { .. } => (vec![], vec![(3, 0)]),
         }
     }
 }
 
-/// Místní souřadnice vývodů: (vstupy, výstup).
-pub type LocalPins = (Vec<(i32, i32)>, Option<(i32, i32)>);
+/// Místní souřadnice vývodů: (vstupy, výstupy).
+pub type LocalPins = (Vec<(i32, i32)>, Vec<(i32, i32)>);
 
 /// Identifikátor součástky (stabilní v rámci souboru).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -195,14 +289,24 @@ impl Component {
             .collect()
     }
 
-    pub fn output_pin(&self) -> Option<Point> {
-        self.kind.pins_local().1.map(|p| self.to_world(p))
+    pub fn output_pins(&self) -> Vec<Point> {
+        self.kind
+            .pins_local()
+            .1
+            .into_iter()
+            .map(|p| self.to_world(p))
+            .collect()
     }
 
-    /// Všechny vývody (vstupy, pak výstup).
+    /// První (hlavní) výstup.
+    pub fn output_pin(&self) -> Option<Point> {
+        self.output_pins().first().copied()
+    }
+
+    /// Všechny vývody (vstupy, pak výstupy).
     pub fn pins(&self) -> Vec<Point> {
         let mut v = self.input_pins();
-        v.extend(self.output_pin());
+        v.extend(self.output_pins());
         v
     }
 
@@ -226,6 +330,8 @@ impl Component {
             ComponentKind::Switch { on } => Some(on.into()),
             ComponentKind::Button => Some(self.pressed.into()),
             ComponentKind::Constant { value } => Some(value.into()),
+            // Hodiny řídí aplikace podle času; na začátku dávají 0.
+            ComponentKind::Clock { .. } => Some(LogicValue::Zero),
             _ => None,
         }
     }
@@ -317,6 +423,9 @@ impl Circuit {
         }
         if matches!(kind, ComponentKind::Gate { .. }) {
             return String::new();
+        }
+        if matches!(kind, ComponentKind::Clock { .. }) && !taken("CLK") {
+            return "CLK".to_owned();
         }
         let prefix = if kind.is_input() {
             "X"
@@ -478,7 +587,7 @@ impl Circuit {
                 let id = self.add_component(k.kind, k.pos.offset(2, 2));
                 let copy = self.component_mut(id).expect("právě přidáno");
                 copy.rotation = k.rotation;
-                if !k.kind.is_input() && !matches!(k.kind, ComponentKind::Led) {
+                if matches!(k.kind, ComponentKind::Gate { .. }) {
                     copy.label = k.label;
                 }
                 id
