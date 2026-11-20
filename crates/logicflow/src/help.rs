@@ -297,7 +297,7 @@ const CS: &[Section] = &[
         blocks: &[List(&[
             "Ctrl+S uloží obvod, Ctrl+Shift+S uloží pod jiným názvem, Ctrl+O otevře, Ctrl+N vytvoří nový.",
             "Obvody se ukládají do souborů .logicflow i se všemi podobvody. Je to čitelný text (JSON), takže se dá odevzdat, poslat e-mailem nebo uložit do Gitu.",
-            "Okno pro výběr souboru má tlačítka pro domovskou složku a Dokumenty; do řádku s cestou jde napsat libovolnou složku.",
+            "Okno pro výběr souboru má tlačítka pro domovskou složku a Dokumenty; do řádku s cestou jde napsat libovolnou složku. Tlačítko + Nová složka založí podsložku (třeba pro třídu nebo úlohu) a rovnou do ní přejde.",
             "Před zavřením nebo otevřením jiného obvodu se aplikace zeptá na neuložené změny.",
             "Soubor jde otevřít i z příkazové řádky: logicflow obvod.logicflow",
         ])],
@@ -611,7 +611,7 @@ const EN: &[Section] = &[
         blocks: &[List(&[
             "Ctrl+S saves, Ctrl+Shift+S saves under a new name, Ctrl+O opens, Ctrl+N creates a new circuit.",
             "Circuits are stored in .logicflow files. They are readable text (JSON), easy to hand in, e-mail or keep in Git.",
-            "The file browser has buttons for the home folder and Documents; you can type any folder into the path line.",
+            "The file browser has buttons for the home folder and Documents; you can type any folder into the path line. The + New folder button creates a subfolder and opens it.",
             "Before closing or opening another circuit the app asks about unsaved changes.",
             "A file can also be opened from the command line: logicflow circuit.logicflow",
         ])],
