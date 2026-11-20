@@ -5,7 +5,7 @@
 //! leží uprostřed jiného vodiče, se s ním také propojí (odbočka „T“).
 //! Vodiče, které se jen kříží, propojené nejsou.
 
-use crate::{GateKind, LogicValue};
+use crate::{BlockKind, GateKind, LogicValue};
 use serde::{Deserialize, Serialize};
 
 /// Bod mřížky.
@@ -97,6 +97,12 @@ pub enum ComponentKind {
     },
     /// Generátor hodinového signálu s periodou v milisekundách.
     Clock { period_ms: u32 },
+    /// Funkční blok (multiplexor, dekodér, čítač, …).
+    Block { block: BlockKind },
+    /// Sedmisegmentový zobrazovač se vstupy a–g a desetinnou tečkou.
+    SevenSegment,
+    /// Hexadecimální zobrazovač se 4bitovým vstupem.
+    HexDisplay,
 }
 
 /// Druh klopného obvodu.
@@ -186,7 +192,16 @@ impl ComponentKind {
 
     /// Obsahuje součástka paměť (stav)?
     pub fn is_sequential(&self) -> bool {
-        matches!(self, Self::FlipFlop { .. })
+        match self {
+            Self::FlipFlop { .. } => true,
+            Self::Block { block } => block.is_sequential(),
+            _ => false,
+        }
+    }
+
+    /// Je to výstup obvodu (zobrazovací prvek)?
+    pub fn is_display(&self) -> bool {
+        matches!(self, Self::Led | Self::SevenSegment | Self::HexDisplay)
     }
 
     /// Je to vstup obvodu (zdroj signálu ovládaný uživatelem)?
@@ -200,7 +215,8 @@ impl ComponentKind {
             Self::Gate { .. } => "G",
             Self::Switch { .. } | Self::Button => "",
             Self::Constant { .. } => "K",
-            Self::Led => "Y",
+            Self::Led | Self::SevenSegment | Self::HexDisplay => "Y",
+            Self::Block { .. } => "IO",
             Self::FlipFlop { .. } => "KO",
             Self::Clock { .. } => "CLK",
         }
@@ -226,6 +242,9 @@ impl ComponentKind {
             } => (-2.0, -3.5, 2.0, 3.5),
             Self::FlipFlop { .. } => (-2.0, -2.5, 2.0, 2.5),
             Self::Clock { .. } => (-1.4, -1.0, 1.4, 1.0),
+            Self::Block { block } => block.body_local(),
+            Self::SevenSegment => (-3.0, -8.0, 3.0, 8.0),
+            Self::HexDisplay => (-3.0, -4.0, 3.0, 4.0),
         }
     }
 
@@ -245,6 +264,9 @@ impl ComponentKind {
             } => (vec![(-3, -2), (-3, 0), (-3, 2)], vec![(3, -2), (3, 2)]),
             Self::FlipFlop { .. } => (vec![(-3, -1), (-3, 1)], vec![(3, -1), (3, 1)]),
             Self::Clock { .. } => (vec![], vec![(3, 0)]),
+            Self::Block { block } => block.pins_local(),
+            Self::SevenSegment => ((0..8).map(|i| (-4, -7 + 2 * i)).collect(), vec![]),
+            Self::HexDisplay => ((0..4).map(|i| (-4, -3 + 2 * i)).collect(), vec![]),
         }
     }
 }

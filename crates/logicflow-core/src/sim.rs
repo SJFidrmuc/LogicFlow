@@ -150,6 +150,8 @@ pub struct Simulator {
     /// Vnitřní stav klopných obvodů (Q) a poslední hodnota hodinového vstupu.
     ff_q: Vec<LogicValue>,
     ff_clock: Vec<LogicValue>,
+    /// Vnitřní stav sekvenčních funkčních bloků (bity čítače, registru…).
+    reg: Vec<Vec<LogicValue>>,
     queue: BinaryHeap<Event>,
     seq: u64,
     time: u64,
@@ -208,6 +210,17 @@ impl Simulator {
                     .unwrap_or(LogicValue::X)
             })
             .collect();
+        let reg = circuit
+            .components
+            .iter()
+            .map(|c| match c.kind {
+                ComponentKind::Block { block } if block.is_sequential() => previous
+                    .and_then(|p| p.block_state(c.id))
+                    .filter(|s| s.len() == block.state_bits())
+                    .unwrap_or_else(|| vec![LogicValue::Zero; block.state_bits()]),
+                _ => Vec::new(),
+            })
+            .collect();
         let total_outputs = out_owner.len();
         let mut sim = Self {
             index: ids.iter().enumerate().map(|(i, id)| (*id, i)).collect(),
@@ -227,6 +240,7 @@ impl Simulator {
             net_values: vec![LogicValue::Z; netlist.net_count],
             ff_q,
             ff_clock,
+            reg,
             netlist,
             queue: BinaryHeap::new(),
             seq: 0,
@@ -248,7 +262,12 @@ impl Simulator {
             sim.net_values[net] = sim.resolve_net(net);
         }
         for i in 0..n {
-            if sim.kinds[i].is_sequential() {
+            if let ComponentKind::Block { block } = sim.kinds[i]
+                && block.is_sequential()
+            {
+                let out = block.outputs_from_state(&sim.reg[i]);
+                sim.schedule(i, out);
+            } else if sim.kinds[i].is_sequential() {
                 // Klopné obvody jen vystaví uložený stav; jejich vstupy se teprve ustalují.
                 let q = sim.ff_q[i];
                 sim.schedule(i, vec![q, q.not()]);
@@ -261,7 +280,9 @@ impl Simulator {
 
     fn delay(&self, i: usize) -> u64 {
         match self.kinds[i] {
-            ComponentKind::Gate { .. } | ComponentKind::FlipFlop { .. } => GATE_DELAY,
+            ComponentKind::Gate { .. }
+            | ComponentKind::FlipFlop { .. }
+            | ComponentKind::Block { .. } => GATE_DELAY,
             _ => 0,
         }
     }
@@ -341,7 +362,17 @@ impl Simulator {
     fn evaluate(&mut self, i: usize) {
         let new: Vec<LogicValue> = match self.kinds[i] {
             ComponentKind::Gate { gate, .. } => vec![gate.eval(&self.input_values(i))],
-            ComponentKind::Led => return,
+            ComponentKind::Led | ComponentKind::SevenSegment | ComponentKind::HexDisplay => {
+                return;
+            }
+            ComponentKind::Block { block } if block.is_sequential() => {
+                let ins = self.input_values(i);
+                let mut state = std::mem::take(&mut self.reg[i]);
+                let out = block.step(&ins, &mut state, &mut self.ff_clock[i]);
+                self.reg[i] = state;
+                out
+            }
+            ComponentKind::Block { block } => block.eval(&self.input_values(i)),
             ComponentKind::FlipFlop { ff, falling, .. } => {
                 let q = self.step_flip_flop(i, ff, falling);
                 vec![q, q.not()]
@@ -499,6 +530,15 @@ impl Simulator {
         self.kinds[i].is_sequential().then(|| self.ff_q[i])
     }
 
+    /// Vnitřní stav sekvenčního funkčního bloku (bity od nejnižšího).
+    pub fn block_state(&self, id: CompId) -> Option<Vec<LogicValue>> {
+        let &i = self.index.get(&id)?;
+        match self.kinds[i] {
+            ComponentKind::Block { block } if block.is_sequential() => Some(self.reg[i].clone()),
+            _ => None,
+        }
+    }
+
     pub fn component_ids(&self) -> &[CompId] {
         &self.ids
     }
@@ -527,6 +567,37 @@ mod tests {
 
     fn led(sim: &Simulator, id: CompId) -> LogicValue {
         sim.inputs(id)[0]
+    }
+
+    #[test]
+    fn counter_block_counts_switch_edges() {
+        let mut c = Circuit::default();
+        let sw = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 1));
+        let block = crate::BlockKind::Counter {
+            bits: 4,
+            down: false,
+        };
+        let ctr = c.add_component(ComponentKind::Block { block }, Point::new(10, 0));
+        let clk = c.component(ctr).unwrap().input_pins()[2];
+        assert_eq!(clk, Point::new(6, 1));
+        c.add_wire(Point::new(2, 1), clk);
+        let mut sim = Simulator::new(&c, None);
+        sim.run(1000);
+        for k in 1..=5u32 {
+            sim.set_source(sw, One);
+            sim.run(1000);
+            sim.set_source(sw, Zero);
+            sim.run(1000);
+            let st = sim.block_state(ctr).unwrap();
+            assert_eq!(crate::block::number(&st), Some(k));
+            assert_eq!(sim.outputs(ctr)[..4], st[..]);
+        }
+        // Stav přežije přestavbu simulátoru.
+        let again = Simulator::new(&c, Some(&sim));
+        assert_eq!(
+            crate::block::number(&again.block_state(ctr).unwrap()),
+            Some(5)
+        );
     }
 
     #[test]

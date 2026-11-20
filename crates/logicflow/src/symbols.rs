@@ -2,7 +2,8 @@
 
 use crate::theme::{colors, signal_color};
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Vec2, pos2, vec2};
-use logicflow_core::{Component, ComponentKind, FlipFlopKind, LogicValue, Rotation};
+use logicflow_core::block::{SEVEN_SEG_HEX, number};
+use logicflow_core::{BlockKind, Component, ComponentKind, FlipFlopKind, LogicValue, Rotation};
 
 /// Velikost jedné jednotky mřížky v pixelech při zoomu 100 %.
 pub const UNIT: f32 = 16.0;
@@ -296,7 +297,203 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
             }
             draw_label(painter, cam, comp, 1.6, look);
         }
+        ComponentKind::Block { block } => draw_block(painter, cam, comp, block, outline, look),
+        ComponentKind::SevenSegment => {
+            draw_display_body(painter, cam, comp, outline, look, &SEG_NAMES);
+            let segs: Vec<LogicValue> = (0..8)
+                .map(|k| values.inputs.get(k).copied().unwrap_or(LogicValue::Z))
+                .collect();
+            draw_digit(painter, cam, comp, (0.5, 1.6, 3.4), &segs, look);
+        }
+        ComponentKind::HexDisplay => {
+            draw_display_body(painter, cam, comp, outline, look, &["D0", "D1", "D2", "D3"]);
+            let segs: Vec<LogicValue> = match number(&values.inputs) {
+                Some(n) if values.inputs.len() == 4 => (0..7)
+                    .map(|k| (SEVEN_SEG_HEX[n as usize] >> k & 1 == 1).into())
+                    .chain([LogicValue::Zero])
+                    .collect(),
+                _ => vec![LogicValue::X; 8],
+            };
+            draw_digit(painter, cam, comp, (0.7, 1.4, 2.8), &segs, look);
+        }
     }
+}
+
+const SEG_NAMES: [&str; 8] = ["a", "b", "c", "d", "e", "f", "g", "dp"];
+
+/// Barva segmentu zobrazovače podle hodnoty.
+fn segment_color(v: LogicValue) -> Color32 {
+    match v {
+        LogicValue::One => Color32::from_rgb(0xff, 0x45, 0x30),
+        LogicValue::Zero => Color32::from_rgb(0x3a, 0x1c, 0x1a),
+        LogicValue::X => Color32::from_rgb(0x5a, 0x3a, 0x3a),
+        LogicValue::Z => Color32::from_rgb(0x2a, 0x2a, 0x34),
+    }
+}
+
+/// Tmavé tělo zobrazovače s názvy vstupů a popiskem nad ním.
+fn draw_display_body(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    outline: Stroke,
+    look: Look,
+    names: &[&str],
+) {
+    let body = cam.rect(comp.body());
+    painter.rect_filled(
+        body,
+        cam.len(0.3),
+        fade(Color32::from_rgb(0x16, 0x16, 0x1a), look),
+    );
+    painter.rect_stroke(body, cam.len(0.3), outline, egui::StrokeKind::Middle);
+    let (x0, ..) = comp.kind.body_local();
+    let (ins, _) = comp.kind.pins_local();
+    for ((_, py), name) in ins.iter().zip(names) {
+        text(
+            painter,
+            cam,
+            local(comp, x0 + 0.3, *py as f32),
+            name,
+            0.7,
+            align_for(comp.rotation, 1.0),
+            fade(colors::TEXT_WEAK, look),
+        );
+    }
+    top_label(painter, cam, comp, look);
+}
+
+/// Sedmisegmentová číslice. `geom` = (střed x, poloviční šířka, poloviční výška),
+/// `segs` = hodnoty segmentů a, b, c, d, e, f, g, dp.
+fn draw_digit(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    (cx, hw, hh): (f32, f32, f32),
+    segs: &[LogicValue],
+    look: Look,
+) {
+    let t = 0.45;
+    let g = 0.06; // mezera mezi segmenty
+    let (l, r) = (cx - hw, cx + hw);
+    let rects = [
+        (l + t + g, -hh, r - t - g, -hh + t),      // a
+        (r - t, -hh + t + g, r, -t / 2.0 - g),     // b
+        (r - t, t / 2.0 + g, r, hh - t - g),       // c
+        (l + t + g, hh - t, r - t - g, hh),        // d
+        (l, t / 2.0 + g, l + t, hh - t - g),       // e
+        (l, -hh + t + g, l + t, -t / 2.0 - g),     // f
+        (l + t + g, -t / 2.0, r - t - g, t / 2.0), // g
+    ];
+    for (k, (x0, y0, x1, y1)) in rects.into_iter().enumerate() {
+        let v = segs.get(k).copied().unwrap_or(LogicValue::Z);
+        let pts = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+            .map(|(x, y)| cam.to_screen(local(comp, x, y)))
+            .to_vec();
+        painter.add(egui::Shape::convex_polygon(
+            pts,
+            fade(segment_color(v), look),
+            Stroke::NONE,
+        ));
+    }
+    let dp = segs.get(7).copied().unwrap_or(LogicValue::Z);
+    painter.circle_filled(
+        cam.to_screen(local(comp, r + 0.55, hh - 0.25)),
+        cam.len(0.28),
+        fade(segment_color(dp), look),
+    );
+}
+
+/// Popisek součástky nad tělem.
+fn top_label(painter: &Painter, cam: Camera, comp: &Component, look: Look) {
+    if comp.label.is_empty() {
+        return;
+    }
+    let (_, y0, _, _) = comp.body();
+    text(
+        painter,
+        cam,
+        pos2(comp.pos.x as f32, y0 - 0.4),
+        &comp.label,
+        0.9,
+        Align2::CENTER_BOTTOM,
+        fade(colors::TEXT_WEAK, look),
+    );
+}
+
+/// Dynamický vstup (trojúhelník u okraje těla) pro hodinový vstup na výšce `y`.
+fn clock_triangle(painter: &Painter, cam: Camera, comp: &Component, x0: f32, y: f32, ink: Color32) {
+    let tri = [
+        local(comp, x0, y - 0.45),
+        local(comp, x0 + 0.6, y),
+        local(comp, x0, y + 0.45),
+    ]
+    .map(|p| cam.to_screen(p));
+    painter.add(egui::Shape::closed_line(
+        tri.to_vec(),
+        Stroke::new(cam.line_width(), ink),
+    ));
+}
+
+/// Obdélníková značka funkčního bloku s kvalifikátorem a názvy vývodů.
+fn draw_block(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    block: BlockKind,
+    outline: Stroke,
+    look: Look,
+) {
+    let body = cam.rect(comp.body());
+    painter.rect_filled(body, cam.len(0.15), fade(colors::SYMBOL_FILL, look));
+    painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
+    let (x0, y0, x1, _) = block.body_local();
+    let (ins, outs) = block.pins_local();
+    let ink = fade(colors::TEXT, look);
+    let size = 0.75;
+    let clock = block.clock_input();
+    for (i, ((_, py), name)) in ins.iter().zip(block.input_names()).enumerate() {
+        let y = *py as f32;
+        let mut x = x0 + 0.35;
+        let mut name = name;
+        if clock == Some(i) {
+            clock_triangle(painter, cam, comp, x0, y, ink);
+            x = x0 + 0.8;
+            if let BlockKind::Counter { down, .. } = block {
+                name = if down { "-".into() } else { "+".into() };
+            }
+        }
+        text(
+            painter,
+            cam,
+            local(comp, x, y),
+            &name,
+            size,
+            align_for(comp.rotation, 1.0),
+            ink,
+        );
+    }
+    for ((_, py), name) in outs.iter().zip(block.output_names()) {
+        text(
+            painter,
+            cam,
+            local(comp, x1 - 0.35, *py as f32),
+            &name,
+            size,
+            align_for(comp.rotation, -1.0),
+            ink,
+        );
+    }
+    text(
+        painter,
+        cam,
+        local(comp, 0.0, y0 + 1.1),
+        &block.qualifier(),
+        0.95,
+        Align2::CENTER_CENTER,
+        fade(colors::TEXT_WEAK, look),
+    );
+    top_label(painter, cam, comp, look);
 }
 
 fn draw_label(painter: &Painter, cam: Camera, comp: &Component, dx: f32, look: Look) {

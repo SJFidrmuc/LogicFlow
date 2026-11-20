@@ -3,14 +3,16 @@
 //! Jádro nezávisí na grafickém rozhraní, takže jde testovat samostatně
 //! a použít i z příkazové řádky (například pro automatickou kontrolu úloh).
 //!
-//! Obsahuje logické hodnoty, hradla, model obvodu, překlad na netlist
-//! a událostní simulátor. Paměti přibudou v dalších milnících (viz plán vývoje).
+//! Obsahuje logické hodnoty, hradla, funkční bloky, model obvodu, překlad
+//! na netlist a událostní simulátor. Paměti přibudou v dalších milnících (viz plán vývoje).
 
+pub mod block;
 pub mod circuit;
 pub mod gate;
 pub mod sim;
 pub mod value;
 
+pub use block::BlockKind;
 pub use circuit::{
     Circuit, CompId, Component, ComponentKind, FlipFlopKind, Point, ProjectFile, Rotation, Wire,
     WireId,

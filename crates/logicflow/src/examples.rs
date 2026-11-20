@@ -1,13 +1,15 @@
 //! Vestavěné příklady.
 
-use logicflow_core::{Circuit, CompId, ComponentKind, FlipFlopKind, GateKind, Point, Rotation};
+use logicflow_core::{
+    BlockKind, Circuit, CompId, ComponentKind, FlipFlopKind, GateKind, Point, Rotation,
+};
 
 pub struct Example {
     pub name: &'static str,
     pub build: fn() -> Circuit,
 }
 
-pub const ALL: [Example; 6] = [
+pub const ALL: [Example; 8] = [
     Example {
         name: "Hradla AND a OR",
         build: and_or,
@@ -31,6 +33,14 @@ pub const ALL: [Example; 6] = [
     Example {
         name: "Posuvný registr 4 bity",
         build: shift_register,
+    },
+    Example {
+        name: "Multiplexor 4:1",
+        build: multiplexer,
+    },
+    Example {
+        name: "Dekadický čítač se sedmisegmentovkou",
+        build: decade_counter,
     },
 ];
 
@@ -188,6 +198,69 @@ pub fn shift_register() -> Circuit {
     c
 }
 
+/// Multiplexor 4:1 – adresa S1 S0 vybírá jeden ze vstupů D0–D3.
+pub fn multiplexer() -> Circuit {
+    let mut c = Circuit::default();
+    let names = ["S0", "S1", "D0", "D1", "D2", "D3"];
+    for (k, name) in names.iter().enumerate() {
+        let y = -5 + 2 * k as i32;
+        let sw = c.add_component(ComponentKind::Switch { on: k == 3 }, p(0, y));
+        label(&mut c, sw, name);
+        wire_path(&mut c, &[(2, y), (10, y)]);
+    }
+    c.add_component(
+        ComponentKind::Block {
+            block: BlockKind::Mux { select: 2 },
+        },
+        p(14, 0),
+    );
+    let y = c.add_component(ComponentKind::Led, p(22, -5));
+    label(&mut c, y, "Y");
+    wire_path(&mut c, &[(18, -5), (20, -5)]);
+    c
+}
+
+/// Čítač 0–9: 4bitový čítač nulovaný hradlem AND při stavu 10 (Q3 a Q1),
+/// převodník BCD na 7 segmentů a sedmisegmentovka.
+pub fn decade_counter() -> Circuit {
+    let mut c = Circuit::default();
+    c.add_component(ComponentKind::Clock { period_ms: 500 }, p(0, 1));
+    c.add_component(
+        ComponentKind::Block {
+            block: BlockKind::Counter {
+                bits: 4,
+                down: false,
+            },
+        },
+        p(12, 0),
+    );
+    // hodiny → C
+    wire_path(&mut c, &[(3, 1), (8, 1)]);
+    // Q0–Q3 → D0–D3 převodníku
+    for k in 0..4 {
+        let (y, x) = (-3 + 2 * k, 20 + k);
+        wire_path(&mut c, &[(16, y), (x, y), (x, y - 2), (26, y - 2)]);
+    }
+    c.add_component(
+        ComponentKind::Block {
+            block: BlockKind::BcdTo7Seg,
+        },
+        p(30, 0),
+    );
+    // segmenty a–g
+    for y in (-5..=7).step_by(2) {
+        wire_path(&mut c, &[(34, y), (38, y)]);
+    }
+    let disp = c.add_component(ComponentKind::SevenSegment, p(42, 2));
+    label(&mut c, disp, "Y1");
+    // Nulování při 10 (1010): AND(Q1, Q3) → R
+    c.add_component(ComponentKind::gate(GateKind::And), p(4, -8));
+    wire_path(&mut c, &[(7, -8), (7, -3), (8, -3)]);
+    wire_path(&mut c, &[(18, -1), (18, -12), (-1, -12), (-1, -9), (1, -9)]);
+    wire_path(&mut c, &[(19, 3), (19, -14), (-2, -14), (-2, -7), (1, -7)]);
+    c
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,6 +348,47 @@ mod tests {
             .unwrap()
             .id;
         assert_eq!(p.signal_value(qid), LogicValue::One);
+    }
+
+    #[test]
+    fn multiplexer_selects_d1() {
+        // S1 S0 = 01 → vybraný D1, který je jediný zapnutý.
+        let mut c = multiplexer();
+        assert_eq!(leds(&c), [LogicValue::Zero]);
+        c.components[0].kind = ComponentKind::Switch { on: true };
+        assert_eq!(leds(&c), [LogicValue::One]);
+    }
+
+    #[test]
+    fn decade_counter_counts_to_nine() {
+        let mut p = crate::project::Project::new(decade_counter());
+        let ctr = p
+            .circuit
+            .components
+            .iter()
+            .find(|c| matches!(c.kind, ComponentKind::Block { block } if block.is_sequential()))
+            .unwrap()
+            .id;
+        let disp = p
+            .circuit
+            .components
+            .iter()
+            .find(|c| c.kind == ComponentKind::SevenSegment)
+            .unwrap()
+            .id;
+        let mut seen = Vec::new();
+        for _ in 0..12 {
+            p.update(0.5);
+            let st = p.sim.block_state(ctr).unwrap();
+            seen.push(logicflow_core::block::number(&st).unwrap());
+        }
+        assert_eq!(seen, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2]);
+        // Na displeji je „2“: segmenty a, b, d, e, g.
+        let segs: Vec<bool> = p.sim.inputs(disp)[..7]
+            .iter()
+            .map(|v| *v == LogicValue::One)
+            .collect();
+        assert_eq!(segs, [true, true, false, true, true, false, true]);
     }
 
     #[test]

@@ -5,7 +5,7 @@ use crate::i18n::{Lang, T, tr};
 use crate::project::{Project, natural_cmp};
 use crate::theme::colors;
 use egui::{RichText, Ui};
-use logicflow_core::{ComponentKind, FlipFlopKind, GateKind, LogicValue};
+use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, LogicValue};
 
 fn padded(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     egui::ScrollArea::vertical()
@@ -297,25 +297,105 @@ fn component_properties(
                     }
                     ui.end_row();
                 }
-                ComponentKind::Button | ComponentKind::Led => {}
+                ComponentKind::Block { block } => {
+                    let mut new_block = block;
+                    if let Some(n) = block.param() {
+                        let (lo, hi) = block.param_range();
+                        let title =
+                            if matches!(block, BlockKind::Mux { .. } | BlockKind::Decoder { .. }) {
+                                T::SelectBits
+                            } else {
+                                T::Bits
+                            };
+                        ui.label(weak(tr(lang, title)));
+                        ui.horizontal(|ui| {
+                            let mut m = n;
+                            if ui.add_enabled(m > lo, egui::Button::new("−")).clicked() {
+                                m -= 1;
+                            }
+                            ui.label(RichText::new(m.to_string()).monospace());
+                            if ui.add_enabled(m < hi, egui::Button::new("+")).clicked() {
+                                m += 1;
+                            }
+                            new_block = block.with_param(m);
+                        });
+                        ui.end_row();
+                    }
+                    if let BlockKind::Counter { bits, down } = block {
+                        ui.label(weak(tr(lang, T::CountDirection)));
+                        let mut d = down;
+                        ui.vertical(|ui| {
+                            ui.radio_value(&mut d, false, tr(lang, T::CountUp));
+                            ui.radio_value(&mut d, true, tr(lang, T::CountDown));
+                        });
+                        if d != down {
+                            new_block = BlockKind::Counter { bits, down: d };
+                        }
+                        ui.end_row();
+                    }
+                    if let Some(st) = project.sim.block_state(id) {
+                        ui.label(weak(tr(lang, T::BlockState)));
+                        let bits: String = st.iter().rev().map(|v| v.symbol()).collect();
+                        let text = match logicflow_core::block::number(&st) {
+                            Some(n) => format!("{bits}  (= {n})"),
+                            None => bits,
+                        };
+                        ui.label(RichText::new(text).monospace());
+                        ui.end_row();
+                    }
+                    ui.label(weak(tr(lang, T::Delay)));
+                    ui.label(format!(
+                        "{} {}",
+                        logicflow_core::sim::GATE_DELAY,
+                        tr(lang, T::Ticks)
+                    ));
+                    ui.end_row();
+                    if new_block != block {
+                        project.checkpoint();
+                        if let Some(c) = project.circuit.component_mut(id) {
+                            c.kind = ComponentKind::Block { block: new_block };
+                        }
+                        structure_changed = true;
+                    }
+                }
+                ComponentKind::Button
+                | ComponentKind::Led
+                | ComponentKind::SevenSegment
+                | ComponentKind::HexDisplay => {}
             }
 
             let is_led = matches!(comp.kind, ComponentKind::Led);
+            let multi = matches!(
+                comp.kind,
+                ComponentKind::Block { .. }
+                    | ComponentKind::SevenSegment
+                    | ComponentKind::HexDisplay
+            );
             let shown = if is_led {
                 project.sim.inputs(id).first().copied()
             } else {
                 project.sim.output_net_value(id)
             };
-            if let Some(v) = shown {
+            if let Some(v) = shown.filter(|_| !multi) {
                 ui.label(weak(tr(lang, if is_led { T::Input } else { T::Output })));
                 ui.label(value_text(v));
                 ui.end_row();
             }
-            if matches!(comp.kind, ComponentKind::Gate { .. }) {
+            if matches!(comp.kind, ComponentKind::Gate { .. }) || multi {
                 let ins = project.sim.inputs(id);
                 ui.label(weak(tr(lang, T::Inputs)));
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for v in ins {
+                        ui.label(value_text(v));
+                    }
+                });
+                ui.end_row();
+            }
+            if matches!(comp.kind, ComponentKind::Block { .. }) {
+                let outs = project.sim.output_net_values(id);
+                ui.label(weak(tr(lang, T::Outputs)));
+                ui.horizontal_wrapped(|ui| {
+                    for v in outs {
                         ui.label(value_text(v));
                     }
                 });
@@ -364,6 +444,7 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                     (T::Inputs, 0),
                     (T::Gates, 1),
                     (T::CatFlipFlops, 3),
+                    (T::CatBlocks, 4),
                     (T::Outputs, 2),
                 ] {
                     let mut items: Vec<(logicflow_core::CompId, String)> = project
@@ -376,8 +457,11 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                             | ComponentKind::Constant { .. }
                             | ComponentKind::Clock { .. } => group == 0,
                             ComponentKind::Gate { .. } => group == 1,
-                            ComponentKind::Led => group == 2,
+                            ComponentKind::Led
+                            | ComponentKind::SevenSegment
+                            | ComponentKind::HexDisplay => group == 2,
                             ComponentKind::FlipFlop { .. } => group == 3,
+                            ComponentKind::Block { .. } => group == 4,
                         })
                         .map(|c| {
                             let kind = kind_name(&c.kind, lang);
