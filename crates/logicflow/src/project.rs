@@ -464,6 +464,14 @@ impl Project {
             .collect()
     }
 
+    /// Za jak dlouho (s) nastane příští hrana některého generátoru hodin.
+    pub fn time_to_next_clock_edge(&self) -> Option<f64> {
+        self.clocks()
+            .into_iter()
+            .map(|(_, half)| ((self.time / half).floor() + 1.0) * half - self.time)
+            .min_by(f64::total_cmp)
+    }
+
     /// Nastaví výstupy generátorů hodin podle aktuálního času projektu.
     fn drive_clocks(&mut self) {
         for (id, half) in self.clocks() {
@@ -693,6 +701,23 @@ mod tests {
         p.reset_simulation();
         assert_eq!(p.sim.flip_flop_state(ff), Some(Zero));
         assert_eq!(p.signals[0].label, "CLK", "hodiny jsou v diagramu první");
+    }
+
+    #[test]
+    fn next_clock_edge() {
+        let mut c = Circuit::default();
+        c.add_component(ComponentKind::Clock { period_ms: 1000 }, Point::new(0, 1));
+        c.add_component(ComponentKind::Clock { period_ms: 300 }, Point::new(0, 5));
+        let mut p = Project::new(c);
+        // Půlperiody 0,5 s a 0,15 s → nejbližší hrana v čase 0,15 s.
+        assert!((p.time_to_next_clock_edge().unwrap() - 0.15).abs() < 1e-9);
+        p.update(0.4);
+        // Další hrany v 0,45 s (rychlé hodiny) a 0,5 s → za 0,05 s.
+        assert!((p.time_to_next_clock_edge().unwrap() - 0.05).abs() < 1e-9);
+        assert_eq!(
+            Project::new(Circuit::default()).time_to_next_clock_edge(),
+            None
+        );
     }
 
     #[test]
