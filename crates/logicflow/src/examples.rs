@@ -478,6 +478,97 @@ mod tests {
         }
     }
 
+    /// Rozdělení vývodů do sítí: pro každý vývod (součástka, index) číslo
+    /// nejmenšího vývodu ve stejné síti.
+    fn partition(c: &Circuit) -> std::collections::BTreeMap<(u32, usize), (u32, usize)> {
+        let nl = logicflow_core::sim::Netlist::build(c);
+        let mut first: std::collections::HashMap<usize, (u32, usize)> = Default::default();
+        let mut out = std::collections::BTreeMap::new();
+        for (i, k) in c.components.iter().enumerate() {
+            let nets = nl.input_nets[i].iter().chain(&nl.output_nets[i]);
+            for (j, &n) in nets.enumerate() {
+                let key = (k.id.0, j);
+                let rep = *first.entry(n).or_insert(key);
+                out.insert(key, rep);
+            }
+        }
+        out
+    }
+
+    /// Nespojil posun vývody, které předtím byly v různých sítích?
+    fn assert_no_new_connections(before: &Circuit, after: &Circuit, what: &str) {
+        let (b, a) = (partition(before), partition(after));
+        for (pin, rep) in &a {
+            assert!(b[pin] == b[rep], "{what}: spojil {pin:?} s {rep:?}");
+        }
+    }
+
+    #[test]
+    fn moving_converter_with_display_keeps_all_connections() {
+        let c = decade_counter();
+        let ids: Vec<CompId> = c
+            .components
+            .iter()
+            .filter(|k| {
+                matches!(
+                    k.kind,
+                    ComponentKind::SevenSegment
+                        | ComponentKind::Block {
+                            block: BlockKind::BcdTo7Seg
+                        }
+                )
+            })
+            .map(|k| k.id)
+            .collect();
+        for dy in [-4, -2, -1, 1, 2, 4] {
+            let m = c.moved(&ids, &[], 0, dy);
+            assert_eq!(partition(&c), partition(&m), "posun o {dy}");
+        }
+    }
+
+    #[test]
+    fn moving_never_creates_new_connections() {
+        let offsets: Vec<(i32, i32)> = (-6..=6)
+            .flat_map(|dy| [(0, dy), (1, dy), (-2, dy), (3, dy)])
+            .collect();
+        for build in [
+            decade_counter as fn() -> Circuit,
+            full_adder,
+            multiplexer,
+            counter,
+            shift_register,
+        ] {
+            let c = build();
+            // Jednotlivé součástky i dvojice sousedních (např. převodník + displej).
+            let mut groups: Vec<Vec<CompId>> = c.components.iter().map(|k| vec![k.id]).collect();
+            groups.extend(c.components.windows(2).map(|w| vec![w[0].id, w[1].id]));
+            for group in groups {
+                for &(dx, dy) in &offsets {
+                    // Součástka položená vývodem přímo na cizí vývod nebo vodič se
+                    // spojí záměrně – to není chyba přepojení vodičů.
+                    let lands = c
+                        .components
+                        .iter()
+                        .filter(|k| group.contains(&k.id))
+                        .any(|k| {
+                            k.pins().iter().any(|p| {
+                                let q = p.offset(dx, dy);
+                                c.wires.iter().any(|w| w.contains(q))
+                                    || c.components
+                                        .iter()
+                                        .any(|o| !group.contains(&o.id) && o.pins().contains(&q))
+                            })
+                        });
+                    if lands {
+                        continue;
+                    }
+                    let m = c.moved(&group, &[], dx, dy);
+                    assert_no_new_connections(&c, &m, &format!("{group:?} o ({dx},{dy})"));
+                }
+            }
+        }
+    }
+
     #[test]
     fn sr_latch_example_sets() {
         let mut c = sr_latch();

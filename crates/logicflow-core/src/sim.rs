@@ -88,11 +88,16 @@ impl Netlist {
         let point_index: HashMap<Point, usize> =
             points.iter().enumerate().map(|(i, p)| (*p, i)).collect();
 
+        // Konce vodičů: v nich se vodiče propojují (i s jiným vodičem, který
+        // jimi prochází – odbočka „T“). Vývod součástky se připojí jen ke konci
+        // vodiče; vodič, který přes vývod jen prochází, se s ním nespojí.
+        let wire_ends: std::collections::HashSet<Point> =
+            circuit.wires.iter().flat_map(|w| [w.a, w.b]).collect();
         let w = circuit.wires.len();
         let mut uf = UnionFind::new(w + points.len());
         for (wi, wire) in circuit.wires.iter().enumerate() {
             for (pi, p) in points.iter().enumerate() {
-                if wire.contains(*p) {
+                if wire.contains(*p) && (wire.is_endpoint(*p) || wire_ends.contains(p)) {
                     uf.union(wi, w + pi);
                 }
             }

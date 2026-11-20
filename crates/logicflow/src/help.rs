@@ -82,6 +82,9 @@ const CS: &[Section] = &[
                 "Vodič začíná tažením z vývodu součástky (vývod se pod myší zvýrazní kroužkem) nebo z libovolného bodu existujícího vodiče. S klávesou Ctrl jde začít kdekoli.",
                 "Vodič se láme do pravého úhlu. Směr prvního úseku určuje první pohyb myši.",
                 "Kde konec vodiče leží na jiném vodiči, vznikne spoj a zobrazí se tečka. Vodiče, které se jen kříží (bez tečky), propojené nejsou.",
+                "Vývod součástky se připojí jen ke konci vodiče. Vodič, který přes vývod jen prochází, se s ním nespojí.",
+                "Při kreslení vodiče oranžový kroužek ukazuje místo, kde by se vodič napojil i jinde než na začátku a konci. Pokud má opačné zalomení méně takových míst, použije se samo.",
+                "Při přesunu součástky se připojené vodiče zalomí tak, aby se nedotkly jiného spoje. Když to nejde, vodič se od vývodu odpojí – volný konec je vidět a stačí ho dotáhnout.",
             ]),
             H("Úpravy"),
             Keys(&[
@@ -408,6 +411,9 @@ const EN: &[Section] = &[
                 "A wire starts by dragging from a component pin (highlighted with a ring) or from any point of an existing wire. With Ctrl held you can start anywhere.",
                 "Wires bend at right angles. The first mouse movement decides the direction of the first segment.",
                 "Where a wire end lies on another wire, a connection with a dot is made. Wires that merely cross (no dot) are not connected.",
+                "A component pin connects only to a wire end; a wire merely passing over a pin is not connected to it.",
+                "While drawing a wire, an orange ring marks where it would also connect besides its start and end. If the opposite bend has fewer such places, it is used automatically.",
+                "When a component is moved, attached wires are bent so they touch no other net. If that is impossible, the wire is detached from the pin – the loose end is visible and easy to reconnect.",
             ]),
             H("Editing"),
             Keys(&[
