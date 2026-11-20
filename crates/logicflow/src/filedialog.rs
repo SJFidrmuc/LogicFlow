@@ -33,6 +33,8 @@ pub struct FileDialog {
     file_name: String,
     entries: Vec<Entry>,
     error: Option<String>,
+    /// Název rozepsané nové složky (`None` = pole není otevřené).
+    new_folder: Option<String>,
 }
 
 pub fn home_dir() -> PathBuf {
@@ -50,6 +52,7 @@ impl FileDialog {
             file_name: file_name.to_owned(),
             entries: Vec::new(),
             error: None,
+            new_folder: None,
         };
         let dir = d.dir.clone();
         d.navigate(&dir);
@@ -85,6 +88,21 @@ impl FileDialog {
             }
             Err(e) => self.error = Some(e.to_string()),
         }
+    }
+
+    /// Vytvoří v aktuální složce podsložku a přejde do ní.
+    fn create_folder(&mut self, name: &str, lang: Lang) -> Result<(), String> {
+        let name = name.trim();
+        if name.is_empty() || name.contains(['/', '\\']) || name == "." || name == ".." {
+            return Err(tr(lang, T::BadFolderName).to_owned());
+        }
+        let path = self.dir.join(name);
+        if path.exists() {
+            return Err(tr(lang, T::FolderExists).to_owned());
+        }
+        std::fs::create_dir(&path).map_err(|e| e.to_string())?;
+        self.navigate(&path);
+        Ok(())
     }
 
     fn target(&self) -> Option<PathBuf> {
@@ -151,6 +169,36 @@ impl FileDialog {
                 if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     let p = PathBuf::from(self.dir_text.clone());
                     self.navigate(&p);
+                }
+            });
+
+            // Nová složka: tlačítko otevře pole pro název, Enter nebo Vytvořit ji založí.
+            ui.horizontal(|ui| match self.new_folder.take() {
+                None => {
+                    if ui.button(format!("+ {}", tr(lang, T::NewFolder))).clicked() {
+                        self.new_folder = Some(String::new());
+                    }
+                }
+                Some(mut name) => {
+                    ui.label(tr(lang, T::NewFolder));
+                    let r = ui.add(egui::TextEdit::singleline(&mut name).desired_width(220.0));
+                    if name.is_empty() && !r.has_focus() && !r.lost_focus() {
+                        r.request_focus();
+                    }
+                    let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    let create = ui.button(tr(lang, T::CreateFolder)).clicked();
+                    let cancel = ui.button(tr(lang, T::Cancel)).clicked();
+                    if enter || create {
+                        match self.create_folder(&name, lang) {
+                            Ok(()) => {}
+                            Err(e) => {
+                                self.error = Some(e);
+                                self.new_folder = Some(name);
+                            }
+                        }
+                    } else if !cancel {
+                        self.new_folder = Some(name);
+                    }
                 }
             });
 
@@ -256,6 +304,28 @@ impl FileDialog {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn creates_folder_and_enters_it() {
+        let base = std::env::temp_dir().join(format!("lf-dialog-{}", std::process::id()));
+        std::fs::create_dir_all(&base).unwrap();
+        let mut d = FileDialog::new(Mode::Save, Some(base.clone()), "obvod");
+        d.create_folder("Úlohy 3.A", Lang::Cs).unwrap();
+        assert_eq!(d.dir(), base.join("Úlohy 3.A"));
+        assert!(base.join("Úlohy 3.A").is_dir());
+        assert_eq!(
+            d.target(),
+            Some(base.join("Úlohy 3.A").join("obvod.logicflow"))
+        );
+        d.navigate(&base);
+        assert!(
+            d.create_folder("Úlohy 3.A", Lang::Cs).is_err(),
+            "už existuje"
+        );
+        assert!(d.create_folder("a/b", Lang::Cs).is_err());
+        assert!(d.create_folder("  ", Lang::Cs).is_err());
+        std::fs::remove_dir_all(&base).ok();
+    }
 
     #[test]
     fn save_adds_extension() {
