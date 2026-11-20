@@ -26,12 +26,15 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 ## Co umí
 
 - **Kreslení schémat** – součástky se přidávají přes Shift+A nebo z knihovny, vodiče se kreslí tažením z vývodu. Vodiče se při přesunu součástky samy přepojí.
-- **Součástky** – přepínač, tlačítko, konstanty 0 a 1, generátor hodin (0,2–10 Hz), hradla BUF, NOT, AND, OR, NAND, NOR, XOR, XNOR (2–8 vstupů), LED. Značky podle ČSN EN 60617.
+- **Součástky** – přepínač, tlačítko, konstanty 0 a 1, generátor hodin (0,2–10 Hz), hradla BUF, NOT, AND, OR, NAND, NOR, XOR, XNOR (2–8 vstupů), LED, sedmisegmentovka a hex displej.
+- **Značky** podle ČSN EN 60617-12 (obdélníkové, negace indikátorem negace), nebo po přepnutí v nabídce Zobrazit → Značky americké tvarové značky podle ANSI/IEEE Std 91. Volba se ukládá jako osobní nastavení, ne do souboru obvodu.
 - **Klopné obvody** RS, D řízený úrovní, D, JK a T řízené náběžnou nebo sestupnou hranou, s výstupy Q a Q̄ a volitelným počátečním stavem.
+- **Funkční bloky** – multiplexor, dekodér (demultiplexor), prioritní kodér, sčítačka, komparátor, převodník BCD na 7 segmentů, čítač nahoru/dolů, registr a posuvný registr s nastavitelným počtem bitů.
+- **Podobvody** – libovolný obvod jde použít jako blok v jiném obvodu (vstupy jsou jeho přepínače, výstupy LED). Tab otevře podobvod a vrátí se zpět jako skupiny uzlů v Blenderu. Simulace zachovává zpoždění hradel i uvnitř podobvodů.
 - **Událostní simulace** se zpožděním hradel a hodnotami 0, 1, X (neurčitá, kolize) a Z (nepřipojeno). Simulátor pozná kmitající obvod a obvody s pamětí (klopný obvod z hradel) si pamatují stav i po úpravě schématu.
 - **Krokování** – při pozastavené simulaci (mezerník) se šipkou vpravo provádí jeden takt; je vidět, jak signál prochází hradly.
 - **Časový diagram** vstupů a výstupů a **pravdivostní tabulka** spočítaná simulací všech kombinací vstupů.
-- **Soubory** `.logicflow` (čitelný JSON), vlastní prohlížeč souborů, Zpět/Znovu, vestavěné příklady (hradla, poloviční sčítačka, klopný obvod RS z hradel, klopný obvod D s hodinami, čítač 0–7, posuvný registr).
+- **Soubory** `.logicflow` (čitelný JSON), vlastní prohlížeč souborů, Zpět/Znovu, vestavěné příklady (hradla, poloviční sčítačka, klopný obvod RS z hradel, klopný obvod D s hodinami, čítač 0–7, posuvný registr, multiplexor 4:1, dekadický čítač se sedmisegmentovkou, úplná sčítačka ze dvou podobvodů).
 - Okno rozdělené na **oblasti** a **pracovní plochy** (Návrh, Simulace, Analýza, Paměť) jako v Blenderu. Oblasti jde rozdělovat a zavírat (nabídka **Oblast** v záhlaví nebo pravé tlačítko na záhlaví) a v každé zvolit typ editoru.
 - **Nápověda** v aplikaci (F1 nebo nabídka Nápověda) – postup pro první obvod, popis ovládání, součástek, simulace a klávesových zkratek. Nápovědu jde zobrazit i jako oblast vedle schématu.
 - Čeština a angličtina.
@@ -39,6 +42,10 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 | Návrh | Analýza |
 | --- | --- |
 | ![Nabídka Shift+A](docs/screenshots/navrh.png) | ![Pravdivostní tabulka poloviční sčítačky](docs/screenshots/analyza.png) |
+
+| Funkční bloky | Podobvody |
+| --- | --- |
+| ![Dekadický čítač se sedmisegmentovkou](docs/screenshots/bloky.png) | ![Úplná sčítačka ze dvou podobvodů](docs/screenshots/podobvody.png) |
 
 ## Ovládání
 
@@ -54,6 +61,7 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 | X, Delete | smazat výběr |
 | Shift+D | duplikovat výběr |
 | A / Alt+A | vybrat vše / zrušit výběr |
+| Tab | otevřít vybraný podobvod / zpět o úroveň výš |
 | kolečko, prostřední tlačítko, Home | zoom, posun, celé schéma |
 | mezerník, šipka vpravo | spustit/pozastavit simulaci, jeden takt |
 | Ctrl+R | restartovat simulaci (klopné obvody do počátečního stavu) |
@@ -76,7 +84,7 @@ Ve škole může program povolit správce sítě pro všechny počítače najedn
 | --- | --- | --- |
 | ~~0.1~~ | kreslení schémat, hradla, přepínače, LED, ukládání | hotovo |
 | ~~0.2~~ | klopné obvody, generátor hodin, nápověda – připraveno na pilot ve třídě | hotovo |
-| 0.3 | podobvody, čítače, registry, MUX, dekodéry, sedmisegmentovka | 05/2027 |
+| ~~0.3~~ | podobvody, funkční bloky (čítače, registry, MUX, dekodéry…), sedmisegmentovka, americké značky | hotovo |
 | 0.4 | paměti ROM, RAM, EEPROM, hex editor | 06/2027 |
 | 0.5 | export do VHDL | 07–08/2027 |
 | 0.6 | obvody 74xx, příručka, vzorové úlohy | 08/2027 |

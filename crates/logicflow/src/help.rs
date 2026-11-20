@@ -123,11 +123,13 @@ const CS: &[Section] = &[
                 ("LED", "výstup, svítí při 1; při X nebo Z ukáže písmeno"),
             ]),
             P(
-                "Značky hradel odpovídají normě ČSN EN 60617 (obdélníkové značky). Negace se značí indikátorem negace – malým pravoúhlým trojúhelníkem na vývodu.",
+                "Značky hradel odpovídají normě ČSN EN 60617-12 (obdélníkové značky). Negace se značí indikátorem negace – malým pravoúhlým trojúhelníkem na vývodu.",
             ),
-            Tip(
-                "Klopné obvody, generátor hodin, sedmisegmentovka, paměti a obvody 74xx přibudou v dalších verzích.",
+            H("Americké značky"),
+            P(
+                "V nabídce Zobrazit > Značky jde přepnout na americké tvarové značky podle ANSI/IEEE Std 91 (AND jako „D“, OR jako štít, negace kroužkem). Volba platí jen pro váš počítač – do souboru obvodu se neukládá, takže obvod otevřený jinde se zobrazí podle tamního nastavení.",
             ),
+            Tip("Paměti ROM a RAM a obvody řady 74xx přibudou v dalších verzích."),
         ],
     },
     Section {
@@ -169,6 +171,84 @@ const CS: &[Section] = &[
             Tip(
                 "Vyzkoušejte příklady Čítač 0–7 z klopných obvodů T a Posuvný registr 4 bity. U čítače jsou výstupy zapojené tak, že každý další stupeň řídí výstup Qn předchozího – to je asynchronní čítač nahoru.",
             ),
+        ],
+    },
+    Section {
+        title: "Funkční bloky a zobrazovače",
+        blocks: &[
+            P(
+                "Hotové bloky najdete v Shift+A > Funkční bloky. Vstupy jsou vlevo, výstupy vpravo a bity jsou seřazené shora od nejnižšího (D0, Q0 …). Počet bitů nebo adresových vstupů se mění ve Vlastnostech.",
+            ),
+            Keys(&[
+                (
+                    "Multiplexor  MUX",
+                    "adresa S vybere jeden ze vstupů D a pošle ho na výstup Y",
+                ),
+                (
+                    "Dekodér  X/Y",
+                    "výstup Y s číslem adresy A je 1, ostatní 0; při EN = 0 jsou všechny 0 (s datovým signálem na EN pracuje jako demultiplexor)",
+                ),
+                (
+                    "Prioritní kodér  HPRI",
+                    "na výstupech A je číslo nejvyššího vstupu I, který je 1; V = 1 znamená, že je aktivní aspoň jeden vstup",
+                ),
+                (
+                    "Sčítačka  Σ",
+                    "sečte čísla A a B a přenos CI; výsledek S a přenos CO (1bitová je úplná sčítačka)",
+                ),
+                ("Komparátor  COMP", "porovná čísla A a B: A<B, A=B, A>B"),
+                (
+                    "Převodník BCD/7SEG",
+                    "číslo 0–15 na vstupech D převede na segmenty a–g (10–15 jako A–F)",
+                ),
+                (
+                    "Čítač  CTR",
+                    "při náběžné hraně C přičte (+) nebo odečte (−) jedničku, R nuluje okamžitě, EN = 0 čítání zastaví; CO = 1 při stavu 15 (dolů při 0)",
+                ),
+                (
+                    "Registr  RG",
+                    "při náběžné hraně C uloží vstupy D, R nuluje",
+                ),
+                (
+                    "Posuvný registr  SRG",
+                    "při náběžné hraně C posune obsah o bit dál (Q0 → Q1 …) a do Q0 zapíše SI",
+                ),
+            ]),
+            Tip(
+                "Vstupy R a EN můžete nechat nepřipojené: nepřipojený R znamená „nenulovat“ a nepřipojený EN „povoleno“. U ostatních vstupů dává nepřipojený vývod neznámou hodnotu X.",
+            ),
+            H("Zobrazovače"),
+            List(&[
+                "Sedmisegmentovka má vstupy a–g a desetinnou tečku dp; každý segment svítí při 1.",
+                "Hex displej ukáže číslici 0–F podle 4bitového vstupu D0–D3. Při neznámém vstupu jsou segmenty tmavě šedé.",
+            ]),
+            Tip(
+                "Příklad Dekadický čítač se sedmisegmentovkou ukazuje čítač nulovaný hradlem AND při stavu 10 (1010) – takto vzniká čítač do libovolného čísla.",
+            ),
+        ],
+    },
+    Section {
+        title: "Podobvody",
+        blocks: &[
+            P(
+                "Podobvod je samostatný obvod, který vložíte do jiného jako jednu součástku – například poloviční sčítačku použijete dvakrát v úplné sčítačce. Vstupy podobvodu jsou jeho přepínače a tlačítka, výstupy jeho LED. Pořadí vývodů na značce určují jejich popisky (A, B, C …).",
+            ),
+            H("Postup"),
+            Steps(&[
+                "V oblasti Hierarchie klikněte na + Nový podobvod. Otevře se prázdný list a v záhlaví schématu uvidíte cestu Hlavní obvod / Podobvod 1.",
+                "Nakreslete obvod se vstupy (přepínači) a výstupy (LED) a vyzkoušejte ho – i s pravdivostní tabulkou.",
+                "V Hierarchii ho pojmenujte (pole Název).",
+                "Tabulátorem se vrátíte do hlavního obvodu. Podobvod pak vložíte z Shift+A > Podobvody nebo z knihovny.",
+            ]),
+            H("Práce s podobvody"),
+            List(&[
+                "Tab nad vybranou značkou podobvodu ho otevře, další Tab vrátí zpět (jako skupiny uzlů v Blenderu).",
+                "Úpravy podobvodu se projeví ve všech jeho instancích. Když přidáte vstup nebo výstup, značka dostane další vývod.",
+                "Podobvod může obsahovat další podobvody, ale ne sám sebe.",
+                "Použitý podobvod nejde smazat – nejdřív odstraňte jeho instance.",
+                "Hodiny je potřeba přivést zvenku přes vstup podobvodu; generátor hodin uvnitř podobvodu stojí.",
+            ]),
+            Tip("Hotový příklad: Soubor > Příklady > Úplná sčítačka ze dvou podobvodů."),
         ],
     },
     Section {
@@ -216,7 +296,7 @@ const CS: &[Section] = &[
         title: "Soubory",
         blocks: &[List(&[
             "Ctrl+S uloží obvod, Ctrl+Shift+S uloží pod jiným názvem, Ctrl+O otevře, Ctrl+N vytvoří nový.",
-            "Obvody se ukládají do souborů .logicflow. Je to čitelný text (JSON), takže se dá odevzdat, poslat e-mailem nebo uložit do Gitu.",
+            "Obvody se ukládají do souborů .logicflow i se všemi podobvody. Je to čitelný text (JSON), takže se dá odevzdat, poslat e-mailem nebo uložit do Gitu.",
             "Okno pro výběr souboru má tlačítka pro domovskou složku a Dokumenty; do řádku s cestou jde napsat libovolnou složku.",
             "Před zavřením nebo otevřením jiného obvodu se aplikace zeptá na neuložené změny.",
             "Soubor jde otevřít i z příkazové řádky: logicflow obvod.logicflow",
@@ -234,6 +314,7 @@ const CS: &[Section] = &[
             ("A / Alt+A", "vybrat vše / nic"),
             ("Esc", "zrušit nástroj nebo výběr"),
             ("Home", "zobrazit celé schéma"),
+            ("Tab", "otevřít vybraný podobvod / zpět o úroveň výš"),
             ("kolečko myši", "zoom"),
             ("prostřední / pravé tlačítko + tažení", "posun pohledu"),
             ("Mezerník", "spustit / pozastavit simulaci"),
@@ -362,11 +443,13 @@ const EN: &[Section] = &[
                 ("LED", "output, lit at 1; shows a letter for X or Z"),
             ]),
             P(
-                "Gate symbols follow IEC 60617 (rectangular symbols). Negation is shown by the polarity indicator – a small right triangle on the pin.",
+                "Gate symbols follow IEC 60617-12 (rectangular symbols). Negation is shown by the polarity indicator – a small right triangle on the pin.",
             ),
-            Tip(
-                "Flip-flops, clock generator, seven-segment display, memories and 74xx chips arrive in later versions.",
+            H("American symbols"),
+            P(
+                "View > Symbols switches to American distinctive-shape symbols (ANSI/IEEE Std 91: AND as a “D”, OR as a shield, negation as a bubble). The choice is stored on your computer only, not in the circuit file.",
             ),
+            Tip("ROM and RAM memories and 74xx chips arrive in later versions."),
         ],
     },
     Section {
@@ -405,6 +488,81 @@ const EN: &[Section] = &[
             Tip(
                 "Try the examples 0–7 counter from T flip-flops and 4-bit shift register. In the counter each stage is clocked by Qn of the previous one – an asynchronous up counter.",
             ),
+        ],
+    },
+    Section {
+        title: "Function blocks and displays",
+        blocks: &[
+            P(
+                "Ready-made blocks are under Shift+A > Function blocks. Inputs are on the left, outputs on the right, bits are ordered from the least significant at the top (D0, Q0 …). The number of bits or select inputs is set in Properties.",
+            ),
+            Keys(&[
+                (
+                    "Multiplexer  MUX",
+                    "select S routes one of the D inputs to Y",
+                ),
+                (
+                    "Decoder  X/Y",
+                    "output Y with the number on A is 1, others 0; EN = 0 clears all (with data on EN it works as a demultiplexer)",
+                ),
+                (
+                    "Priority encoder  HPRI",
+                    "A shows the number of the highest active input I; V = 1 when any input is active",
+                ),
+                (
+                    "Adder  Σ",
+                    "adds A, B and carry CI; sum S and carry CO (the 1-bit one is a full adder)",
+                ),
+                ("Comparator  COMP", "compares A and B: A<B, A=B, A>B"),
+                (
+                    "BCD/7SEG decoder",
+                    "turns 0–15 on D into segments a–g (10–15 as A–F)",
+                ),
+                (
+                    "Counter  CTR",
+                    "on a rising edge of C counts up (+) or down (−), R clears at once, EN = 0 stops counting; CO = 1 at 15 (0 when counting down)",
+                ),
+                ("Register  RG", "stores D on a rising edge of C, R clears"),
+                (
+                    "Shift register  SRG",
+                    "on a rising edge of C shifts by one bit (Q0 → Q1 …) and loads SI into Q0",
+                ),
+            ]),
+            Tip(
+                "R and EN may stay unconnected: unconnected R means “no reset”, unconnected EN means “enabled”. Other unconnected inputs read as unknown X.",
+            ),
+            H("Displays"),
+            List(&[
+                "The seven-segment display has inputs a–g and the decimal point dp; a segment is lit at 1.",
+                "The hex display shows 0–F from the 4-bit input D0–D3; unknown input shows grey segments.",
+            ]),
+            Tip(
+                "The example Decade counter with a seven-segment display resets a counter with an AND gate at 10 (1010) – this is how a counter to any number is made.",
+            ),
+        ],
+    },
+    Section {
+        title: "Subcircuits",
+        blocks: &[
+            P(
+                "A subcircuit is a circuit you insert into another one as a single component – e.g. a half adder used twice in a full adder. Its inputs are its switches and buttons, its outputs its LEDs; their labels set the pin order on the symbol.",
+            ),
+            H("How to"),
+            Steps(&[
+                "In the Hierarchy area click + New subcircuit. An empty sheet opens; the schematic header shows Main circuit / Subcircuit 1.",
+                "Draw the circuit with switches and LEDs and test it, truth table included.",
+                "Name it in the Hierarchy (Name field).",
+                "Press Tab to return to the main circuit and insert the subcircuit from Shift+A > Subcircuits or the library.",
+            ]),
+            H("Working with subcircuits"),
+            List(&[
+                "Tab over a selected subcircuit opens it, another Tab goes back (like node groups in Blender).",
+                "Changes apply to every instance; a new input or output adds a pin to the symbol.",
+                "Subcircuits may contain other subcircuits, but not themselves.",
+                "A subcircuit in use cannot be deleted – remove its instances first.",
+                "Feed clocks in through a subcircuit input; a clock generator inside a subcircuit does not run.",
+            ]),
+            Tip("Ready-made example: File > Examples > Full adder from two subcircuits."),
         ],
     },
     Section {
@@ -470,6 +628,7 @@ const EN: &[Section] = &[
             ("A / Alt+A", "select all / none"),
             ("Esc", "cancel tool or selection"),
             ("Home", "fit the whole schematic"),
+            ("Tab", "open selected subcircuit / go back one level"),
             ("mouse wheel", "zoom"),
             ("middle / right button + drag", "pan"),
             ("Space", "run / pause simulation"),
@@ -668,8 +827,8 @@ pub fn area(ui: &mut Ui, section: &mut usize, lang: Lang) {
 }
 
 /// Pořadí kapitoly s klávesovými zkratkami a s upozorněním Windows (pro nabídku Nápověda).
-pub const SECTION_SHORTCUTS: usize = 8;
-pub const SECTION_WINDOWS: usize = 9;
+pub const SECTION_SHORTCUTS: usize = 10;
+pub const SECTION_WINDOWS: usize = 11;
 
 #[cfg(test)]
 mod tests {

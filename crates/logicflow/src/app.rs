@@ -8,6 +8,7 @@ use crate::i18n::{Lang, T, tr};
 use crate::panels::TruthCache;
 use crate::panes::{self, AreaBehavior, Pane, Workspace};
 use crate::project::Project;
+use crate::symbols::SymbolStyle;
 use crate::theme::{self, colors};
 use egui::{Key, KeyboardShortcut, Modifiers, RichText};
 use egui_tiles::Tree;
@@ -23,8 +24,19 @@ enum Pending {
     Quit,
 }
 
+/// Osobní nastavení uživatele (ukládá se mezi spuštěními, ne do souboru obvodu).
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct Settings {
+    lang: Lang,
+    symbols: SymbolStyle,
+}
+
+const SETTINGS_KEY: &str = "settings";
+
 pub struct LogicFlowApp {
     lang: Lang,
+    symbols: SymbolStyle,
     workspace: usize,
     trees: Vec<Tree<Pane>>,
     project: Project,
@@ -44,6 +56,10 @@ pub struct LogicFlowApp {
 impl LogicFlowApp {
     pub fn new(cc: &eframe::CreationContext<'_>, open: Option<PathBuf>) -> Self {
         theme::apply(&cc.egui_ctx);
+        let settings: Settings = cc
+            .storage
+            .and_then(|s| eframe::get_value(s, SETTINGS_KEY))
+            .unwrap_or_default();
         let mut error = None;
         let project = match open.as_deref().map(Project::load) {
             Some(Ok(p)) => p,
@@ -54,7 +70,8 @@ impl LogicFlowApp {
             None => example_project(0),
         };
         Self {
-            lang: Lang::Cs,
+            lang: settings.lang,
+            symbols: settings.symbols,
             workspace: 0,
             trees: Workspace::ALL.iter().map(|w| w.default_tree()).collect(),
             last_dir: project
@@ -113,7 +130,7 @@ impl LogicFlowApp {
         }
     }
 
-    fn save(&mut self, save_as: bool) {
+    fn save_file(&mut self, save_as: bool) {
         match self.project.path.clone() {
             Some(path) if !save_as => {
                 if let Err(e) = self.project.save(&path) {
@@ -167,9 +184,9 @@ impl LogicFlowApp {
             self.help.open = !self.help.open;
         }
         if save_as {
-            self.save(true);
+            self.save_file(true);
         } else if save {
-            self.save(false);
+            self.save_file(false);
         }
         if open {
             self.request(Pending::Open);
@@ -241,7 +258,7 @@ impl LogicFlowApp {
                             .add(egui::Button::new(tr(lang, T::Save)).shortcut_text("Ctrl+S"))
                             .clicked()
                         {
-                            self.save(false);
+                            self.save_file(false);
                         }
                         if ui
                             .add(
@@ -250,7 +267,7 @@ impl LogicFlowApp {
                             )
                             .clicked()
                         {
-                            self.save(true);
+                            self.save_file(true);
                         }
                         ui.separator();
                         if ui
@@ -279,6 +296,18 @@ impl LogicFlowApp {
                         ui.menu_button(tr(lang, T::Language), |ui| {
                             ui.radio_value(&mut self.lang, Lang::Cs, "Čeština");
                             ui.radio_value(&mut self.lang, Lang::En, "English");
+                        });
+                        ui.menu_button(tr(lang, T::Symbols), |ui| {
+                            ui.radio_value(
+                                &mut self.symbols,
+                                SymbolStyle::Iec,
+                                tr(lang, T::SymbolsIec),
+                            );
+                            ui.radio_value(
+                                &mut self.symbols,
+                                SymbolStyle::Ansi,
+                                tr(lang, T::SymbolsAnsi),
+                            );
                         });
                     });
                     ui.menu_button(tr(lang, T::MenuSimulation), |ui| {
@@ -467,13 +496,13 @@ impl LogicFlowApp {
                 Some(0) => {
                     self.confirm = None;
                     if self.project.path.is_some() {
-                        self.save(false);
+                        self.save_file(false);
                         if !self.project.modified {
                             self.perform(action);
                         }
                     } else {
                         self.after_save = Some(action);
-                        self.save(true);
+                        self.save_file(true);
                     }
                 }
                 Some(1) => {
@@ -531,13 +560,53 @@ impl LogicFlowApp {
 
 fn example_project(i: usize) -> Project {
     let ex = &examples::ALL[i.min(examples::ALL.len() - 1)];
-    let mut p = Project::new((ex.build)());
+    let mut p = Project::with_subcircuits((ex.build)(), (ex.subcircuits)());
     p.title = Some(ex.name.to_owned());
     p
 }
 
 impl eframe::App for LogicFlowApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        let settings = Settings {
+            lang: self.lang,
+            symbols: self.symbols,
+        };
+        eframe::set_value(storage, SETTINGS_KEY, &settings);
+    }
+
+    /// Tab slouží ke vstupu do podobvodu a zpět (jako v Blenderu). Mimo textová pole
+    /// ho proto egui nedostane – jinak by jím přesouvalo fokus mezi tlačítky.
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // Nevyužitý stisk z minulého snímku (myš nebyla nad schématem) se zahodí.
+        crate::schematic::take_tab(ctx);
+        if ctx.text_edit_focused() {
+            return;
+        }
+        let mut pressed = false;
+        raw_input.events.retain(|e| match e {
+            egui::Event::Key {
+                key: Key::Tab,
+                modifiers,
+                pressed: p,
+                ..
+            } if !modifiers.any() => {
+                pressed |= *p;
+                false
+            }
+            _ => true,
+        });
+        if pressed {
+            crate::schematic::request_tab(ctx);
+        }
+    }
+
+    /// Paměť egui (rozbalené skupiny apod.) se neukládá – jen naše nastavení a okno.
+    fn persist_egui_memory(&self) -> bool {
+        false
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        crate::symbols::set_style(ui.ctx(), self.symbols);
         let ctx = ui.ctx().clone();
 
         // Zavírání okna s neuloženými změnami.

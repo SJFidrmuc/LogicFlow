@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/logicflow-core", "crates/logicflow"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
@@ -12,7 +12,7 @@ repository = "https://github.com/SJFidrmuc/LogicFlow"
 
 [workspace.dependencies]
 logicflow-core = { path = "crates/logicflow-core" }
-eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts", "wayland", "x11", "clipboard", "accesskit", "links"] }
+eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts", "wayland", "x11", "clipboard", "accesskit", "links", "persistence"] }
 egui = "0.37"
 egui_tiles = "0.18"
 serde = { version = "1", features = ["derive"] }

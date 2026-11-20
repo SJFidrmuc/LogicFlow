@@ -131,6 +131,18 @@ impl Behavior<Pane> for AreaBehavior<'_> {
                             RichText::new(format!("{:.0} %", pane.view.zoom * 100.0))
                                 .color(colors::TEXT_WEAK),
                         );
+                        // Kde právě jsme: Hlavní obvod / podobvod.
+                        if let Some(name) = self.project.sheet_name() {
+                            ui.separator();
+                            if ui
+                                .link(tr(lang, T::MainCircuit))
+                                .on_hover_text(tr(lang, T::BackToParent))
+                                .clicked()
+                            {
+                                self.project.open_sheet(None);
+                            }
+                            ui.label(RichText::new(format!("/  {name}")).color(colors::ACCENT));
+                        }
                     }
 
                     // Nabídka oblasti vpravo, zbytek záhlaví je úchyt pro přetažení.

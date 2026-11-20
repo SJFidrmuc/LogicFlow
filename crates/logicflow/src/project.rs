@@ -1,6 +1,9 @@
 //! Otevřený projekt: obvod, simulátor, výběr, historie úprav a záznam signálů.
 
-use logicflow_core::{Circuit, CompId, ComponentKind, LogicValue, ProjectFile, Simulator, WireId};
+use logicflow_core::circuit::sync_instances;
+use logicflow_core::{
+    Circuit, CompId, ComponentKind, LogicValue, ProjectFile, Simulator, SubcircuitDef, WireId,
+};
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
@@ -47,8 +50,24 @@ pub struct Signal {
     pub changes: Vec<(f64, LogicValue)>,
 }
 
+/// Uložený stav hlavního obvodu po dobu úprav podobvodu.
+struct MainStash {
+    circuit: Circuit,
+    sim: Simulator,
+    time: f64,
+    signals: Vec<Signal>,
+}
+
 pub struct Project {
+    /// Právě upravovaný list: hlavní obvod, nebo podobvod `sheet`.
     pub circuit: Circuit,
+    /// Definice podobvodů. Upravovaný podobvod má aktuální obsah v `circuit`.
+    pub subcircuits: Vec<SubcircuitDef>,
+    /// Upravovaný podobvod (`None` = hlavní obvod).
+    pub sheet: Option<u32>,
+    /// Cesta zpět při procházení do vnořených podobvodů.
+    sheet_stack: Vec<Option<u32>>,
+    main_stash: Option<MainStash>,
     pub sim: Simulator,
     pub path: Option<PathBuf>,
     /// Název příkladu, pokud projekt vznikl z příkladu a ještě nebyl uložen.
@@ -69,10 +88,18 @@ pub struct Project {
 
 impl Project {
     pub fn new(circuit: Circuit) -> Self {
-        let mut sim = Simulator::new(&circuit, None);
+        Self::with_subcircuits(circuit, Vec::new())
+    }
+
+    pub fn with_subcircuits(circuit: Circuit, subcircuits: Vec<SubcircuitDef>) -> Self {
+        let mut sim = Simulator::with_subcircuits(&circuit, &subcircuits, None);
         sim.run(EVENT_BUDGET);
         let mut p = Self {
             circuit,
+            subcircuits,
+            sheet: None,
+            sheet_stack: Vec::new(),
+            main_stash: None,
             sim,
             path: None,
             title: None,
@@ -92,14 +119,21 @@ impl Project {
 
     pub fn load(path: &Path) -> Result<Self, String> {
         let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-        let circuit = ProjectFile::from_json(&text)?;
-        let mut p = Self::new(circuit);
+        let (mut circuit, mut subs) = ProjectFile::from_json(&text)?;
+        // Počty vývodů instancí podle aktuálních definic.
+        let defs = subs.clone();
+        sync_instances(&mut circuit, &defs);
+        for d in &mut subs {
+            sync_instances(&mut d.circuit, &defs);
+        }
+        let mut p = Self::with_subcircuits(circuit, subs);
         p.path = Some(path.to_path_buf());
         Ok(p)
     }
 
     pub fn save(&mut self, path: &Path) -> Result<(), String> {
-        std::fs::write(path, ProjectFile::to_json(&self.circuit)).map_err(|e| e.to_string())?;
+        let (main, subs) = self.snapshot();
+        std::fs::write(path, ProjectFile::to_json(&main, &subs)).map_err(|e| e.to_string())?;
         self.path = Some(path.to_path_buf());
         self.title = None;
         self.modified = false;
@@ -118,6 +152,183 @@ impl Project {
         } else {
             "bez názvu".to_owned()
         }
+    }
+
+    /// Hlavní obvod a definice podobvodů včetně právě upravovaného listu.
+    pub fn snapshot(&self) -> (Circuit, Vec<SubcircuitDef>) {
+        let mut subs = self.subcircuits.clone();
+        match self.sheet {
+            None => (self.circuit.clone(), subs),
+            Some(id) => {
+                if let Some(d) = subs.iter_mut().find(|d| d.id == id) {
+                    d.circuit = self.circuit.clone();
+                }
+                let main = self
+                    .main_stash
+                    .as_ref()
+                    .map(|m| m.circuit.clone())
+                    .unwrap_or_default();
+                (main, subs)
+            }
+        }
+    }
+
+    /// Definice podobvodu.
+    pub fn subcircuit(&self, id: u32) -> Option<&SubcircuitDef> {
+        self.subcircuits.iter().find(|d| d.id == id)
+    }
+
+    /// Název právě upravovaného listu (`None` = hlavní obvod).
+    pub fn sheet_name(&self) -> Option<String> {
+        self.sheet
+            .and_then(|id| self.subcircuit(id))
+            .map(|d| d.name.clone())
+    }
+
+    /// Lze do právě upravovaného listu vložit instanci podobvodu `id`?
+    /// (Podobvod nesmí obsahovat sám sebe, ani nepřímo.)
+    pub fn can_place_subcircuit(&self, id: u32) -> bool {
+        match self.sheet {
+            None => true,
+            Some(cur) => {
+                id != cur
+                    && self
+                        .subcircuit(id)
+                        .is_some_and(|d| !d.uses(cur, &self.subcircuits))
+            }
+        }
+    }
+
+    /// Zapíše právě upravovaný podobvod zpět do definic.
+    fn store_sheet(&mut self) {
+        if let Some(id) = self.sheet
+            && let Some(d) = self.subcircuits.iter_mut().find(|d| d.id == id)
+        {
+            d.circuit = self.circuit.clone();
+        }
+    }
+
+    /// Otevře list k úpravám: hlavní obvod (`None`) nebo podobvod.
+    pub fn open_sheet(&mut self, target: Option<u32>) {
+        self.open_sheet_inner(target);
+        self.sheet_stack.clear();
+    }
+
+    /// Otevře podobvod a zapamatuje si, odkud se přišlo (Tab zpět).
+    pub fn enter_subcircuit(&mut self, id: u32) {
+        let from = self.sheet;
+        if from != Some(id) && self.subcircuit(id).is_some() {
+            self.open_sheet_inner(Some(id));
+            self.sheet_stack.push(from);
+        }
+    }
+
+    /// Vrátí se o úroveň výš (do nadřazeného listu). Vrací `false`, pokud není kam.
+    pub fn leave_subcircuit(&mut self) -> bool {
+        if self.sheet.is_none() {
+            return false;
+        }
+        let back = self.sheet_stack.pop().flatten();
+        self.open_sheet_inner(back);
+        true
+    }
+
+    fn open_sheet_inner(&mut self, target: Option<u32>) {
+        if target == self.sheet || target.is_some_and(|id| self.subcircuit(id).is_none()) {
+            return;
+        }
+        self.store_sheet();
+        // Rozhraní upravených podobvodů se promítne do instancí.
+        let defs = self.subcircuits.clone();
+        for d in &mut self.subcircuits {
+            sync_instances(&mut d.circuit, &defs);
+        }
+        let leaving = std::mem::take(&mut self.circuit);
+        if self.sheet.is_none() {
+            self.main_stash = Some(MainStash {
+                circuit: leaving,
+                sim: self.sim.clone(),
+                time: self.time,
+                signals: std::mem::take(&mut self.signals),
+            });
+        }
+        self.sheet = target;
+        self.undo.clear();
+        self.redo.clear();
+        self.selection.clear();
+        self.pending_place = None;
+        match target {
+            None => {
+                let stash = self.main_stash.take().expect("hlavní obvod je uložený");
+                self.circuit = stash.circuit;
+                sync_instances(&mut self.circuit, &self.subcircuits);
+                self.sim =
+                    Simulator::with_subcircuits(&self.circuit, &self.subcircuits, Some(&stash.sim));
+                self.time = stash.time;
+                self.signals = stash.signals;
+            }
+            Some(id) => {
+                self.circuit = self
+                    .subcircuit(id)
+                    .map(|d| d.circuit.clone())
+                    .unwrap_or_default();
+                self.sim = Simulator::with_subcircuits(&self.circuit, &self.subcircuits, None);
+                self.time = 0.0;
+                self.signals.clear();
+            }
+        }
+        self.sim.run(EVENT_BUDGET);
+        self.revision += 1;
+        self.record_signals();
+    }
+
+    /// Vytvoří nový prázdný podobvod a otevře ho. Vrací jeho id.
+    pub fn new_subcircuit(&mut self, name_prefix: &str) -> u32 {
+        let id = self.subcircuits.iter().map(|d| d.id + 1).max().unwrap_or(1);
+        let name = (1..)
+            .map(|n| format!("{name_prefix} {n}"))
+            .find(|n| !self.subcircuits.iter().any(|d| &d.name == n))
+            .unwrap_or_default();
+        self.subcircuits.push(SubcircuitDef {
+            id,
+            name,
+            circuit: Circuit::default(),
+        });
+        self.modified = true;
+        self.enter_subcircuit(id);
+        id
+    }
+
+    pub fn rename_subcircuit(&mut self, id: u32, name: String) {
+        if let Some(d) = self.subcircuits.iter_mut().find(|d| d.id == id) {
+            d.name = name;
+            self.touch();
+        }
+    }
+
+    /// Je podobvod někde použitý (v hlavním obvodu nebo jiném podobvodu)?
+    pub fn is_subcircuit_used(&self, id: u32) -> bool {
+        let (main, subs) = self.snapshot();
+        let used_in = |c: &Circuit| {
+            c.components
+                .iter()
+                .any(|k| matches!(k.kind, ComponentKind::Subcircuit { id: i, .. } if i == id))
+        };
+        used_in(&main) || subs.iter().any(|d| d.id != id && used_in(&d.circuit))
+    }
+
+    /// Smaže nepoužitý podobvod. Pokud je právě otevřený, vrátí se do hlavního obvodu.
+    pub fn delete_subcircuit(&mut self, id: u32) -> bool {
+        if self.is_subcircuit_used(id) {
+            return false;
+        }
+        if self.sheet == Some(id) {
+            self.open_sheet(None);
+        }
+        self.subcircuits.retain(|d| d.id != id);
+        self.sheet_stack.retain(|s| *s != Some(id));
+        self.touch();
+        true
     }
 
     /// Uloží stav pro „Zpět“. Volá se před každou úpravou.
@@ -173,7 +384,7 @@ impl Project {
 
     /// Po změně zapojení: přestaví simulátor (se zachováním stavu) a vyčistí výběr.
     pub fn after_structure_change(&mut self) {
-        self.sim = Simulator::new(&self.circuit, Some(&self.sim));
+        self.sim = Simulator::with_subcircuits(&self.circuit, &self.subcircuits, Some(&self.sim));
         self.sim.run(EVENT_BUDGET);
         self.selection
             .comps
@@ -287,7 +498,7 @@ impl Project {
 
     /// Restart simulace: klopné obvody se vrátí do počátečního stavu, hodiny na 0.
     pub fn reset_simulation(&mut self) {
-        self.sim = Simulator::new(&self.circuit, None);
+        self.sim = Simulator::with_subcircuits(&self.circuit, &self.subcircuits, None);
         self.time = 0.0;
         self.signals.clear();
         self.sim.run(EVENT_BUDGET);
@@ -309,20 +520,7 @@ impl Project {
 
     /// Vstupy a výstupy obvodu seřazené podle popisku.
     pub fn io_components(&self) -> (Vec<CompId>, Vec<CompId>) {
-        let mut ins: Vec<&logicflow_core::Component> = self
-            .circuit
-            .components
-            .iter()
-            .filter(|c| c.kind.is_input())
-            .collect();
-        let mut outs: Vec<&logicflow_core::Component> = self
-            .circuit
-            .components
-            .iter()
-            .filter(|c| matches!(c.kind, ComponentKind::Led))
-            .collect();
-        ins.sort_by(|a, b| natural_cmp(&a.label, &b.label));
-        outs.sort_by(|a, b| natural_cmp(&a.label, &b.label));
+        let (ins, outs) = self.circuit.io();
         (
             ins.iter().map(|c| c.id).collect(),
             outs.iter().map(|c| c.id).collect(),
@@ -366,14 +564,7 @@ impl Project {
     }
 }
 
-/// Řazení „A2“ před „A10“.
-pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    let split = |s: &str| {
-        let i = s.find(|c: char| c.is_ascii_digit()).unwrap_or(s.len());
-        (s[..i].to_owned(), s[i..].parse::<u64>().unwrap_or(0))
-    };
-    split(a).cmp(&split(b)).then_with(|| a.cmp(b))
-}
+pub use logicflow_core::circuit::natural_cmp;
 
 #[cfg(test)]
 mod tests {
@@ -386,6 +577,52 @@ mod tests {
         c.add_component(ComponentKind::Led, Point::new(6, 0));
         c.add_wire(Point::new(2, 0), Point::new(4, 0));
         Project::new(c)
+    }
+
+    #[test]
+    fn subcircuit_sheets_and_file_roundtrip() {
+        let mut p = small();
+        let id = p.new_subcircuit("Podobvod");
+        assert_eq!(p.sheet, Some(id));
+        assert_eq!(p.sheet_name().as_deref(), Some("Podobvod 1"));
+        // Uvnitř: přepínač → LED (rozhraní 1 vstup, 1 výstup).
+        p.circuit
+            .add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
+        p.circuit
+            .add_component(ComponentKind::Led, Point::new(4, 0));
+        p.after_structure_change();
+        assert!(
+            !p.can_place_subcircuit(id),
+            "podobvod nesmí obsahovat sám sebe"
+        );
+        assert!(p.leave_subcircuit());
+        assert_eq!(p.sheet, None);
+        assert_eq!(p.circuit.components.len(), 2, "hlavní obvod se vrátil");
+        let kind = p.subcircuit(id).unwrap().kind();
+        assert_eq!(
+            kind,
+            ComponentKind::Subcircuit {
+                id,
+                inputs: 1,
+                outputs: 1
+            }
+        );
+        p.circuit.add_component(kind, Point::new(20, 0));
+        p.after_structure_change();
+        assert!(p.is_subcircuit_used(id));
+        assert!(!p.delete_subcircuit(id));
+
+        let dir = std::env::temp_dir().join(format!("lf-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("podobvod.logicflow");
+        // Uložení z podobvodu musí zapsat i hlavní obvod.
+        p.enter_subcircuit(id);
+        p.save(&path).unwrap();
+        let q = Project::load(&path).unwrap();
+        assert_eq!(q.subcircuits.len(), 1);
+        assert_eq!(q.circuit.components.len(), 3);
+        assert_eq!(q.subcircuits[0].circuit.components.len(), 2);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

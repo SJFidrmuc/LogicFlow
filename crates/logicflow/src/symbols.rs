@@ -2,7 +2,32 @@
 
 use crate::theme::{colors, signal_color};
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Vec2, pos2, vec2};
-use logicflow_core::{Component, ComponentKind, FlipFlopKind, LogicValue, Rotation};
+use logicflow_core::block::{SEVEN_SEG_HEX, number};
+use logicflow_core::{BlockKind, Component, ComponentKind, FlipFlopKind, LogicValue, Rotation};
+
+/// Styl značek: evropský (ČSN EN 60617-12) nebo americký (ANSI/IEEE Std 91).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SymbolStyle {
+    #[default]
+    Iec,
+    Ansi,
+}
+
+fn style_id() -> egui::Id {
+    egui::Id::unique("logicflow-symbol-style")
+}
+
+/// Nastaví styl značek pro kreslení v tomto snímku.
+pub fn set_style(ctx: &egui::Context, style: SymbolStyle) {
+    ctx.data_mut(|d| d.insert_temp(style_id(), style));
+}
+
+fn style(painter: &Painter) -> SymbolStyle {
+    painter
+        .ctx()
+        .data(|d| d.get_temp(style_id()))
+        .unwrap_or_default()
+}
 
 /// Velikost jedné jednotky mřížky v pixelech při zoomu 100 %.
 pub const UNIT: f32 = 16.0;
@@ -46,9 +71,34 @@ pub struct Look {
 }
 
 /// Hodnoty potřebné ke kreslení (ze simulátoru).
+#[derive(Default)]
 pub struct Values {
     pub inputs: Vec<LogicValue>,
     pub outputs: Vec<LogicValue>,
+    /// Název a názvy vývodů podobvodu (jen u instancí podobvodů).
+    pub sub: Option<SubInfo>,
+}
+
+/// Popis podobvodu pro kreslení jeho značky.
+pub struct SubInfo {
+    pub name: String,
+    pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
+}
+
+impl SubInfo {
+    pub fn of(project: &crate::project::Project, kind: ComponentKind) -> Option<Self> {
+        let ComponentKind::Subcircuit { id, .. } = kind else {
+            return None;
+        };
+        let def = project.subcircuit(id)?;
+        let (inputs, outputs) = def.pin_names();
+        Some(Self {
+            name: def.name.clone(),
+            inputs,
+            outputs,
+        })
+    }
 }
 
 pub const SELECTED: Color32 = Color32::from_rgb(0xff, 0xa0, 0x30);
@@ -135,6 +185,9 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
     let body = cam.rect(comp.body());
     let fill = fade(colors::SYMBOL_FILL, look);
     match comp.kind {
+        ComponentKind::Gate { gate, .. } if style(painter) == SymbolStyle::Ansi => {
+            draw_ansi_gate(painter, cam, comp, gate, outline, look);
+        }
         ComponentKind::Gate { gate, inputs } => {
             painter.rect_filled(body, cam.len(0.15), fill);
             painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
@@ -296,7 +349,302 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
             }
             draw_label(painter, cam, comp, 1.6, look);
         }
+        ComponentKind::Block { block } => draw_block(painter, cam, comp, block, outline, look),
+        ComponentKind::Subcircuit { .. } => {
+            draw_subcircuit(painter, cam, comp, values.sub.as_ref(), outline, look);
+        }
+        ComponentKind::SevenSegment => {
+            draw_display_body(painter, cam, comp, outline, look, &SEG_NAMES);
+            let segs: Vec<LogicValue> = (0..8)
+                .map(|k| values.inputs.get(k).copied().unwrap_or(LogicValue::Z))
+                .collect();
+            draw_digit(painter, cam, comp, (0.5, 1.6, 3.4), &segs, look);
+        }
+        ComponentKind::HexDisplay => {
+            draw_display_body(painter, cam, comp, outline, look, &["D0", "D1", "D2", "D3"]);
+            let segs: Vec<LogicValue> = match number(&values.inputs) {
+                Some(n) if values.inputs.len() == 4 => (0..7)
+                    .map(|k| (SEVEN_SEG_HEX[n as usize] >> k & 1 == 1).into())
+                    .chain([LogicValue::Zero])
+                    .collect(),
+                _ => vec![LogicValue::X; 8],
+            };
+            draw_digit(painter, cam, comp, (0.7, 1.4, 2.8), &segs, look);
+        }
     }
+}
+
+const SEG_NAMES: [&str; 8] = ["a", "b", "c", "d", "e", "f", "g", "dp"];
+
+/// Barva segmentu zobrazovače podle hodnoty.
+fn segment_color(v: LogicValue) -> Color32 {
+    match v {
+        LogicValue::One => Color32::from_rgb(0xff, 0x45, 0x30),
+        LogicValue::Zero => Color32::from_rgb(0x3a, 0x1c, 0x1a),
+        LogicValue::X => Color32::from_rgb(0x5a, 0x3a, 0x3a),
+        LogicValue::Z => Color32::from_rgb(0x2a, 0x2a, 0x34),
+    }
+}
+
+/// Tmavé tělo zobrazovače s názvy vstupů a popiskem nad ním.
+fn draw_display_body(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    outline: Stroke,
+    look: Look,
+    names: &[&str],
+) {
+    let body = cam.rect(comp.body());
+    painter.rect_filled(
+        body,
+        cam.len(0.3),
+        fade(Color32::from_rgb(0x16, 0x16, 0x1a), look),
+    );
+    painter.rect_stroke(body, cam.len(0.3), outline, egui::StrokeKind::Middle);
+    let (x0, ..) = comp.kind.body_local();
+    let (ins, _) = comp.kind.pins_local();
+    for ((_, py), name) in ins.iter().zip(names) {
+        text(
+            painter,
+            cam,
+            local(comp, x0 + 0.3, *py as f32),
+            name,
+            0.7,
+            align_for(comp.rotation, 1.0),
+            fade(colors::TEXT_WEAK, look),
+        );
+    }
+    top_label(painter, cam, comp, look);
+}
+
+/// Sedmisegmentová číslice. `geom` = (střed x, poloviční šířka, poloviční výška),
+/// `segs` = hodnoty segmentů a, b, c, d, e, f, g, dp.
+fn draw_digit(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    (cx, hw, hh): (f32, f32, f32),
+    segs: &[LogicValue],
+    look: Look,
+) {
+    let t = 0.45;
+    let g = 0.06; // mezera mezi segmenty
+    let (l, r) = (cx - hw, cx + hw);
+    let rects = [
+        (l + t + g, -hh, r - t - g, -hh + t),      // a
+        (r - t, -hh + t + g, r, -t / 2.0 - g),     // b
+        (r - t, t / 2.0 + g, r, hh - t - g),       // c
+        (l + t + g, hh - t, r - t - g, hh),        // d
+        (l, t / 2.0 + g, l + t, hh - t - g),       // e
+        (l, -hh + t + g, l + t, -t / 2.0 - g),     // f
+        (l + t + g, -t / 2.0, r - t - g, t / 2.0), // g
+    ];
+    for (k, (x0, y0, x1, y1)) in rects.into_iter().enumerate() {
+        let v = segs.get(k).copied().unwrap_or(LogicValue::Z);
+        let pts = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+            .map(|(x, y)| cam.to_screen(local(comp, x, y)))
+            .to_vec();
+        painter.add(egui::Shape::convex_polygon(
+            pts,
+            fade(segment_color(v), look),
+            Stroke::NONE,
+        ));
+    }
+    let dp = segs.get(7).copied().unwrap_or(LogicValue::Z);
+    painter.circle_filled(
+        cam.to_screen(local(comp, r + 0.55, hh - 0.25)),
+        cam.len(0.28),
+        fade(segment_color(dp), look),
+    );
+}
+
+/// Popisek součástky nad tělem.
+fn top_label(painter: &Painter, cam: Camera, comp: &Component, look: Look) {
+    if comp.label.is_empty() {
+        return;
+    }
+    let (_, y0, _, _) = comp.body();
+    text(
+        painter,
+        cam,
+        pos2(comp.pos.x as f32, y0 - 0.4),
+        &comp.label,
+        0.9,
+        Align2::CENTER_BOTTOM,
+        fade(colors::TEXT_WEAK, look),
+    );
+}
+
+/// Dynamický vstup (trojúhelník u okraje těla) pro hodinový vstup na výšce `y`.
+fn clock_triangle(painter: &Painter, cam: Camera, comp: &Component, x0: f32, y: f32, ink: Color32) {
+    let tri = [
+        local(comp, x0, y - 0.45),
+        local(comp, x0 + 0.6, y),
+        local(comp, x0, y + 0.45),
+    ]
+    .map(|p| cam.to_screen(p));
+    painter.add(egui::Shape::closed_line(
+        tri.to_vec(),
+        Stroke::new(cam.line_width(), ink),
+    ));
+}
+
+/// Značka podobvodu: obdélník s jeho názvem a popisky vývodů. Dvojitá horní
+/// čára odlišuje podobvod od vestavěných bloků.
+fn draw_subcircuit(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    info: Option<&SubInfo>,
+    outline: Stroke,
+    look: Look,
+) {
+    let body = cam.rect(comp.body());
+    painter.rect_filled(body, cam.len(0.15), fade(colors::SYMBOL_FILL, look));
+    painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
+    let (x0, y0, x1, _) = comp.kind.body_local();
+    painter.line_segment(
+        [
+            cam.to_screen(local(comp, x0, y0 + 2.0)),
+            cam.to_screen(local(comp, x1, y0 + 2.0)),
+        ],
+        Stroke::new(1.0, fade(colors::SYMBOL, look)),
+    );
+    let (ins, outs) = comp.kind.pins_local();
+    let ink = fade(colors::TEXT, look);
+    let name_of = |names: Option<&Vec<String>>, k: usize| {
+        names.and_then(|n| n.get(k)).cloned().unwrap_or_default()
+    };
+    for (k, (_, py)) in ins.iter().enumerate() {
+        text(
+            painter,
+            cam,
+            local(comp, x0 + 0.35, *py as f32),
+            &name_of(info.map(|i| &i.inputs), k),
+            0.75,
+            align_for(comp.rotation, 1.0),
+            ink,
+        );
+    }
+    for (k, (_, py)) in outs.iter().enumerate() {
+        text(
+            painter,
+            cam,
+            local(comp, x1 - 0.35, *py as f32),
+            &name_of(info.map(|i| &i.outputs), k),
+            0.75,
+            align_for(comp.rotation, -1.0),
+            ink,
+        );
+    }
+    let name = info.map_or("?", |i| i.name.as_str());
+    let accent = fade(colors::ACCENT, look);
+    let lines = name_lines(name, 11);
+    let (size, step) = if lines.len() == 1 {
+        (0.85, 0.0)
+    } else {
+        (0.7, 0.75)
+    };
+    for (k, line) in lines.iter().enumerate() {
+        let y = y0 + 1.0 + (k as f32 - (lines.len() as f32 - 1.0) / 2.0) * step;
+        text(
+            painter,
+            cam,
+            local(comp, 0.0, y),
+            line,
+            size,
+            Align2::CENTER_CENTER,
+            accent,
+        );
+    }
+    top_label(painter, cam, comp, look);
+}
+
+/// Rozdělí název do nejvýše dvou řádků po `max` znacích (zalomí u mezery,
+/// příliš dlouhá slova zkrátí).
+fn name_lines(name: &str, max: usize) -> Vec<String> {
+    let cut = |s: &str| -> String {
+        if s.chars().count() > max {
+            s.chars().take(max - 1).chain(['.']).collect()
+        } else {
+            s.to_owned()
+        }
+    };
+    if name.chars().count() <= max {
+        return vec![name.to_owned()];
+    }
+    // Mezera nejblíž polovině názvu.
+    let half = name.len() / 2;
+    let split = name
+        .match_indices(' ')
+        .map(|(i, _)| i)
+        .min_by_key(|i| i.abs_diff(half));
+    match split {
+        Some(i) => vec![cut(&name[..i]), cut(name[i + 1..].trim())],
+        None => vec![cut(name)],
+    }
+}
+
+/// Obdélníková značka funkčního bloku s kvalifikátorem a názvy vývodů.
+fn draw_block(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    block: BlockKind,
+    outline: Stroke,
+    look: Look,
+) {
+    let body = cam.rect(comp.body());
+    painter.rect_filled(body, cam.len(0.15), fade(colors::SYMBOL_FILL, look));
+    painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
+    let (x0, y0, x1, _) = block.body_local();
+    let (ins, outs) = block.pins_local();
+    let ink = fade(colors::TEXT, look);
+    let size = 0.75;
+    let clock = block.clock_input();
+    for (i, ((_, py), name)) in ins.iter().zip(block.input_names()).enumerate() {
+        let y = *py as f32;
+        let mut x = x0 + 0.35;
+        let mut name = name;
+        if clock == Some(i) {
+            clock_triangle(painter, cam, comp, x0, y, ink);
+            x = x0 + 0.8;
+            if let BlockKind::Counter { down, .. } = block {
+                name = if down { "-".into() } else { "+".into() };
+            }
+        }
+        text(
+            painter,
+            cam,
+            local(comp, x, y),
+            &name,
+            size,
+            align_for(comp.rotation, 1.0),
+            ink,
+        );
+    }
+    for ((_, py), name) in outs.iter().zip(block.output_names()) {
+        text(
+            painter,
+            cam,
+            local(comp, x1 - 0.35, *py as f32),
+            &name,
+            size,
+            align_for(comp.rotation, -1.0),
+            ink,
+        );
+    }
+    text(
+        painter,
+        cam,
+        local(comp, 0.0, y0 + 1.1),
+        &block.qualifier(),
+        0.95,
+        Align2::CENTER_CENTER,
+        fade(colors::TEXT_WEAK, look),
+    );
+    top_label(painter, cam, comp, look);
 }
 
 fn draw_label(painter: &Painter, cam: Camera, comp: &Component, dx: f32, look: Look) {
@@ -333,6 +681,148 @@ fn negation(
     ]
     .map(|p| cam.to_screen(p));
     painter.add(egui::Shape::closed_line(tri.to_vec(), stroke));
+}
+
+/// Kroužek negace (americké značky) se středem v `(x, y)`.
+fn bubble(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    x: f32,
+    y: f32,
+    stroke: Stroke,
+    look: Look,
+) {
+    let c = cam.to_screen(local(comp, x, y));
+    painter.circle_filled(c, cam.len(0.35), fade(colors::SYMBOL_FILL, look));
+    painter.circle_stroke(c, cam.len(0.35), stroke);
+}
+
+/// Body kvadratické Bézierovy křivky (bez počátečního bodu).
+fn bezier(a: (f32, f32), c: (f32, f32), b: (f32, f32), n: usize) -> Vec<(f32, f32)> {
+    (1..=n)
+        .map(|i| {
+            let t = i as f32 / n as f32;
+            let u = 1.0 - t;
+            (
+                u * u * a.0 + 2.0 * u * t * c.0 + t * t * b.0,
+                u * u * a.1 + 2.0 * u * t * c.1 + t * t * b.1,
+            )
+        })
+        .collect()
+}
+
+/// Vyplněný obrys (hvězdicovitý vzhledem k bodu `center`) s okrajem.
+fn filled_outline(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    center: (f32, f32),
+    outline: &[(f32, f32)],
+    fill: Color32,
+    stroke: Stroke,
+) {
+    let pts: Vec<Pos2> = outline
+        .iter()
+        .map(|&(x, y)| cam.to_screen(local(comp, x, y)))
+        .collect();
+    let mut mesh = egui::Mesh::default();
+    mesh.colored_vertex(cam.to_screen(local(comp, center.0, center.1)), fill);
+    for p in &pts {
+        mesh.colored_vertex(*p, fill);
+    }
+    let n = pts.len() as u32;
+    for i in 0..n {
+        mesh.add_triangle(0, 1 + i, 1 + (i + 1) % n);
+    }
+    painter.add(egui::Shape::mesh(mesh));
+    painter.add(egui::Shape::closed_line(pts, stroke));
+}
+
+/// Americká tvarová značka hradla (ANSI/IEEE Std 91).
+fn draw_ansi_gate(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    gate: logicflow_core::GateKind,
+    outline: Stroke,
+    look: Look,
+) {
+    use logicflow_core::GateKind as G;
+    let (x0, y0, x1, y1) = comp.kind.body_local();
+    let fill = fade(colors::SYMBOL_FILL, look);
+    let inverted = gate.is_inverted();
+    // U negovaných hradel zůstane vpravo místo na kroužek.
+    let right = if inverted { x1 - 0.7 } else { x1 };
+    let h = if gate.is_unary() {
+        1.3
+    } else {
+        y1.min(-y0) - 0.2
+    };
+    let (ins, _) = comp.kind.pins_local();
+    let lead = Stroke::new(cam.line_width(), fade(colors::SYMBOL, look));
+    // Zadní oblouk OR/XOR: x podle y.
+    let depth = 0.55;
+    let back = |x: f32, y: f32| x + depth * (1.0 - (y / h).powi(2)).max(0.0);
+    match gate {
+        G::Not | G::Buffer => {
+            let tri = [(x0, -h), (right, 0.0), (x0, h)];
+            filled_outline(painter, cam, comp, (x0 + 0.5, 0.0), &tri, fill, outline);
+        }
+        G::And | G::Nand => {
+            let xc = x0 + (right - x0) * 0.35;
+            let (rx, ry) = (right - xc, h);
+            let mut pts = vec![(x0, -h), (xc, -h)];
+            pts.extend((1..24).map(|i| {
+                let a = -std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 24.0;
+                (xc + rx * a.cos(), ry * a.sin())
+            }));
+            pts.extend([(xc, h), (x0, h)]);
+            filled_outline(painter, cam, comp, (x0 + 0.5, 0.0), &pts, fill, outline);
+        }
+        G::Or | G::Nor | G::Xor | G::Xnor => {
+            let exclusive = matches!(gate, G::Xor | G::Xnor);
+            let bx = if exclusive { x0 + 0.45 } else { x0 };
+            let w = right - bx;
+            let mut pts = vec![(bx, -h)];
+            pts.extend(bezier((bx, -h), (bx + w * 0.6, -h), (right, 0.0), 16));
+            pts.extend(bezier((right, 0.0), (bx + w * 0.6, h), (bx, h), 16));
+            // zadní oblouk zdola nahoru
+            pts.extend((1..16).map(|i| {
+                let y = h - 2.0 * h * i as f32 / 16.0;
+                (back(bx, y), y)
+            }));
+            filled_outline(
+                painter,
+                cam,
+                comp,
+                (bx + depth + 0.4, 0.0),
+                &pts,
+                fill,
+                outline,
+            );
+            if exclusive {
+                let arc: Vec<Pos2> = (0..=16)
+                    .map(|i| {
+                        let y = -h + 2.0 * h * i as f32 / 16.0;
+                        cam.to_screen(local(comp, back(x0, y), y))
+                    })
+                    .collect();
+                painter.add(egui::Shape::line(arc, outline));
+            }
+            // Vstupy prodloužené až k zadnímu oblouku.
+            for (_, py) in &ins {
+                let y = *py as f32;
+                let a = cam.to_screen(local(comp, x0, y));
+                let b = cam.to_screen(local(comp, back(x0, y), y));
+                painter.line_segment([a, b], lead);
+            }
+        }
+    }
+    if inverted {
+        bubble(painter, cam, comp, x1 - 0.35, 0.0, outline, look);
+    }
+    top_label(painter, cam, comp, look);
 }
 
 /// Frekvence hodin pro popisek („0,5 Hz“).
@@ -377,7 +867,11 @@ fn draw_flip_flop(
                 Stroke::new(cam.line_width(), ink),
             ));
             if falling {
-                negation(painter, cam, comp, x0, y, -1.0, outline);
+                if style(painter) == SymbolStyle::Ansi {
+                    bubble(painter, cam, comp, x0 - 0.35, y, outline, look);
+                } else {
+                    negation(painter, cam, comp, x0, y, -1.0, outline);
+                }
             }
             x = x0 + 0.85;
         }
@@ -494,6 +988,16 @@ mod tests {
         assert!(
             (dist_to_segment(pos2(-3.0, 4.0), pos2(0.0, 0.0), pos2(10.0, 0.0)) - 5.0).abs() < 1e-6
         );
+    }
+
+    #[test]
+    fn long_names_wrap() {
+        assert_eq!(name_lines("NAND", 11), ["NAND"]);
+        assert_eq!(
+            name_lines("Poloviční sčítačka", 11),
+            ["Poloviční", "sčítačka"]
+        );
+        assert_eq!(name_lines("Dekodérosmisegment", 11), ["Dekodérosm."]);
     }
 
     #[test]

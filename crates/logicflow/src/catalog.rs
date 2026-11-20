@@ -1,7 +1,7 @@
 //! Nabídka součástek pro Shift+A a knihovnu.
 
 use crate::i18n::{Lang, T, tr};
-use logicflow_core::{ComponentKind, FlipFlopKind, GateKind};
+use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind};
 
 pub struct Category {
     pub title: T,
@@ -49,16 +49,42 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
                 .collect(),
         },
         Category {
+            title: T::CatBlocks,
+            items: BlockKind::ALL
+                .iter()
+                .map(|b| (block_name(*b, lang), ComponentKind::Block { block: *b }))
+                .collect(),
+        },
+        Category {
             title: T::CatOutputs,
-            items: vec![(tr(lang, T::Led).to_owned(), ComponentKind::Led)],
+            items: vec![
+                (tr(lang, T::Led).to_owned(), ComponentKind::Led),
+                (
+                    tr(lang, T::SevenSegment).to_owned(),
+                    ComponentKind::SevenSegment,
+                ),
+                (
+                    tr(lang, T::HexDisplay).to_owned(),
+                    ComponentKind::HexDisplay,
+                ),
+            ],
         },
     ]
 }
 
+/// Podobvody projektu, které lze vložit do právě upravovaného listu.
+pub fn subcircuit_items(project: &crate::project::Project) -> Vec<(String, ComponentKind)> {
+    project
+        .subcircuits
+        .iter()
+        .filter(|d| project.can_place_subcircuit(d.id))
+        .map(|d| (d.name.clone(), d.kind()))
+        .collect()
+}
+
 /// Součástky, které přibudou v dalších verzích (jen pro zobrazení v knihovně).
-pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 3] {
+pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 2] {
     [
-        (T::CatOutputs, &["Sedmisegmentovka", "Hex displej"], "0.3"),
         (T::CatMemory, &["ROM", "RAM", "EEPROM"], "0.4"),
         (
             T::Cat74xx,
@@ -82,6 +108,39 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
             format!("{} {}", tr(lang, T::FlipFlop), ff_name(*ff, lang))
         }
         ComponentKind::Clock { .. } => tr(lang, T::Clock).to_owned(),
+        ComponentKind::Block { block } => block_name(*block, lang),
+        ComponentKind::SevenSegment => tr(lang, T::SevenSegment).to_owned(),
+        ComponentKind::HexDisplay => tr(lang, T::HexDisplay).to_owned(),
+        ComponentKind::Subcircuit { .. } => tr(lang, T::Subcircuit).to_owned(),
+    }
+}
+
+/// Název funkčního bloku i s velikostí („Multiplexor 4:1“, „Čítač 4bitový“).
+pub fn block_name(block: BlockKind, lang: Lang) -> String {
+    let bit = |n: u8| match lang {
+        Lang::Cs => format!("{n}bitový"),
+        Lang::En => format!("{n}-bit"),
+    };
+    match block {
+        BlockKind::Mux { select } => format!("{} {}:1", tr(lang, T::BlkMux), 1 << select),
+        BlockKind::Decoder { bits } => {
+            format!("{} {bits}:{}", tr(lang, T::BlkDecoder), 1 << bits)
+        }
+        BlockKind::Encoder { bits } => {
+            format!("{} {}:{bits}", tr(lang, T::BlkEncoder), 1 << bits)
+        }
+        BlockKind::Adder { bits: 1 } => match lang {
+            Lang::Cs => "Úplná sčítačka (1 bit)".to_owned(),
+            Lang::En => "Full adder (1 bit)".to_owned(),
+        },
+        BlockKind::Adder { bits } => format!("{} {}", tr(lang, T::BlkAdder), bit(bits)),
+        BlockKind::Comparator { bits } => {
+            format!("{} {}", tr(lang, T::BlkComparator), bit(bits))
+        }
+        BlockKind::BcdTo7Seg => tr(lang, T::BlkBcd7Seg).to_owned(),
+        BlockKind::Counter { bits, .. } => format!("{} {}", tr(lang, T::BlkCounter), bit(bits)),
+        BlockKind::Register { bits } => format!("{} {}", tr(lang, T::BlkRegister), bit(bits)),
+        BlockKind::ShiftRegister { bits } => format!("{} {}", tr(lang, T::BlkShift), bit(bits)),
     }
 }
 

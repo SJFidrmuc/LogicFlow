@@ -5,7 +5,7 @@ use crate::i18n::{Lang, T, tr};
 use crate::project::{Project, natural_cmp};
 use crate::theme::colors;
 use egui::{RichText, Ui};
-use logicflow_core::{ComponentKind, FlipFlopKind, GateKind, LogicValue};
+use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, LogicValue};
 
 fn padded(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     egui::ScrollArea::vertical()
@@ -101,6 +101,7 @@ fn component_properties(
     ui.add_space(4.0);
 
     let mut structure_changed = false;
+    let mut open_sub = None;
     egui::Grid::new("props")
         .num_columns(2)
         .spacing([12.0, 6.0])
@@ -297,25 +298,133 @@ fn component_properties(
                     }
                     ui.end_row();
                 }
-                ComponentKind::Button | ComponentKind::Led => {}
+                ComponentKind::Block { block } => {
+                    let mut new_block = block;
+                    if let Some(n) = block.param() {
+                        let (lo, hi) = block.param_range();
+                        let title =
+                            if matches!(block, BlockKind::Mux { .. } | BlockKind::Decoder { .. }) {
+                                T::SelectBits
+                            } else {
+                                T::Bits
+                            };
+                        ui.label(weak(tr(lang, title)));
+                        ui.horizontal(|ui| {
+                            let mut m = n;
+                            if ui.add_enabled(m > lo, egui::Button::new("−")).clicked() {
+                                m -= 1;
+                            }
+                            ui.label(RichText::new(m.to_string()).monospace());
+                            if ui.add_enabled(m < hi, egui::Button::new("+")).clicked() {
+                                m += 1;
+                            }
+                            new_block = block.with_param(m);
+                        });
+                        ui.end_row();
+                    }
+                    if let BlockKind::Counter { bits, down } = block {
+                        ui.label(weak(tr(lang, T::CountDirection)));
+                        let mut d = down;
+                        ui.vertical(|ui| {
+                            ui.radio_value(&mut d, false, tr(lang, T::CountUp));
+                            ui.radio_value(&mut d, true, tr(lang, T::CountDown));
+                        });
+                        if d != down {
+                            new_block = BlockKind::Counter { bits, down: d };
+                        }
+                        ui.end_row();
+                    }
+                    if let Some(st) = project.sim.block_state(id) {
+                        ui.label(weak(tr(lang, T::BlockState)));
+                        let bits: String = st.iter().rev().map(|v| v.symbol()).collect();
+                        let text = match logicflow_core::block::number(&st) {
+                            Some(n) => format!("{bits}  (= {n})"),
+                            None => bits,
+                        };
+                        ui.label(RichText::new(text).monospace());
+                        ui.end_row();
+                    }
+                    ui.label(weak(tr(lang, T::Delay)));
+                    ui.label(format!(
+                        "{} {}",
+                        logicflow_core::sim::GATE_DELAY,
+                        tr(lang, T::Ticks)
+                    ));
+                    ui.end_row();
+                    if new_block != block {
+                        project.checkpoint();
+                        if let Some(c) = project.circuit.component_mut(id) {
+                            c.kind = ComponentKind::Block { block: new_block };
+                        }
+                        structure_changed = true;
+                    }
+                }
+                ComponentKind::Subcircuit {
+                    id: def_id,
+                    inputs,
+                    outputs,
+                } => {
+                    ui.label(weak(tr(lang, T::Definition)));
+                    let name = project
+                        .subcircuit(def_id)
+                        .map_or_else(|| "?".to_owned(), |d| d.name.clone());
+                    ui.label(RichText::new(name).color(colors::ACCENT));
+                    ui.end_row();
+                    ui.label(weak(tr(lang, T::Pins)));
+                    ui.label(format!(
+                        "{inputs} {} / {outputs} {}",
+                        tr(lang, T::Inputs).to_lowercase(),
+                        tr(lang, T::Outputs).to_lowercase()
+                    ));
+                    ui.end_row();
+                    ui.label("");
+                    if ui.button(tr(lang, T::OpenSubcircuit)).clicked() {
+                        open_sub = Some(def_id);
+                    }
+                    ui.end_row();
+                }
+                ComponentKind::Button
+                | ComponentKind::Led
+                | ComponentKind::SevenSegment
+                | ComponentKind::HexDisplay => {}
             }
 
             let is_led = matches!(comp.kind, ComponentKind::Led);
+            let multi = matches!(
+                comp.kind,
+                ComponentKind::Block { .. }
+                    | ComponentKind::SevenSegment
+                    | ComponentKind::HexDisplay
+                    | ComponentKind::Subcircuit { .. }
+            );
             let shown = if is_led {
                 project.sim.inputs(id).first().copied()
             } else {
                 project.sim.output_net_value(id)
             };
-            if let Some(v) = shown {
+            if let Some(v) = shown.filter(|_| !multi) {
                 ui.label(weak(tr(lang, if is_led { T::Input } else { T::Output })));
                 ui.label(value_text(v));
                 ui.end_row();
             }
-            if matches!(comp.kind, ComponentKind::Gate { .. }) {
+            if matches!(comp.kind, ComponentKind::Gate { .. }) || multi {
                 let ins = project.sim.inputs(id);
                 ui.label(weak(tr(lang, T::Inputs)));
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for v in ins {
+                        ui.label(value_text(v));
+                    }
+                });
+                ui.end_row();
+            }
+            if matches!(
+                comp.kind,
+                ComponentKind::Block { .. } | ComponentKind::Subcircuit { .. }
+            ) {
+                let outs = project.sim.output_net_values(id);
+                ui.label(weak(tr(lang, T::Outputs)));
+                ui.horizontal_wrapped(|ui| {
+                    for v in outs {
                         ui.label(value_text(v));
                     }
                 });
@@ -348,15 +457,96 @@ fn component_properties(
     if structure_changed {
         project.after_structure_change();
     }
+    if let Some(def_id) = open_sub {
+        project.enter_subcircuit(def_id);
+        return;
+    }
     ui.add_space(8.0);
     if ui.button(tr(lang, T::Delete)).clicked() {
         delete_selection(project);
     }
 }
 
+/// Listy projektu: hlavní obvod a podobvody; přepínání, přejmenování a mazání.
+fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
+    egui::CollapsingHeader::new(tr(lang, T::Sheets))
+        .id_salt("sheets")
+        .default_open(true)
+        .show(ui, |ui| {
+            let mut open = None;
+            if ui
+                .add(egui::Button::selectable(
+                    project.sheet.is_none(),
+                    tr(lang, T::MainCircuit),
+                ))
+                .clicked()
+            {
+                open = Some(None);
+            }
+            let list: Vec<(u32, String)> = project
+                .subcircuits
+                .iter()
+                .map(|d| (d.id, d.name.clone()))
+                .collect();
+            for (id, name) in list {
+                let r = ui.add(egui::Button::selectable(
+                    project.sheet == Some(id),
+                    format!("   {name}"),
+                ));
+                if r.clicked() {
+                    open = Some(Some(id));
+                }
+            }
+            if ui
+                .button(format!("+ {}", tr(lang, T::NewSubcircuit)))
+                .clicked()
+            {
+                project.new_subcircuit(tr(lang, T::Subcircuit));
+            }
+            if let Some(target) = open {
+                project.open_sheet(target);
+            }
+            // Nastavení otevřeného podobvodu.
+            if let Some(id) = project.sheet {
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.label(weak(tr(lang, T::SubcircuitName)));
+                    let mut name = project.sheet_name().unwrap_or_default();
+                    if ui
+                        .add(egui::TextEdit::singleline(&mut name).desired_width(140.0))
+                        .changed()
+                    {
+                        project.rename_subcircuit(id, name);
+                    }
+                });
+                ui.label(
+                    RichText::new(tr(lang, T::SubcircuitHint))
+                        .small()
+                        .color(colors::TEXT_WEAK),
+                );
+                ui.horizontal_wrapped(|ui| {
+                    if ui.button(tr(lang, T::BackToParent)).clicked() {
+                        project.leave_subcircuit();
+                    }
+                    let used = project.is_subcircuit_used(id);
+                    let r = ui.add_enabled(!used, egui::Button::new(tr(lang, T::DeleteSubcircuit)));
+                    if used {
+                        r.on_disabled_hover_text(tr(lang, T::SubcircuitUsed));
+                    } else if r.clicked() {
+                        project.delete_subcircuit(id);
+                    }
+                });
+            }
+        });
+    ui.add_space(4.0);
+}
+
 pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
     padded(ui, |ui| {
-        let name = project.display_name();
+        sheets(ui, project, lang);
+        let name = project
+            .sheet_name()
+            .unwrap_or_else(|| project.display_name());
         egui::CollapsingHeader::new(name)
             .default_open(true)
             .show(ui, |ui| {
@@ -364,6 +554,8 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                     (T::Inputs, 0),
                     (T::Gates, 1),
                     (T::CatFlipFlops, 3),
+                    (T::CatBlocks, 4),
+                    (T::CatSubcircuits, 5),
                     (T::Outputs, 2),
                 ] {
                     let mut items: Vec<(logicflow_core::CompId, String)> = project
@@ -376,11 +568,20 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                             | ComponentKind::Constant { .. }
                             | ComponentKind::Clock { .. } => group == 0,
                             ComponentKind::Gate { .. } => group == 1,
-                            ComponentKind::Led => group == 2,
+                            ComponentKind::Led
+                            | ComponentKind::SevenSegment
+                            | ComponentKind::HexDisplay => group == 2,
                             ComponentKind::FlipFlop { .. } => group == 3,
+                            ComponentKind::Block { .. } => group == 4,
+                            ComponentKind::Subcircuit { .. } => group == 5,
                         })
                         .map(|c| {
-                            let kind = kind_name(&c.kind, lang);
+                            let kind = match c.kind {
+                                ComponentKind::Subcircuit { id, .. } => project
+                                    .subcircuit(id)
+                                    .map_or_else(|| kind_name(&c.kind, lang), |d| d.name.clone()),
+                                _ => kind_name(&c.kind, lang),
+                            };
                             let text = if c.label.is_empty() {
                                 kind
                             } else {
@@ -447,6 +648,30 @@ pub fn library(ui: &mut Ui, search: &mut String, project: &mut Project, lang: La
                     }
                 });
         }
+        let subs: Vec<_> = catalog::subcircuit_items(project)
+            .into_iter()
+            .filter(|(n, _)| matches(n))
+            .collect();
+        egui::CollapsingHeader::new(tr(lang, T::CatSubcircuits))
+            .id_salt("lib-subs")
+            .default_open(true)
+            .show(ui, |ui| {
+                if project.subcircuits.is_empty() {
+                    ui.label(weak(tr(lang, T::NoSubcircuits)));
+                }
+                for (name, kind) in subs {
+                    let active = project.pending_place == Some(kind);
+                    if ui.add(egui::Button::selectable(active, name)).clicked() {
+                        project.pending_place = Some(kind);
+                    }
+                }
+                if ui
+                    .button(format!("+ {}", tr(lang, T::NewSubcircuit)))
+                    .clicked()
+                {
+                    project.new_subcircuit(tr(lang, T::Subcircuit));
+                }
+            });
         for (title, items, ver) in catalog::upcoming() {
             let items: Vec<_> = items.iter().filter(|n| matches(n)).collect();
             if items.is_empty() {
@@ -507,7 +732,7 @@ pub fn compute_truth_table(project: &Project) -> Result<TruthTable, T> {
                 }
             }
         }
-        let mut sim = logicflow_core::Simulator::new(&c, None);
+        let mut sim = logicflow_core::Simulator::with_subcircuits(&c, &project.subcircuits, None);
         let stable = sim.run(50_000);
         let values = outs
             .iter()
