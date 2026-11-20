@@ -1,0 +1,100 @@
+{
+ "format": 1,
+ "app": "LogicFlow 0.3.0",
+ "circuit": {
+  "components": [
+   {
+    "id": 1,
+    "kind": {
+     "type": "flip_flop",
+     "ff": "rs",
+     "falling": false,
+     "initial": false
+    },
+    "pos": {
+     "x": 0,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "RS"
+   },
+   {
+    "id": 2,
+    "kind": {
+     "type": "flip_flop",
+     "ff": "d_latch",
+     "falling": false,
+     "initial": false
+    },
+    "pos": {
+     "x": 12,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "D (úroveň)"
+   },
+   {
+    "id": 3,
+    "kind": {
+     "type": "flip_flop",
+     "ff": "d",
+     "falling": false,
+     "initial": false
+    },
+    "pos": {
+     "x": 24,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "D"
+   },
+   {
+    "id": 4,
+    "kind": {
+     "type": "flip_flop",
+     "ff": "jk",
+     "falling": false,
+     "initial": false
+    },
+    "pos": {
+     "x": 0,
+     "y": 10
+    },
+    "rotation": "R0",
+    "label": "JK"
+   },
+   {
+    "id": 5,
+    "kind": {
+     "type": "flip_flop",
+     "ff": "t",
+     "falling": false,
+     "initial": false
+    },
+    "pos": {
+     "x": 12,
+     "y": 10
+    },
+    "rotation": "R0",
+    "label": "T"
+   },
+   {
+    "id": 9,
+    "kind": {
+     "type": "flip_flop",
+     "ff": "jk",
+     "falling": true,
+     "initial": false
+    },
+    "pos": {
+     "x": 24,
+     "y": 10
+    },
+    "rotation": "R0",
+    "label": "JK sestupná"
+   }
+  ],
+  "wires": [],
+  "next_id": 100
+ }
+}

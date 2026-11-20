@@ -1,0 +1,122 @@
+{
+ "format": 1,
+ "app": "LogicFlow 0.3.0",
+ "circuit": {
+  "components": [
+   {
+    "id": 1,
+    "kind": {
+     "type": "gate",
+     "gate": "Buffer",
+     "inputs": 1
+    },
+    "pos": {
+     "x": 0,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "BUF"
+   },
+   {
+    "id": 2,
+    "kind": {
+     "type": "gate",
+     "gate": "Not",
+     "inputs": 1
+    },
+    "pos": {
+     "x": 11,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "NOT"
+   },
+   {
+    "id": 3,
+    "kind": {
+     "type": "gate",
+     "gate": "And",
+     "inputs": 2
+    },
+    "pos": {
+     "x": 22,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "AND"
+   },
+   {
+    "id": 4,
+    "kind": {
+     "type": "gate",
+     "gate": "Or",
+     "inputs": 2
+    },
+    "pos": {
+     "x": 33,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "OR"
+   },
+   {
+    "id": 5,
+    "kind": {
+     "type": "gate",
+     "gate": "Nand",
+     "inputs": 2
+    },
+    "pos": {
+     "x": 0,
+     "y": 9
+    },
+    "rotation": "R0",
+    "label": "NAND"
+   },
+   {
+    "id": 6,
+    "kind": {
+     "type": "gate",
+     "gate": "Nor",
+     "inputs": 2
+    },
+    "pos": {
+     "x": 11,
+     "y": 9
+    },
+    "rotation": "R0",
+    "label": "NOR"
+   },
+   {
+    "id": 7,
+    "kind": {
+     "type": "gate",
+     "gate": "Xor",
+     "inputs": 2
+    },
+    "pos": {
+     "x": 22,
+     "y": 9
+    },
+    "rotation": "R0",
+    "label": "XOR"
+   },
+   {
+    "id": 8,
+    "kind": {
+     "type": "gate",
+     "gate": "Xnor",
+     "inputs": 2
+    },
+    "pos": {
+     "x": 33,
+     "y": 9
+    },
+    "rotation": "R0",
+    "label": "XNOR"
+   }
+  ],
+  "wires": [],
+  "next_id": 100
+ }
+}
