@@ -460,9 +460,11 @@ impl SchematicView {
                         && end != start
                     {
                         project.checkpoint();
-                        for (a, b) in wire_path(start, end, hf) {
+                        let (segs, _) = wire_route(&project.circuit, start, end, hf);
+                        for (a, b) in segs {
                             project.circuit.add_wire(a, b);
                         }
+                        project.circuit.merge_collinear();
                         project.after_structure_change();
                     }
                 }
@@ -622,13 +624,27 @@ impl SchematicView {
             } => {
                 if let Some(end) = mouse_pt {
                     let lw = cam.len(0.16).clamp(1.5, 4.0);
-                    for (a, b) in wire_path(*start, end, horizontal_first.unwrap_or(true)) {
+                    let (segs, warn) = wire_route(
+                        &project.circuit,
+                        *start,
+                        end,
+                        horizontal_first.unwrap_or(true),
+                    );
+                    for (a, b) in segs {
                         painter.line_segment(
                             [cam.to_screen(point(a)), cam.to_screen(point(b))],
                             Stroke::new(lw, Color32::WHITE.gamma_multiply(0.8)),
                         );
                     }
                     painter.circle_filled(cam.to_screen(point(end)), 3.5, Color32::WHITE);
+                    // Místa, kde by se vodič napojil i jinde než na začátku a konci.
+                    for p in warn {
+                        painter.circle_stroke(
+                            cam.to_screen(point(p)),
+                            cam.len(0.5).max(6.0),
+                            Stroke::new(2.0, WARN),
+                        );
+                    }
                 }
             }
             Tool::BoxSelect { start, .. } => {
@@ -733,6 +749,38 @@ fn click(project: &mut Project, m: Pos2, shift: bool) {
     }
 }
 
+/// Barva varování: vodič by se napojil i mimo své konce.
+const WARN: Color32 = Color32::from_rgb(0xff, 0x8c, 0x1a);
+
+/// Cesta nového vodiče a místa, kde by se nechtěně napojil (mimo začátek a konec).
+/// Má-li zvolené lomení taková místa a opačné ne (nebo méně), použije se opačné.
+fn wire_route(
+    c: &Circuit,
+    start: Point,
+    end: Point,
+    horizontal_first: bool,
+) -> (Vec<(Point, Point)>, Vec<Point>) {
+    let route = |hf: bool| {
+        let segs = wire_path(start, end, hf);
+        let warn: Vec<Point> = c
+            .wire_contacts(&segs)
+            .into_iter()
+            .filter(|p| *p != start && *p != end)
+            .collect();
+        (segs, warn)
+    };
+    let first = route(horizontal_first);
+    if first.1.is_empty() {
+        return first;
+    }
+    let other = route(!horizontal_first);
+    if other.1.len() < first.1.len() {
+        other
+    } else {
+        first
+    }
+}
+
 /// Lomená cesta vodiče ze `start` do `end` (nejvýše dvě úsečky).
 fn wire_path(start: Point, end: Point, horizontal_first: bool) -> Vec<(Point, Point)> {
     let corner = if horizontal_first {
@@ -813,6 +861,24 @@ fn draw_grid(painter: &Painter, rect: Rect, cam: Camera) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wire_route_avoids_accidental_contacts() {
+        let mut c = Circuit::default();
+        // Cizí vodič končí v (5,0) – přímo na cestě „nejdřív vodorovně“.
+        c.add_wire(Point::new(5, 0), Point::new(5, -3));
+        let (segs, warn) = wire_route(&c, Point::new(0, 0), Point::new(10, 4), true);
+        assert!(warn.is_empty());
+        assert_eq!(
+            segs[0],
+            (Point::new(0, 0), Point::new(0, 4)),
+            "lomí se opačně"
+        );
+        // Když se dotknou obě varianty, varování zůstane vidět.
+        c.add_wire(Point::new(0, 2), Point::new(-3, 2));
+        let (_, warn) = wire_route(&c, Point::new(0, 0), Point::new(10, 4), true);
+        assert_eq!(warn, [Point::new(5, 0)]);
+    }
 
     #[test]
     fn wire_path_shapes() {

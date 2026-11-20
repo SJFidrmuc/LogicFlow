@@ -100,12 +100,60 @@ pub enum ComponentKind {
     /// Funkční blok (multiplexor, dekodér, čítač, …).
     Block { block: BlockKind },
     /// Sedmisegmentový zobrazovač se vstupy a–g a desetinnou tečkou.
-    SevenSegment,
+    SevenSegment {
+        #[serde(default)]
+        pins: PinSide,
+    },
     /// Hexadecimální zobrazovač se 4bitovým vstupem.
-    HexDisplay,
+    HexDisplay {
+        #[serde(default)]
+        pins: PinSide,
+    },
     /// Instance podobvodu (definice `id` v projektu). Počty vývodů jsou kopií
     /// rozhraní definice, aby šlo značku nakreslit a propojit bez ní.
     Subcircuit { id: u32, inputs: u8, outputs: u8 },
+}
+
+/// Strana, na které má zobrazovač vývody (číslice zůstává vždy rovně).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PinSide {
+    #[default]
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+impl PinSide {
+    pub const ALL: [Self; 4] = [Self::Left, Self::Right, Self::Top, Self::Bottom];
+
+    /// Tělo a vývody zobrazovače s `n` vstupy. `along` je poloviční délka strany
+    /// s vývody, `across` poloviční šířka (u vývodů vlevo/vpravo).
+    fn display_layout(self, n: i32, along: f32, across: f32) -> ((f32, f32, f32, f32), LocalPins) {
+        let first = -(n - 1);
+        let reach = across as i32 + 1;
+        match self {
+            Self::Left | Self::Right => {
+                let x = if self == Self::Left { -reach } else { reach };
+                (
+                    (-across, -along, across, along),
+                    ((0..n).map(|i| (x, first + 2 * i)).collect(), vec![]),
+                )
+            }
+            Self::Top | Self::Bottom => {
+                // Vývody vedle sebe: tělo je široké podle počtu vývodů.
+                let half_w = (n as f32).max(across + 1.0);
+                let half_h = (along - 2.0).max(4.0);
+                let y = half_h as i32 + 1;
+                let y = if self == Self::Top { -y } else { y };
+                (
+                    (-half_w, -half_h, half_w, half_h),
+                    ((0..n).map(|i| (first + 2 * i, y)).collect(), vec![]),
+                )
+            }
+        }
+    }
 }
 
 /// Druh klopného obvodu.
@@ -204,7 +252,10 @@ impl ComponentKind {
 
     /// Je to výstup obvodu (zobrazovací prvek)?
     pub fn is_display(&self) -> bool {
-        matches!(self, Self::Led | Self::SevenSegment | Self::HexDisplay)
+        matches!(
+            self,
+            Self::Led | Self::SevenSegment { .. } | Self::HexDisplay { .. }
+        )
     }
 
     /// Je to vstup obvodu (zdroj signálu ovládaný uživatelem)?
@@ -218,7 +269,7 @@ impl ComponentKind {
             Self::Gate { .. } => "G",
             Self::Switch { .. } | Self::Button => "",
             Self::Constant { .. } => "K",
-            Self::Led | Self::SevenSegment | Self::HexDisplay => "Y",
+            Self::Led | Self::SevenSegment { .. } | Self::HexDisplay { .. } => "Y",
             Self::Block { .. } => "IO",
             Self::Subcircuit { .. } => "P",
             Self::FlipFlop { .. } => "KO",
@@ -247,8 +298,8 @@ impl ComponentKind {
             Self::FlipFlop { .. } => (-2.0, -2.5, 2.0, 2.5),
             Self::Clock { .. } => (-1.4, -1.0, 1.4, 1.0),
             Self::Block { block } => block.body_local(),
-            Self::SevenSegment => (-3.0, -8.0, 3.0, 8.0),
-            Self::HexDisplay => (-3.0, -4.0, 3.0, 4.0),
+            Self::SevenSegment { pins } => pins.display_layout(8, 8.0, 3.0).0,
+            Self::HexDisplay { pins } => pins.display_layout(4, 4.0, 3.0).0,
             Self::Subcircuit {
                 inputs, outputs, ..
             } => crate::block::rect_body(*inputs as usize, *outputs as usize),
@@ -272,8 +323,8 @@ impl ComponentKind {
             Self::FlipFlop { .. } => (vec![(-3, -1), (-3, 1)], vec![(3, -1), (3, 1)]),
             Self::Clock { .. } => (vec![], vec![(3, 0)]),
             Self::Block { block } => block.pins_local(),
-            Self::SevenSegment => ((0..8).map(|i| (-4, -7 + 2 * i)).collect(), vec![]),
-            Self::HexDisplay => ((0..4).map(|i| (-4, -3 + 2 * i)).collect(), vec![]),
+            Self::SevenSegment { pins } => pins.display_layout(8, 8.0, 3.0).1,
+            Self::HexDisplay { pins } => pins.display_layout(4, 4.0, 3.0).1,
             Self::Subcircuit {
                 inputs, outputs, ..
             } => crate::block::rect_pins(*inputs as usize, *outputs as usize),
@@ -510,9 +561,11 @@ impl Circuit {
 
     /// Vrátí kopii obvodu, ve které jsou vybrané součástky a vodiče posunuté o (dx, dy).
     ///
-    /// Nevybrané vodiče připojené k vývodu posunuté součástky se přepojí:
-    /// konec u vývodu se posune a z úsečky vznikne „L“ (vodorovná + svislá část),
-    /// takže spojení zůstane zachované.
+    /// Nevybrané vodiče připojené k vývodu posunuté součástky se přepojí: konec
+    /// u vývodu se posune a vodič se zalomí. Místo zalomení se volí tak, aby se
+    /// vodič nedotkl žádné jiné sítě (nejdřív uprostřed, pak dál od středu).
+    /// Když takové místo není, vodič zůstane na místě a od vývodu se odpojí –
+    /// raději viditelně volný konec než skrytý zkrat.
     pub fn moved(&self, comps: &[CompId], wires: &[WireId], dx: i32, dy: i32) -> Circuit {
         let mut c = self.clone();
         if dx == 0 && dy == 0 {
@@ -534,7 +587,7 @@ impl Circuit {
                 sel || moving_pins.contains(&w.b),
             )
         };
-        let mut extra: Vec<(Point, Point)> = Vec::new();
+        let mut stretched = Vec::new();
         for (i, w) in self.wires.iter().enumerate() {
             match ends_move(w) {
                 (true, true) => {
@@ -542,40 +595,111 @@ impl Circuit {
                     c.wires[i].b = w.b.offset(dx, dy);
                 }
                 (false, false) => {}
-                (a_side, _) => {
-                    let (moving, fixed) = if a_side { (w.a, w.b) } else { (w.b, w.a) };
-                    let horizontal = moving.y == fixed.y;
-                    let new = moving.offset(dx, dy);
-                    // Bod u pevného konce: zachová směr části u vývodu.
-                    let corner = if horizontal {
-                        Point::new(fixed.x, new.y)
-                    } else {
-                        Point::new(new.x, fixed.y)
-                    };
-                    let (na, nb) = if a_side { (new, corner) } else { (corner, new) };
-                    c.wires[i].a = na;
-                    c.wires[i].b = nb;
-                    match self.sole_partner(i, fixed, &ends_move) {
-                        // Pevný konec je roh lomeného vodiče: roh se posune s ním.
-                        Some(j) => {
-                            let pw = &mut c.wires[j];
-                            if pw.a == fixed {
-                                pw.a = corner;
-                            } else {
-                                pw.b = corner;
-                            }
-                        }
-                        // Jinak vznikne nový roh a spojka k původnímu bodu.
-                        None => extra.push((corner, fixed)),
-                    }
-                }
+                (a_side, _) => stretched.push((i, a_side)),
+            }
+        }
+        if stretched.is_empty() {
+            return c;
+        }
+        // Sítě před přesunem: k nim se kontroluje, zda nová cesta nespojí cizí síť.
+        let old = crate::sim::Netlist::build(self);
+        let mut net_of_wire = old.wire_net.clone();
+        let pin_nets: Vec<(Point, usize)> = c
+            .components
+            .iter()
+            .enumerate()
+            .flat_map(|(ci, k)| {
+                let ins = k.input_pins().into_iter().zip(old.input_nets[ci].clone());
+                let outs = k.output_pins().into_iter().zip(old.output_nets[ci].clone());
+                ins.chain(outs).collect::<Vec<_>>()
+            })
+            .collect();
+        // Vodiče, které na přepojení teprve čekají, se kontrolují v původní
+        // poloze – tam v nejhorším případě zůstanou. Kdo se nepřepojí napoprvé,
+        // zkusí to znovu, až se ostatní vodiče uhnou (dokud se daří).
+        let mut todo = stretched;
+        loop {
+            let before = todo.len();
+            todo.retain(|&(i, a_side)| {
+                !self.reroute(
+                    &mut c,
+                    i,
+                    a_side,
+                    (dx, dy),
+                    &ends_move,
+                    &mut net_of_wire,
+                    &pin_nets,
+                )
+            });
+            if todo.is_empty() || todo.len() == before {
+                break;
             }
         }
         c.wires.retain(|w| !w.is_empty());
-        for (a, b) in extra {
-            c.add_wire(a, b);
-        }
+        c.merge_collinear();
         c
+    }
+
+    /// Přepojí vodič `i` (v `c`) k posunutému konci. Vrací `false`, pokud se
+    /// nenašla cesta, která by se nedotkla cizí sítě (vodič pak zůstane, kde byl).
+    #[allow(clippy::too_many_arguments)]
+    fn reroute(
+        &self,
+        c: &mut Circuit,
+        i: usize,
+        a_side: bool,
+        (dx, dy): (i32, i32),
+        ends_move: &impl Fn(&Wire) -> (bool, bool),
+        net_of_wire: &mut std::collections::HashMap<WireId, usize>,
+        pin_nets: &[(Point, usize)],
+    ) -> bool {
+        let w = self.wires[i];
+        let Some(&net) = net_of_wire.get(&w.id) else {
+            return true;
+        };
+        let (moving, fixed) = if a_side { (w.a, w.b) } else { (w.b, w.a) };
+        let new = moving.offset(dx, dy);
+        let horizontal = moving.y == fixed.y;
+        let check = |c: &Circuit, segs: &[(Point, Point)], skip: &[WireId], nets: &_| {
+            route_is_clean(c, segs, net, skip, nets, pin_nets)
+        };
+        // 1) Pevný konec je roh lomeného vodiče: roh se posune s ním.
+        if let Some(j) = self.sole_partner(i, fixed, ends_move) {
+            let corner = if horizontal {
+                Point::new(fixed.x, new.y)
+            } else {
+                Point::new(new.x, fixed.y)
+            };
+            let pw = c.wires[j];
+            let far = if pw.a == fixed { pw.b } else { pw.a };
+            let segs = [(new, corner), (corner, far)];
+            if check(c, &segs, &[w.id, pw.id], net_of_wire) {
+                c.wires[i].a = new;
+                c.wires[i].b = corner;
+                let pw = &mut c.wires[j];
+                if pw.a == fixed {
+                    pw.a = corner;
+                } else {
+                    pw.b = corner;
+                }
+                return true;
+            }
+        }
+        // 2) Lomená cesta se zalomením v různých místech.
+        let Some(segs) = route_candidates(new, fixed, horizontal)
+            .into_iter()
+            .find(|segs| check(c, segs, &[w.id], net_of_wire))
+        else {
+            return false;
+        };
+        c.wires[i].a = segs[0].0;
+        c.wires[i].b = segs[0].1;
+        for &(a, b) in &segs[1..] {
+            if let Some(id) = c.add_wire(a, b) {
+                net_of_wire.insert(id, net);
+            }
+        }
+        true
     }
 
     /// Je bod `p` rohem, kde se vodič `i` stýká s jediným dalším kolmým vodičem
@@ -638,6 +762,68 @@ impl Circuit {
         (new_comps, new_wires)
     }
 
+    /// Sloučí úseky vodiče, které leží v jedné přímce a stýkají se v bodě, kde
+    /// není nic jiného (vývod, další vodič). Rovný vodič pak nemá skrytý styčný
+    /// bod, na který by se nechtěně napojil jiný vodič. Zapojení se nemění.
+    pub fn merge_collinear(&mut self) {
+        let pins: Vec<Point> = self.components.iter().flat_map(|c| c.pins()).collect();
+        'outer: loop {
+            for i in 0..self.wires.len() {
+                for j in i + 1..self.wires.len() {
+                    let (a, b) = (self.wires[i], self.wires[j]);
+                    let same_line = (a.a.y == a.b.y && b.a.y == b.b.y && a.a.y == b.a.y)
+                        || (a.a.x == a.b.x && b.a.x == b.b.x && a.a.x == b.a.x);
+                    if !same_line {
+                        continue;
+                    }
+                    let Some(p) = [a.a, a.b].into_iter().find(|p| b.is_endpoint(*p)) else {
+                        continue;
+                    };
+                    let others = self.wires.iter().filter(|w| w.contains(p)).count();
+                    if others != 2 || pins.contains(&p) {
+                        continue;
+                    }
+                    let far_a = if a.a == p { a.b } else { a.a };
+                    let far_b = if b.a == p { b.b } else { b.a };
+                    // Úseky se nesmí překrývat (musí ležet na opačných stranách bodu).
+                    let opposite = (far_a.x - p.x).signum() != (far_b.x - p.x).signum()
+                        || (far_a.y - p.y).signum() != (far_b.y - p.y).signum();
+                    if !opposite {
+                        continue;
+                    }
+                    self.wires[i].a = far_a;
+                    self.wires[i].b = far_b;
+                    self.wires.remove(j);
+                    continue 'outer;
+                }
+            }
+            break;
+        }
+    }
+
+    /// Body, ve kterých by se nový vodič z úseků `segs` spojil s existujícími
+    /// vodiči nebo vývody (podle stejných pravidel jako netlist): konec cizího
+    /// vodiče na novém úseku, konec nového úseku na cizím vodiči nebo vývodu.
+    pub fn wire_contacts(&self, segs: &[(Point, Point)]) -> Vec<Point> {
+        let mut out = Vec::new();
+        let pins: Vec<Point> = self.components.iter().flat_map(|c| c.pins()).collect();
+        for &(a, b) in segs {
+            let s = Wire {
+                id: WireId(u32::MAX),
+                a,
+                b,
+            };
+            for w in &self.wires {
+                out.extend([w.a, w.b].into_iter().filter(|p| s.contains(*p)));
+                out.extend([a, b].into_iter().filter(|p| w.contains(*p)));
+            }
+            out.extend([a, b].into_iter().filter(|p| pins.contains(p)));
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+
     /// Body, ve kterých se kreslí spojovací tečka: setkávají se zde aspoň tři větve.
     pub fn junctions(&self) -> Vec<Point> {
         let mut points: Vec<Point> = self.wires.iter().flat_map(|w| [w.a, w.b]).collect();
@@ -688,6 +874,65 @@ impl Circuit {
             (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3))
         }))
     }
+}
+
+/// Možné cesty z nového konce `new` k pevnému konci `fixed`: zalomení
+/// postupně uprostřed, dál od středu, u pevného a nakonec u posunutého konce.
+/// `horizontal` říká, jakým směrem vodič vede (zachová se u obou konců).
+fn route_candidates(new: Point, fixed: Point, horizontal: bool) -> Vec<Vec<(Point, Point)>> {
+    let (from, to) = if horizontal {
+        (new.x, fixed.x)
+    } else {
+        (new.y, fixed.y)
+    };
+    let (lo, hi) = (from.min(to), from.max(to));
+    let mut cuts: Vec<i32> = (lo + 1..hi).collect();
+    cuts.sort_by_key(|&v| ((2 * v - lo - hi).abs(), (v - to).abs()));
+    cuts.extend([to, from]);
+    cuts.dedup();
+    let mut routes: Vec<Vec<(Point, Point)>> = Vec::new();
+    for v in cuts {
+        let (p, q) = if horizontal {
+            (Point::new(v, new.y), Point::new(v, fixed.y))
+        } else {
+            (Point::new(new.x, v), Point::new(fixed.x, v))
+        };
+        let segs: Vec<(Point, Point)> = [(new, p), (p, q), (q, fixed)]
+            .into_iter()
+            .filter(|(a, b)| a != b)
+            .collect();
+        if !segs.is_empty() && !routes.contains(&segs) {
+            routes.push(segs);
+        }
+    }
+    routes
+}
+
+/// Nedotkne se cesta `segs` (síť `net`) žádného vývodu ani vodiče jiné sítě?
+/// Pouhé křížení vodičů nevadí – nepropojí se.
+fn route_is_clean(
+    c: &Circuit,
+    segs: &[(Point, Point)],
+    net: usize,
+    skip: &[WireId],
+    net_of_wire: &std::collections::HashMap<WireId, usize>,
+    pin_nets: &[(Point, usize)],
+) -> bool {
+    let seg = |a: Point, b: Point| Wire {
+        id: WireId(u32::MAX),
+        a,
+        b,
+    };
+    segs.iter().all(|&(a, b)| {
+        let s = seg(a, b);
+        let pins_ok = pin_nets.iter().all(|&(p, m)| m == net || !s.contains(p));
+        let wires_ok = c.wires.iter().all(|o| {
+            skip.contains(&o.id)
+                || net_of_wire.get(&o.id) == Some(&net)
+                || !(o.contains(a) || o.contains(b) || s.contains(o.a) || s.contains(o.b))
+        });
+        pins_ok && wires_ok
+    })
 }
 
 impl Circuit {
@@ -911,13 +1156,104 @@ mod tests {
         c.add_wire(Point::new(2, 0), Point::new(10, 0));
         let m = c.moved(&[sw], &[], 0, 3);
         assert_eq!(m.component(sw).unwrap().pos, Point::new(0, 3));
-        // Vodič se rozdělí na vodorovnou a svislou část a spojení zůstane.
-        assert_eq!(m.wires.len(), 2);
+        // Vodič se zalomí uprostřed (vodorovná – svislá – vodorovná část)
+        // a spojení zůstane.
+        assert_eq!(m.wires.len(), 3);
+        assert!(
+            m.wires
+                .iter()
+                .any(|w| (w.a, w.b) == (Point::new(6, 3), Point::new(6, 0)))
+        );
         let mut sim = crate::Simulator::new(&m, None);
         sim.run(100);
         assert_eq!(sim.inputs(led)[0], LogicValue::One);
         // Původní obvod zůstal beze změny.
         assert_eq!(c.wires.len(), 1);
+    }
+
+    #[test]
+    fn display_pin_sides() {
+        // Soubor z verze bez volby strany se načte s vývody vlevo.
+        let old: ComponentKind = serde_json::from_str(r#"{"type":"seven_segment"}"#).unwrap();
+        assert_eq!(
+            old,
+            ComponentKind::SevenSegment {
+                pins: PinSide::Left
+            }
+        );
+        for side in PinSide::ALL {
+            for kind in [
+                ComponentKind::SevenSegment { pins: side },
+                ComponentKind::HexDisplay { pins: side },
+            ] {
+                let (x0, y0, x1, y1) = kind.body_local();
+                let (ins, _) = kind.pins_local();
+                for &(x, y) in &ins {
+                    let (x, y) = (x as f32, y as f32);
+                    let on_side = match side {
+                        PinSide::Left => x < x0 && y > y0 && y < y1,
+                        PinSide::Right => x > x1 && y > y0 && y < y1,
+                        PinSide::Top => y < y0 && x > x0 && x < x1,
+                        PinSide::Bottom => y > y1 && x > x0 && x < x1,
+                    };
+                    assert!(on_side, "{kind:?} vývod ({x},{y})");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn collinear_pieces_merge() {
+        let mut c = Circuit::default();
+        c.add_wire(Point::new(0, 0), Point::new(4, 0));
+        c.add_wire(Point::new(4, 0), Point::new(9, 0));
+        // Odbočka v (9,0) zůstane – tam se stýkají tři větve.
+        c.add_wire(Point::new(9, 0), Point::new(12, 0));
+        c.add_wire(Point::new(9, 0), Point::new(9, 5));
+        c.merge_collinear();
+        assert_eq!(c.wires.len(), 3);
+        assert!(
+            c.wires
+                .iter()
+                .any(|w| (w.a, w.b) == (Point::new(0, 0), Point::new(9, 0)))
+        );
+    }
+
+    #[test]
+    fn rerouting_avoids_other_pins() {
+        // Přepínač → vstup C čítače; sousední vstup EN je o 2 body výš.
+        let mut c = Circuit::default();
+        let sw = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 1));
+        let block = crate::BlockKind::Counter {
+            bits: 4,
+            down: false,
+        };
+        let ctr = c.add_component(ComponentKind::Block { block }, Point::new(12, 0));
+        c.add_wire(Point::new(2, 1), Point::new(8, 1));
+        let m = c.moved(&[sw], &[], 0, -2);
+        // Zalomení nesmí vést přes vstup EN (8,-1).
+        let en = m.component(ctr).unwrap().input_pins()[1];
+        assert!(m.wires.iter().all(|w| !w.contains(en)));
+        let nl = crate::sim::Netlist::build(&m);
+        let i = m.components.iter().position(|k| k.id == ctr).unwrap();
+        assert_ne!(
+            nl.input_nets[i][1], nl.input_nets[i][2],
+            "EN a C zůstanou oddělené"
+        );
+    }
+
+    #[test]
+    fn wire_over_pin_does_not_connect() {
+        // Vodič vede přes vývod LED, ale nekončí v něm.
+        let mut c = Circuit::default();
+        let sw = c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
+        let led = c.add_component(ComponentKind::Led, Point::new(6, 0));
+        c.add_wire(Point::new(2, 0), Point::new(2, 3));
+        c.add_wire(Point::new(4, -2), Point::new(4, 2));
+        let mut sim = crate::Simulator::new(&c, None);
+        sim.run(100);
+        assert_eq!(sim.inputs(led)[0], LogicValue::Z);
+        let _ = sw;
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Nabídka součástek pro Shift+A a knihovnu.
 
 use crate::i18n::{Lang, T, tr};
-use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind};
+use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, PinSide};
 
 pub struct Category {
     pub title: T,
@@ -61,11 +61,15 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
                 (tr(lang, T::Led).to_owned(), ComponentKind::Led),
                 (
                     tr(lang, T::SevenSegment).to_owned(),
-                    ComponentKind::SevenSegment,
+                    ComponentKind::SevenSegment {
+                        pins: PinSide::Left,
+                    },
                 ),
                 (
                     tr(lang, T::HexDisplay).to_owned(),
-                    ComponentKind::HexDisplay,
+                    ComponentKind::HexDisplay {
+                        pins: PinSide::Left,
+                    },
                 ),
             ],
         },
@@ -109,8 +113,8 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
         }
         ComponentKind::Clock { .. } => tr(lang, T::Clock).to_owned(),
         ComponentKind::Block { block } => block_name(*block, lang),
-        ComponentKind::SevenSegment => tr(lang, T::SevenSegment).to_owned(),
-        ComponentKind::HexDisplay => tr(lang, T::HexDisplay).to_owned(),
+        ComponentKind::SevenSegment { .. } => tr(lang, T::SevenSegment).to_owned(),
+        ComponentKind::HexDisplay { .. } => tr(lang, T::HexDisplay).to_owned(),
         ComponentKind::Subcircuit { .. } => tr(lang, T::Subcircuit).to_owned(),
     }
 }

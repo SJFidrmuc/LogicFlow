@@ -3,7 +3,9 @@
 use crate::theme::{colors, signal_color};
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Vec2, pos2, vec2};
 use logicflow_core::block::{SEVEN_SEG_HEX, number};
-use logicflow_core::{BlockKind, Component, ComponentKind, FlipFlopKind, LogicValue, Rotation};
+use logicflow_core::{
+    BlockKind, Component, ComponentKind, FlipFlopKind, LogicValue, PinSide, Rotation,
+};
 
 /// Styl značek: evropský (ČSN EN 60617-12) nebo americký (ANSI/IEEE Std 91).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -118,7 +120,12 @@ fn local(comp: &Component, x: f32, y: f32) -> Pos2 {
 
 /// Zarovnání popisku podle směru, kterým od součástky míří.
 fn align_for(rot: Rotation, dx: f32) -> Align2 {
-    let (x, y) = rot.apply_f(dx, 0.0);
+    align_dir(rot, dx, 0.0)
+}
+
+/// Zarovnání textu, který od bodu pokračuje směrem (`dx`, `dy`) v místních souřadnicích.
+fn align_dir(rot: Rotation, dx: f32, dy: f32) -> Align2 {
+    let (x, y) = rot.apply_f(dx, dy);
     if x < -0.5 {
         Align2::RIGHT_CENTER
     } else if x > 0.5 {
@@ -160,8 +167,10 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
     } else {
         Stroke::new(lw, fade(colors::SYMBOL, look))
     };
-    let (x0, _y0, x1, _y1) = comp.kind.body_local();
+    let (x0, y0, x1, y1) = comp.kind.body_local();
     let (ins, outs) = comp.kind.pins_local();
+    // Vývod vede od nejbližšího bodu obrysu těla.
+    let edge = |px: i32, py: i32| local(comp, (px as f32).clamp(x0, x1), (py as f32).clamp(y0, y1));
     let inverted = matches!(comp.kind, ComponentKind::Gate { gate, .. } if gate.is_inverted());
     let lead = Stroke::new(lw, fade(colors::SYMBOL, look));
 
@@ -169,14 +178,14 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
     let pin_color = |v: LogicValue| fade(signal_color(v), look);
     for (i, (px, py)) in ins.iter().enumerate() {
         let v = values.inputs.get(i).copied().unwrap_or(LogicValue::Z);
-        let a = local(comp, x0, *py as f32);
+        let a = edge(*px, *py);
         let b = local(comp, *px as f32, *py as f32);
         painter.line_segment([cam.to_screen(a), cam.to_screen(b)], lead);
         painter.circle_filled(cam.to_screen(b), cam.len(0.16).max(2.0), pin_color(v));
     }
     for (k, (px, py)) in outs.iter().enumerate() {
         let v = values.outputs.get(k).copied().unwrap_or(LogicValue::Z);
-        let a = local(comp, x1, *py as f32);
+        let a = edge(*px, *py);
         let b = local(comp, *px as f32, *py as f32);
         painter.line_segment([cam.to_screen(a), cam.to_screen(b)], lead);
         painter.circle_filled(cam.to_screen(b), cam.len(0.16).max(2.0), pin_color(v));
@@ -353,15 +362,28 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
         ComponentKind::Subcircuit { .. } => {
             draw_subcircuit(painter, cam, comp, values.sub.as_ref(), outline, look);
         }
-        ComponentKind::SevenSegment => {
-            draw_display_body(painter, cam, comp, outline, look, &SEG_NAMES);
+        ComponentKind::SevenSegment { pins } => {
+            draw_display_body(painter, cam, comp, pins, outline, look, &SEG_NAMES);
             let segs: Vec<LogicValue> = (0..8)
                 .map(|k| values.inputs.get(k).copied().unwrap_or(LogicValue::Z))
                 .collect();
-            draw_digit(painter, cam, comp, (0.5, 1.6, 3.4), &segs, look);
+            let geom = match pins {
+                PinSide::Left => (0.5, 1.6, 3.4),
+                PinSide::Right => (-1.1, 1.6, 3.4),
+                PinSide::Top | PinSide::Bottom => (-0.3, 1.6, 3.4),
+            };
+            draw_digit(painter, cam, comp, geom, &segs, look);
         }
-        ComponentKind::HexDisplay => {
-            draw_display_body(painter, cam, comp, outline, look, &["D0", "D1", "D2", "D3"]);
+        ComponentKind::HexDisplay { pins } => {
+            draw_display_body(
+                painter,
+                cam,
+                comp,
+                pins,
+                outline,
+                look,
+                &["D0", "D1", "D2", "D3"],
+            );
             let segs: Vec<LogicValue> = match number(&values.inputs) {
                 Some(n) if values.inputs.len() == 4 => (0..7)
                     .map(|k| (SEVEN_SEG_HEX[n as usize] >> k & 1 == 1).into())
@@ -369,7 +391,12 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
                     .collect(),
                 _ => vec![LogicValue::X; 8],
             };
-            draw_digit(painter, cam, comp, (0.7, 1.4, 2.8), &segs, look);
+            let geom = match pins {
+                PinSide::Left => (0.7, 1.4, 2.8),
+                PinSide::Right => (-1.0, 1.4, 2.8),
+                PinSide::Top | PinSide::Bottom => (-0.2, 1.2, 2.3),
+            };
+            draw_digit(painter, cam, comp, geom, &segs, look);
         }
     }
 }
@@ -391,6 +418,7 @@ fn draw_display_body(
     painter: &Painter,
     cam: Camera,
     comp: &Component,
+    side: PinSide,
     outline: Stroke,
     look: Look,
     names: &[&str],
@@ -402,20 +430,41 @@ fn draw_display_body(
         fade(Color32::from_rgb(0x16, 0x16, 0x1a), look),
     );
     painter.rect_stroke(body, cam.len(0.3), outline, egui::StrokeKind::Middle);
-    let (x0, ..) = comp.kind.body_local();
+    let (x0, y0, x1, y1) = comp.kind.body_local();
     let (ins, _) = comp.kind.pins_local();
-    for ((_, py), name) in ins.iter().zip(names) {
+    for ((px, py), name) in ins.iter().zip(names) {
+        // Název vstupu uvnitř těla u jeho vývodu, text míří dovnitř.
+        let (x, y, dx, dy) = match side {
+            PinSide::Left => (x0 + 0.3, *py as f32, 1.0, 0.0),
+            PinSide::Right => (x1 - 0.3, *py as f32, -1.0, 0.0),
+            PinSide::Top => (*px as f32, y0 + 0.2, 0.0, 1.0),
+            PinSide::Bottom => (*px as f32, y1 - 0.2, 0.0, -1.0),
+        };
         text(
             painter,
             cam,
-            local(comp, x0 + 0.3, *py as f32),
+            local(comp, x, y),
             name,
             0.7,
-            align_for(comp.rotation, 1.0),
+            align_dir(comp.rotation, dx, dy),
             fade(colors::TEXT_WEAK, look),
         );
     }
-    top_label(painter, cam, comp, look);
+    if side == PinSide::Top && !comp.label.is_empty() {
+        // Nahoře jsou vývody – popisek patří pod tělo.
+        let (_, _, _, by1) = comp.body();
+        text(
+            painter,
+            cam,
+            pos2(comp.pos.x as f32, by1 + 0.4),
+            &comp.label,
+            0.9,
+            Align2::CENTER_TOP,
+            fade(colors::TEXT_WEAK, look),
+        );
+    } else {
+        top_label(painter, cam, comp, look);
+    }
 }
 
 /// Sedmisegmentová číslice. `geom` = (střed x, poloviční šířka, poloviční výška),
