@@ -5,6 +5,30 @@ use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Vec2, pos2, vec
 use logicflow_core::block::{SEVEN_SEG_HEX, number};
 use logicflow_core::{BlockKind, Component, ComponentKind, FlipFlopKind, LogicValue, Rotation};
 
+/// Styl značek: evropský (ČSN EN 60617-12) nebo americký (ANSI/IEEE Std 91).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SymbolStyle {
+    #[default]
+    Iec,
+    Ansi,
+}
+
+fn style_id() -> egui::Id {
+    egui::Id::unique("logicflow-symbol-style")
+}
+
+/// Nastaví styl značek pro kreslení v tomto snímku.
+pub fn set_style(ctx: &egui::Context, style: SymbolStyle) {
+    ctx.data_mut(|d| d.insert_temp(style_id(), style));
+}
+
+fn style(painter: &Painter) -> SymbolStyle {
+    painter
+        .ctx()
+        .data(|d| d.get_temp(style_id()))
+        .unwrap_or_default()
+}
+
 /// Velikost jedné jednotky mřížky v pixelech při zoomu 100 %.
 pub const UNIT: f32 = 16.0;
 
@@ -136,6 +160,9 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
     let body = cam.rect(comp.body());
     let fill = fade(colors::SYMBOL_FILL, look);
     match comp.kind {
+        ComponentKind::Gate { gate, .. } if style(painter) == SymbolStyle::Ansi => {
+            draw_ansi_gate(painter, cam, comp, gate, outline, look);
+        }
         ComponentKind::Gate { gate, inputs } => {
             painter.rect_filled(body, cam.len(0.15), fill);
             painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
@@ -532,6 +559,148 @@ fn negation(
     painter.add(egui::Shape::closed_line(tri.to_vec(), stroke));
 }
 
+/// Kroužek negace (americké značky) se středem v `(x, y)`.
+fn bubble(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    x: f32,
+    y: f32,
+    stroke: Stroke,
+    look: Look,
+) {
+    let c = cam.to_screen(local(comp, x, y));
+    painter.circle_filled(c, cam.len(0.35), fade(colors::SYMBOL_FILL, look));
+    painter.circle_stroke(c, cam.len(0.35), stroke);
+}
+
+/// Body kvadratické Bézierovy křivky (bez počátečního bodu).
+fn bezier(a: (f32, f32), c: (f32, f32), b: (f32, f32), n: usize) -> Vec<(f32, f32)> {
+    (1..=n)
+        .map(|i| {
+            let t = i as f32 / n as f32;
+            let u = 1.0 - t;
+            (
+                u * u * a.0 + 2.0 * u * t * c.0 + t * t * b.0,
+                u * u * a.1 + 2.0 * u * t * c.1 + t * t * b.1,
+            )
+        })
+        .collect()
+}
+
+/// Vyplněný obrys (hvězdicovitý vzhledem k bodu `center`) s okrajem.
+fn filled_outline(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    center: (f32, f32),
+    outline: &[(f32, f32)],
+    fill: Color32,
+    stroke: Stroke,
+) {
+    let pts: Vec<Pos2> = outline
+        .iter()
+        .map(|&(x, y)| cam.to_screen(local(comp, x, y)))
+        .collect();
+    let mut mesh = egui::Mesh::default();
+    mesh.colored_vertex(cam.to_screen(local(comp, center.0, center.1)), fill);
+    for p in &pts {
+        mesh.colored_vertex(*p, fill);
+    }
+    let n = pts.len() as u32;
+    for i in 0..n {
+        mesh.add_triangle(0, 1 + i, 1 + (i + 1) % n);
+    }
+    painter.add(egui::Shape::mesh(mesh));
+    painter.add(egui::Shape::closed_line(pts, stroke));
+}
+
+/// Americká tvarová značka hradla (ANSI/IEEE Std 91).
+fn draw_ansi_gate(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    gate: logicflow_core::GateKind,
+    outline: Stroke,
+    look: Look,
+) {
+    use logicflow_core::GateKind as G;
+    let (x0, y0, x1, y1) = comp.kind.body_local();
+    let fill = fade(colors::SYMBOL_FILL, look);
+    let inverted = gate.is_inverted();
+    // U negovaných hradel zůstane vpravo místo na kroužek.
+    let right = if inverted { x1 - 0.7 } else { x1 };
+    let h = if gate.is_unary() {
+        1.3
+    } else {
+        y1.min(-y0) - 0.2
+    };
+    let (ins, _) = comp.kind.pins_local();
+    let lead = Stroke::new(cam.line_width(), fade(colors::SYMBOL, look));
+    // Zadní oblouk OR/XOR: x podle y.
+    let depth = 0.55;
+    let back = |x: f32, y: f32| x + depth * (1.0 - (y / h).powi(2)).max(0.0);
+    match gate {
+        G::Not | G::Buffer => {
+            let tri = [(x0, -h), (right, 0.0), (x0, h)];
+            filled_outline(painter, cam, comp, (x0 + 0.5, 0.0), &tri, fill, outline);
+        }
+        G::And | G::Nand => {
+            let xc = x0 + (right - x0) * 0.35;
+            let (rx, ry) = (right - xc, h);
+            let mut pts = vec![(x0, -h), (xc, -h)];
+            pts.extend((1..24).map(|i| {
+                let a = -std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 24.0;
+                (xc + rx * a.cos(), ry * a.sin())
+            }));
+            pts.extend([(xc, h), (x0, h)]);
+            filled_outline(painter, cam, comp, (x0 + 0.5, 0.0), &pts, fill, outline);
+        }
+        G::Or | G::Nor | G::Xor | G::Xnor => {
+            let exclusive = matches!(gate, G::Xor | G::Xnor);
+            let bx = if exclusive { x0 + 0.45 } else { x0 };
+            let w = right - bx;
+            let mut pts = vec![(bx, -h)];
+            pts.extend(bezier((bx, -h), (bx + w * 0.6, -h), (right, 0.0), 16));
+            pts.extend(bezier((right, 0.0), (bx + w * 0.6, h), (bx, h), 16));
+            // zadní oblouk zdola nahoru
+            pts.extend((1..16).map(|i| {
+                let y = h - 2.0 * h * i as f32 / 16.0;
+                (back(bx, y), y)
+            }));
+            filled_outline(
+                painter,
+                cam,
+                comp,
+                (bx + depth + 0.4, 0.0),
+                &pts,
+                fill,
+                outline,
+            );
+            if exclusive {
+                let arc: Vec<Pos2> = (0..=16)
+                    .map(|i| {
+                        let y = -h + 2.0 * h * i as f32 / 16.0;
+                        cam.to_screen(local(comp, back(x0, y), y))
+                    })
+                    .collect();
+                painter.add(egui::Shape::line(arc, outline));
+            }
+            // Vstupy prodloužené až k zadnímu oblouku.
+            for (_, py) in &ins {
+                let y = *py as f32;
+                let a = cam.to_screen(local(comp, x0, y));
+                let b = cam.to_screen(local(comp, back(x0, y), y));
+                painter.line_segment([a, b], lead);
+            }
+        }
+    }
+    if inverted {
+        bubble(painter, cam, comp, x1 - 0.35, 0.0, outline, look);
+    }
+    top_label(painter, cam, comp, look);
+}
+
 /// Frekvence hodin pro popisek („0,5 Hz“).
 pub fn format_hz(hz: f32) -> String {
     if (hz - hz.round()).abs() < 0.01 {
@@ -574,7 +743,11 @@ fn draw_flip_flop(
                 Stroke::new(cam.line_width(), ink),
             ));
             if falling {
-                negation(painter, cam, comp, x0, y, -1.0, outline);
+                if style(painter) == SymbolStyle::Ansi {
+                    bubble(painter, cam, comp, x0 - 0.35, y, outline, look);
+                } else {
+                    negation(painter, cam, comp, x0, y, -1.0, outline);
+                }
             }
             x = x0 + 0.85;
         }

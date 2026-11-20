@@ -3,7 +3,7 @@
 //! Čeština je výchozí jazyk. Zatím jednoduchá tabulka; později ji nahradí
 //! samostatné soubory s překlady, aby šlo přidávat jazyky bez zásahu do kódu.
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Lang {
     #[default]
     Cs,
@@ -28,6 +28,9 @@ pub enum T {
     Undo,
     Redo,
     Language,
+    Symbols,
+    SymbolsIec,
+    SymbolsAnsi,
     ResetLayout,
     Run,
     Pause,
@@ -176,6 +179,9 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             Undo => "Zpět",
             Redo => "Znovu",
             Language => "Jazyk",
+            Symbols => "Značky",
+            SymbolsIec => "Evropské (ČSN EN 60617-12)",
+            SymbolsAnsi => "Americké (ANSI/IEEE 91)",
             ResetLayout => "Obnovit rozložení oblastí",
             Run => "Spustit",
             Pause => "Pozastavit",
@@ -320,6 +326,9 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             Undo => "Undo",
             Redo => "Redo",
             Language => "Language",
+            Symbols => "Symbols",
+            SymbolsIec => "European (IEC 60617-12)",
+            SymbolsAnsi => "American (ANSI/IEEE 91)",
             ResetLayout => "Reset area layout",
             Run => "Run",
             Pause => "Pause",
