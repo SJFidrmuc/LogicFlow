@@ -34,6 +34,36 @@ struct Settings {
 
 const SETTINGS_KEY: &str = "settings";
 
+impl Settings {
+    /// Výchozí nastavení podle jazyka systému (např. „cs-CZ“, „en_US.UTF-8“):
+    /// čeština (i pro slovenštinu), jinak angličtina; v americkém prostředí
+    /// americké značky. Uživatel může obojí kdykoli změnit v nabídce Zobrazit.
+    fn for_locale(locale: Option<&str>) -> Self {
+        let tag = locale
+            .unwrap_or("")
+            .split('.')
+            .next()
+            .unwrap_or("")
+            .replace('_', "-")
+            .to_ascii_lowercase();
+        let mut parts = tag.split('-');
+        let language = parts.next().unwrap_or("");
+        let region = parts.find(|p| p.len() == 2).unwrap_or("");
+        Self {
+            lang: match language {
+                "cs" | "sk" => Lang::Cs,
+                "" => Lang::Cs,
+                _ => Lang::En,
+            },
+            symbols: if region == "us" {
+                SymbolStyle::Ansi
+            } else {
+                SymbolStyle::Iec
+            },
+        }
+    }
+}
+
 /// Webová stránka projektu.
 pub const WEBSITE: &str = "https://www.logicflow-sim.cz";
 /// Zdrojový kód a stažení.
@@ -64,7 +94,8 @@ impl LogicFlowApp {
         let settings: Settings = cc
             .storage
             .and_then(|s| eframe::get_value(s, SETTINGS_KEY))
-            .unwrap_or_default();
+            // První spuštění: jazyk a značky podle nastavení systému.
+            .unwrap_or_else(|| Settings::for_locale(sys_locale::get_locale().as_deref()));
         let mut error = None;
         let project = match open.as_deref().map(Project::load) {
             Some(Ok(p)) => p,
@@ -674,5 +705,29 @@ impl eframe::App for LogicFlowApp {
             });
         self.dialogs(&ctx);
         self.update_title(&ctx);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_follow_system_locale() {
+        let s = Settings::for_locale(Some("cs-CZ"));
+        assert_eq!((s.lang, s.symbols), (Lang::Cs, SymbolStyle::Iec));
+        let s = Settings::for_locale(Some("sk_SK.UTF-8"));
+        assert_eq!(s.lang, Lang::Cs);
+        let s = Settings::for_locale(Some("en-US"));
+        assert_eq!((s.lang, s.symbols), (Lang::En, SymbolStyle::Ansi));
+        let s = Settings::for_locale(Some("en_GB.UTF-8"));
+        assert_eq!((s.lang, s.symbols), (Lang::En, SymbolStyle::Iec));
+        let s = Settings::for_locale(Some("de-DE"));
+        assert_eq!((s.lang, s.symbols), (Lang::En, SymbolStyle::Iec));
+        let s = Settings::for_locale(Some("zh-Hans-US"));
+        assert_eq!(s.symbols, SymbolStyle::Ansi);
+        // Neznámé prostředí: čeština a evropské značky.
+        let s = Settings::for_locale(None);
+        assert_eq!((s.lang, s.symbols), (Lang::Cs, SymbolStyle::Iec));
     }
 }
