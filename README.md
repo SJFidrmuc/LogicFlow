@@ -2,9 +2,11 @@
 
 Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástupce programu DigitalWorks: česky, s rozhraním ve stylu Blenderu, pro Windows, macOS, Linux i Raspberry Pi.
 
+**Webová stránka projektu: [www.logicflow-sim.cz](https://www.logicflow-sim.cz)**
+
 ![Čítač 0–7 z klopných obvodů T v pracovní ploše Simulace](docs/screenshots/simulace.png)
 
-> **Stav:** verze 0.2 (milník M2). Kreslení obvodů z hradel, klopných obvodů a generátorů hodin, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, ukládání souborů a vestavěná nápověda.
+> **Stav:** verze 0.3 (milník M3). Kreslení obvodů z hradel, klopných obvodů, funkčních bloků (čítače, registry, multiplexory, dekodéry…) a podobvodů, sedmisegmentovka, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, evropské i americké značky, ukládání souborů a vestavěná nápověda.
 
 ## Stažení
 
@@ -85,9 +87,10 @@ Ve škole může program povolit správce sítě pro všechny počítače najedn
 | ~~0.1~~ | kreslení schémat, hradla, přepínače, LED, ukládání | hotovo |
 | ~~0.2~~ | klopné obvody, generátor hodin, nápověda – připraveno na pilot ve třídě | hotovo |
 | ~~0.3~~ | podobvody, funkční bloky (čítače, registry, MUX, dekodéry…), sedmisegmentovka, americké značky | hotovo |
-| 0.4 | paměti ROM, RAM, EEPROM, hex editor | 06/2027 |
-| 0.5 | export do VHDL | 07–08/2027 |
-| 0.6 | obvody 74xx, příručka, vzorové úlohy | 08/2027 |
+| 0.4 | sběrnice 1–64 bitů, knihovny bloků, barva LED, soubor s nastavením, jazykové balíčky, světlý motiv, export obrázku, nápověda v Markdownu i v programu | 2027 |
+| 0.5 | paměti ROM, RAM, EEPROM, hex editor | 2027 |
+| 0.6 | export do VHDL | 2027 |
+| 0.7 | obvody 74xx, příručka, vzorové úlohy | 2027 |
 | 1.0 | verze pro výuku | 09/2027 |
 
 ## Sestavení ze zdrojového kódu
@@ -106,9 +109,13 @@ Soubor obvodu jde otevřít i z příkazové řádky: `logicflow muj-obvod.logic
 
 Podporované jsou Raspberry Pi 4 a 5 s 64bitovým Raspberry Pi OS (Debian 13 „Trixie“). Hotový program je ke stažení na stránce Releases (viz Stažení); sestavuje se v Debianu 13, aby odpovídal knihovnám Raspberry Pi OS.
 
+### Nápověda
+
+Nápověda se píše v Markdownu ve složce [`docs/napoveda`](docs/napoveda) (česky a anglicky) a sestavuje se nástrojem [mdBook](https://rust-lang.github.io/mdBook/). Náhled: `mdbook serve docs/napoveda/cs --open`. Jak psát a jak pořizovat snímky obrazovky, popisuje [docs/napoveda/README.md](docs/napoveda/README.md). Postup vývoje je v [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ### Vydání nové verze
 
-V GitHubu zvolte *Releases → Draft a new release*, zadejte nový tag (např. `v0.3.0`) a klikněte na *Publish release*. Workflow *Vydání* pak během několika minut sestaví program pro všech šest platforem a soubory sám připojí k vydání.
+V GitHubu zvolte *Releases → Draft a new release*, zadejte nový tag ve tvaru `vX.Y.Z` (např. `v0.3.1`), cíl *main*, a klikněte na *Publish release*. Workflow *Vydání* pak během několika minut sestaví program pro všech šest platforem a nápovědu v HTML a soubory sám připojí k vydání. Nápověda se může zároveň zveřejnit na webu (GitHub Pages) – postup zapnutí je v `.github/workflows/release.yml`.
 
 ## Struktura projektu
 
@@ -116,7 +123,10 @@ V GitHubu zvolte *Releases → Draft a new release*, zadejte nový tag (např. `
 | --- | --- |
 | `crates/logicflow-core` | jádro bez grafického rozhraní: model obvodu, netlist, událostní simulátor, formát souboru |
 | `crates/logicflow` | aplikace: okno, oblasti, editor schématu, panely, překlady |
-| `.github/workflows` | automatické sestavení a testy pro 6 platforem |
+| `docs/napoveda` | nápověda v Markdownu (cs, en), obrázky a obvody pro snímky |
+| `docs/screenshots` | snímky obrazovky pro README |
+| `scripts` | pomocné skripty (snímky obrazovky pro nápovědu) |
+| `.github/workflows` | automatické sestavení a testy pro 6 platforem, nápověda, vydání |
 
 ## Licence
 

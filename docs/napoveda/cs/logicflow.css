@@ -1,0 +1,5 @@
+/* Barvy LogicFlow pro nápovědu (zelená webu #237A35, na tmavém motivu signálová #7EE07E). */
+.light, .rust { --links: #237A35; --sidebar-active: #237A35; }
+.navy, .coal, .ayu { --links: #7EE07E; --sidebar-active: #7EE07E; }
+.content img { max-width: 100%; height: auto; }
+blockquote { border-left-color: #237A35; }

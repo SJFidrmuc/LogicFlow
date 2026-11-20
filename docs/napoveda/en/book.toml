@@ -1,0 +1,21 @@
+[book]
+title = "LogicFlow – Help"
+authors = ["Stanislav Jan Fidrmuc"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "../../../target/napoveda/en"
+
+[output.html]
+git-repository-url = "https://github.com/SJFidrmuc/LogicFlow"
+edit-url-template = "https://github.com/SJFidrmuc/LogicFlow/edit/main/docs/napoveda/en/{path}"
+default-theme = "light"
+preferred-dark-theme = "navy"
+additional-css = ["logicflow.css"]
+
+[output.html.search]
+enable = true
+
+[output.html.print]
+enable = true

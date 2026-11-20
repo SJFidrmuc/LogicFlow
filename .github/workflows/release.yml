@@ -1,8 +1,13 @@
 # Vydání verze: po zveřejnění vydání (Release) na GitHubu se sestaví program
 # pro všechny platformy a balíčky se automaticky připojí k vydání.
 #
-# Postup: Releases → Draft a new release → tag např. v0.2.0 → Publish release.
-# Pro dodatečné sestavení existujícího vydání: Actions → Vydání → Run workflow.
+# Postup: Releases → Draft a new release → tag ve tvaru vX.Y.Z (např. v0.3.1)
+# → Publish release. Pro dodatečné sestavení existujícího vydání:
+# Actions → Vydání → Run workflow.
+#
+# Při vydání se sestaví i nápověda (docs/napoveda, mdBook): k vydání se připojí
+# ZIP s HTML nápovědou a – je-li v repozitáři proměnná NAPOVEDA_PAGES = true –
+# nápověda se zveřejní na GitHub Pages (česky v kořeni, anglicky v /en/).
 name: Vydání
 
 on:
@@ -20,6 +25,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  MDBOOK_VERSION: "0.5.4"
 
 jobs:
   build:
@@ -99,9 +105,62 @@ jobs:
           path: ${{ env.PACKAGE }}
           if-no-files-found: error
 
+  napoveda:
+    name: Nápověda (HTML)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook@${{ env.MDBOOK_VERSION }}
+      - name: Sestavení (cs v kořeni, en v /en/)
+        run: |
+          mdbook build docs/napoveda/cs
+          mdbook build docs/napoveda/en
+          rm -rf site
+          cp -r target/napoveda/cs site
+          cp -r target/napoveda/en site/en
+      - name: Balíček
+        run: |
+          name="LogicFlow-${TAG#v}-napoveda-html"
+          cp -r site "$name"
+          zip -qr "$name.zip" "$name"
+          echo "PACKAGE=$name.zip" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: napoveda
+          path: ${{ env.PACKAGE }}
+          if-no-files-found: error
+      - uses: actions/upload-pages-artifact@v3
+        if: vars.NAPOVEDA_PAGES == 'true'
+        with:
+          path: site
+
+  pages:
+    # Zapnutí: Settings → Pages → Source: GitHub Actions (a případně vlastní
+    # doména napoveda.logicflow-sim.cz), v Settings → Environments → github-pages
+    # povolit nasazení z tagů v* (výchozí pravidlo pouští jen větev main)
+    # a nakonec Settings → Secrets and variables → Actions → Variables →
+    # NAPOVEDA_PAGES = true.
+    name: Nápověda na webu (GitHub Pages)
+    needs: napoveda
+    if: vars.NAPOVEDA_PAGES == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
   publish:
     name: Připojit k vydání
-    needs: [build, raspberry-pi]
+    needs: [build, raspberry-pi, napoveda]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4

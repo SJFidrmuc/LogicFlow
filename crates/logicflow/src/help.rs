@@ -130,7 +130,7 @@ const CS: &[Section] = &[
             ),
             H("Americké značky"),
             P(
-                "V nabídce Zobrazit > Značky jde přepnout na americké tvarové značky podle ANSI/IEEE Std 91 (AND jako „D“, OR jako štít, negace kroužkem). Volba platí jen pro váš počítač – do souboru obvodu se neukládá, takže obvod otevřený jinde se zobrazí podle tamního nastavení.",
+                "V nabídce Zobrazit > Značky jde přepnout na americké tvarové značky podle ANSI/IEEE Std 91 (AND jako „D“, OR jako štít, negace kroužkem). Volba platí jen pro váš počítač – do souboru obvodu se neukládá, takže obvod otevřený jinde se zobrazí podle tamního nastavení. Při prvním spuštění se jazyk a značky nastaví podle systému: čeština pro české a slovenské prostředí, jinak angličtina, v americkém prostředí americké značky. Obojí jde kdykoli změnit v nabídce Zobrazit.",
             ),
             Tip("Paměti ROM a RAM a obvody řady 74xx přibudou v dalších verzích."),
         ],
@@ -454,7 +454,7 @@ const EN: &[Section] = &[
             ),
             H("American symbols"),
             P(
-                "View > Symbols switches to American distinctive-shape symbols (ANSI/IEEE Std 91: AND as a “D”, OR as a shield, negation as a bubble). The choice is stored on your computer only, not in the circuit file.",
+                "View > Symbols switches to American distinctive-shape symbols (ANSI/IEEE Std 91: AND as a “D”, OR as a shield, negation as a bubble). The choice is stored on your computer only, not in the circuit file. On first start, language and symbols follow the system: Czech for Czech and Slovak systems, English otherwise, American symbols in a US environment. Both can be changed any time in the View menu.",
             ),
             Tip("ROM and RAM memories and 74xx chips arrive in later versions."),
         ],
