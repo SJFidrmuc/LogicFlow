@@ -26,6 +26,8 @@ V nabídce **Soubor → Příklady** je 9 hotových obvodů. Příklad se otevř
 | Dekadický čítač se sedmisegmentovkou | čítač, převodník BCD/7SEG a nulování při stavu 10 |
 | Úplná sčítačka ze dvou podobvodů | podobvody a jejich vnoření |
 
+Další hotové obvody od učitelů a žáků najdete v **[Knihovně obvodů LogicFlow](https://github.com/SJFidrmuc/LogicFlow-obvody/blob/main/KATALOG.md)**. Obvody jsou pod licencí CC BY 4.0 a do knihovny můžete přidat i vlastní.
+
 ## Jazyk a značky
 
 - **Jazyk** přepnete tlačítky CS / EN vpravo nahoře nebo v nabídce **Zobrazit → Jazyk**. Změna platí hned, bez restartu.

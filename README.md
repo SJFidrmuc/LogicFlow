@@ -49,6 +49,10 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 | --- | --- |
 | ![Dekadický čítač se sedmisegmentovkou](docs/screenshots/bloky.png) | ![Úplná sčítačka ze dvou podobvodů](docs/screenshots/podobvody.png) |
 
+## Knihovna obvodů
+
+Hotové obvody ke stažení – a možnost přidat vlastní – najdete ve **[Knihovně obvodů LogicFlow](https://github.com/SJFidrmuc/LogicFlow-obvody)** ([katalog](https://github.com/SJFidrmuc/LogicFlow-obvody/blob/main/KATALOG.md)). Obvody jsou pod licencí CC BY 4.0, u každého je uvedený autor. Přispět můžete formulářem na webu nebo pull requestem.
+
 ## Ovládání
 
 | Klávesa / myš | Akce |

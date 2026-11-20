@@ -24,6 +24,8 @@
 | Decade counter with a seven-segment display | counter, BCD/7SEG decoder and reset at 10 |
 | Full adder from two subcircuits | subcircuits and nesting |
 
+More ready-made circuits from teachers and students are in the **[LogicFlow circuit library](https://github.com/SJFidrmuc/LogicFlow-obvody/blob/main/KATALOG.md)**. They are licensed under CC BY 4.0, and you can add your own.
+
 ## Language and symbols
 
 - Switch the **language** with the CS / EN buttons in the top right corner or in **View → Language**. The change applies immediately, without a restart.
