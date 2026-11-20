@@ -6,7 +6,9 @@
 //! čtou. Díky tomu jde ukázat šíření signálu krok po kroku, hazardy i kmitání.
 
 use crate::LogicValue;
-use crate::circuit::{Circuit, CompId, ComponentKind, FlipFlopKind, Point, WireId};
+use crate::circuit::{
+    Circuit, CompId, ComponentKind, FlipFlopKind, MAX_SUBCIRCUIT_PINS, Point, SubcircuitDef, WireId,
+};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 
@@ -130,12 +132,165 @@ impl Netlist {
     }
 }
 
+/// Nejvyšší hloubka vnoření podobvodů (ochrana proti zacyklení).
+const MAX_DEPTH: usize = 16;
+
+/// Výsledek rozvinutí: netlist, cesty, druhy, zdroje a sítě součástek hlavního obvodu.
+type Flat = (
+    Netlist,
+    Vec<Vec<CompId>>,
+    Vec<ComponentKind>,
+    Vec<Option<LogicValue>>,
+    HashMap<CompId, (Vec<usize>, Vec<usize>)>,
+);
+
+/// Rozvine obvod s podobvody do jednoho seznamu součástek a sítí.
+///
+/// Každý obvod (hlavní i každá instance podobvodu) dostane vlastní rozsah čísel
+/// sítí. Přepínače a LED uvnitř instance (rozhraní) se nesimulují – jejich sítě
+/// se spojí se sítěmi na vývodech značky.
+#[derive(Default)]
+struct Flattener<'a> {
+    defs: &'a [SubcircuitDef],
+    keys: Vec<Vec<CompId>>,
+    kinds: Vec<ComponentKind>,
+    sources: Vec<Option<LogicValue>>,
+    input_nets: Vec<Vec<usize>>,
+    output_nets: Vec<Vec<usize>>,
+    net_count: usize,
+    /// Dvojice sítí, které jsou ve skutečnosti jedna (rozhraní podobvodů).
+    links: Vec<(usize, usize)>,
+}
+
+impl Flattener<'_> {
+    /// Přidá obvod; vrací jeho netlist a posun čísel jeho sítí.
+    fn add(
+        &mut self,
+        circuit: &Circuit,
+        path: &[CompId],
+        interface: bool,
+        depth: usize,
+    ) -> (Netlist, usize) {
+        let defs = self.defs;
+        let nl = Netlist::build(circuit);
+        let base = self.net_count;
+        self.net_count += nl.net_count;
+        let skip: Vec<CompId> = if interface {
+            let (ins, outs) = circuit.io();
+            ins.iter()
+                .take(MAX_SUBCIRCUIT_PINS)
+                .chain(outs.iter().take(MAX_SUBCIRCUIT_PINS))
+                .map(|c| c.id)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        for (i, c) in circuit.components.iter().enumerate() {
+            if skip.contains(&c.id) {
+                continue;
+            }
+            let mut key = path.to_vec();
+            key.push(c.id);
+            if let ComponentKind::Subcircuit { id, .. } = c.kind {
+                let Some(def) = defs.iter().find(|d| d.id == id) else {
+                    continue;
+                };
+                if depth >= MAX_DEPTH {
+                    continue;
+                }
+                let inner = &def.circuit;
+                let (inl, ibase) = self.add(inner, &key, true, depth + 1);
+                let pos = |id: CompId| inner.components.iter().position(|k| k.id == id);
+                let (ins, outs) = inner.io();
+                for (k, comp) in ins.iter().take(MAX_SUBCIRCUIT_PINS).enumerate() {
+                    if let (Some(&outer), Some(j)) = (nl.input_nets[i].get(k), pos(comp.id)) {
+                        self.links
+                            .push((outer + base, inl.output_nets[j][0] + ibase));
+                    }
+                }
+                for (k, comp) in outs.iter().take(MAX_SUBCIRCUIT_PINS).enumerate() {
+                    if let (Some(&outer), Some(j)) = (nl.output_nets[i].get(k), pos(comp.id)) {
+                        self.links
+                            .push((outer + base, inl.input_nets[j][0] + ibase));
+                    }
+                }
+                continue;
+            }
+            self.keys.push(key);
+            self.kinds.push(c.kind);
+            self.sources.push(c.source_value());
+            self.input_nets
+                .push(nl.input_nets[i].iter().map(|n| n + base).collect());
+            self.output_nets
+                .push(nl.output_nets[i].iter().map(|n| n + base).collect());
+        }
+        (nl, base)
+    }
+
+    /// Spojí propojené sítě a očísluje je znovu od nuly.
+    fn finish(self, circuit: &Circuit, top: &Netlist) -> Flat {
+        let mut uf = UnionFind::new(self.net_count);
+        for &(a, b) in &self.links {
+            uf.union(a, b);
+        }
+        let mut renumber: HashMap<usize, usize> = HashMap::new();
+        let mut net = |n: usize| {
+            let root = uf.find(n);
+            let next = renumber.len();
+            *renumber.entry(root).or_insert(next)
+        };
+        let map = |v: &Vec<usize>, net: &mut dyn FnMut(usize) -> usize| -> Vec<usize> {
+            v.iter().map(|&n| net(n)).collect()
+        };
+        let input_nets: Vec<Vec<usize>> =
+            self.input_nets.iter().map(|v| map(v, &mut net)).collect();
+        let output_nets: Vec<Vec<usize>> =
+            self.output_nets.iter().map(|v| map(v, &mut net)).collect();
+        // Hlavní obvod má posun 0.
+        let wire_net = top.wire_net.iter().map(|(&w, &n)| (w, net(n))).collect();
+        let top_nets = circuit
+            .components
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                (
+                    c.id,
+                    (
+                        map(&top.input_nets[i], &mut net),
+                        map(&top.output_nets[i], &mut net),
+                    ),
+                )
+            })
+            .collect();
+        let net_count = renumber.len();
+        (
+            Netlist {
+                net_count,
+                wire_net,
+                input_nets,
+                output_nets,
+            },
+            self.keys,
+            self.kinds,
+            self.sources,
+            top_nets,
+        )
+    }
+}
+
 /// Událostní simulátor jednoho obvodu.
 #[derive(Clone, Debug)]
 pub struct Simulator {
+    /// Netlist rozvinutého obvodu (součástky včetně těch uvnitř podobvodů).
     netlist: Netlist,
+    /// Id součástek hlavního obvodu.
     ids: Vec<CompId>,
+    /// Index součástky hlavního obvodu v rozvinutém seznamu.
     index: HashMap<CompId, usize>,
+    /// Index podle cesty k součástce: id instancí podobvodů a nakonec id součástky.
+    key_index: HashMap<Vec<CompId>, usize>,
+    /// Sítě vstupů a výstupů každé součástky hlavního obvodu (i instancí podobvodů).
+    top_nets: HashMap<CompId, (Vec<usize>, Vec<usize>)>,
     kinds: Vec<ComponentKind>,
     sources: Vec<Option<LogicValue>>,
     /// Začátek výstupů každé součástky v `outputs`.
@@ -159,12 +314,27 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    /// Postaví simulátor pro obvod. Pokud je zadán předchozí simulátor,
-    /// převezme z něj výstupy a stav součástek se stejným id – paměťové obvody
-    /// si tak po úpravě schématu pamatují stav.
+    /// Postaví simulátor pro obvod bez podobvodů. Viz [`Simulator::with_subcircuits`].
     pub fn new(circuit: &Circuit, previous: Option<&Simulator>) -> Self {
-        let netlist = Netlist::build(circuit);
-        let n = circuit.components.len();
+        Self::with_subcircuits(circuit, &[], previous)
+    }
+
+    /// Postaví simulátor pro obvod; instance podobvodů se rozvinou podle `defs`.
+    /// Pokud je zadán předchozí simulátor, převezme z něj výstupy a stav součástek
+    /// se stejným id (i uvnitř podobvodů) – paměťové obvody si tak po úpravě
+    /// schématu pamatují stav.
+    pub fn with_subcircuits(
+        circuit: &Circuit,
+        defs: &[SubcircuitDef],
+        previous: Option<&Simulator>,
+    ) -> Self {
+        let mut flat = Flattener {
+            defs,
+            ..Default::default()
+        };
+        let (top, _) = flat.add(circuit, &[], false, 0);
+        let (netlist, keys, kinds, sources, top_nets) = flat.finish(circuit, &top);
+        let n = keys.len();
         let mut out_start = Vec::with_capacity(n);
         let mut out_owner = Vec::new();
         for (i, outs) in netlist.output_nets.iter().enumerate() {
@@ -183,39 +353,48 @@ impl Simulator {
                 }
             }
         }
-        let ids: Vec<CompId> = circuit.components.iter().map(|c| c.id).collect();
+        let key_index: HashMap<Vec<CompId>, usize> = keys
+            .iter()
+            .enumerate()
+            .map(|(i, k)| (k.clone(), i))
+            .collect();
+        // Index stejné součástky v předchozím simulátoru.
+        let prev: Vec<Option<usize>> = keys
+            .iter()
+            .map(|k| previous.and_then(|p| p.key_index.get(k).copied()))
+            .collect();
         let outputs = out_owner
             .iter()
             .map(|&(i, k)| {
                 previous
-                    .and_then(|p| p.outputs(ids[i]).get(k).copied())
+                    .zip(prev[i])
+                    .filter(|(p, j)| k < p.netlist.output_nets[*j].len())
+                    .map(|(p, j)| p.outputs[p.out_start[j] + k])
                     .unwrap_or(LogicValue::X)
             })
             .collect();
-        let ff_q = circuit
-            .components
-            .iter()
-            .map(|c| match c.kind {
+        let ff_q = (0..n)
+            .map(|i| match kinds[i] {
                 ComponentKind::FlipFlop { initial, .. } => previous
-                    .and_then(|p| p.flip_flop_state(c.id))
+                    .zip(prev[i])
+                    .filter(|(p, j)| matches!(p.kinds[*j], ComponentKind::FlipFlop { .. }))
+                    .map(|(p, j)| p.ff_q[j])
                     .unwrap_or(initial.into()),
                 _ => LogicValue::X,
             })
             .collect();
-        let ff_clock = ids
-            .iter()
-            .map(|id| {
+        let ff_clock = (0..n)
+            .map(|i| {
                 previous
-                    .and_then(|p| p.index.get(id).map(|&j| p.ff_clock[j]))
-                    .unwrap_or(LogicValue::X)
+                    .zip(prev[i])
+                    .map_or(LogicValue::X, |(p, j)| p.ff_clock[j])
             })
             .collect();
-        let reg = circuit
-            .components
-            .iter()
-            .map(|c| match c.kind {
+        let reg = (0..n)
+            .map(|i| match kinds[i] {
                 ComponentKind::Block { block } if block.is_sequential() => previous
-                    .and_then(|p| p.block_state(c.id))
+                    .zip(prev[i])
+                    .map(|(p, j)| p.reg[j].clone())
                     .filter(|s| s.len() == block.state_bits())
                     .unwrap_or_else(|| vec![LogicValue::Zero; block.state_bits()]),
                 _ => Vec::new(),
@@ -223,14 +402,17 @@ impl Simulator {
             .collect();
         let total_outputs = out_owner.len();
         let mut sim = Self {
-            index: ids.iter().enumerate().map(|(i, id)| (*id, i)).collect(),
-            ids,
-            kinds: circuit.components.iter().map(|c| c.kind).collect(),
-            sources: circuit
-                .components
+            index: keys
                 .iter()
-                .map(|c| c.source_value())
+                .enumerate()
+                .filter(|(_, k)| k.len() == 1)
+                .map(|(i, k)| (k[0], i))
                 .collect(),
+            ids: circuit.components.iter().map(|c| c.id).collect(),
+            key_index,
+            top_nets,
+            kinds,
+            sources,
             out_start,
             out_owner,
             net_drivers,
@@ -249,9 +431,10 @@ impl Simulator {
         };
         // Hodnoty zdrojů (např. hodin) převezme z předchozího simulátoru.
         if let Some(p) = previous {
-            for (i, id) in sim.ids.iter().enumerate() {
+            for (i, &pj) in prev.iter().enumerate() {
                 if matches!(sim.kinds[i], ComponentKind::Clock { .. })
-                    && let Some(v) = p.output(*id)
+                    && let Some(j) = pj
+                    && let Some(&v) = p.outputs.get(p.out_start[j])
                     && v != LogicValue::X
                 {
                     sim.sources[i] = Some(v);
@@ -490,12 +673,15 @@ impl Simulator {
             .map_or(LogicValue::Z, |&n| self.net_values[n])
     }
 
-    /// Hodnoty všech výstupů součástky.
+    /// Hodnoty všech výstupů součástky (u podobvodu hodnoty jeho výstupních sítí).
     pub fn outputs(&self, id: CompId) -> Vec<LogicValue> {
-        self.index.get(&id).map_or_else(Vec::new, |&i| {
-            let start = self.out_start[i];
-            self.outputs[start..start + self.netlist.output_nets[i].len()].to_vec()
-        })
+        match self.index.get(&id) {
+            Some(&i) => {
+                let start = self.out_start[i];
+                self.outputs[start..start + self.netlist.output_nets[i].len()].to_vec()
+            }
+            None => self.output_net_values(id),
+        }
     }
 
     /// Hodnota prvního (hlavního) výstupu součástky.
@@ -505,18 +691,15 @@ impl Simulator {
 
     /// Hodnoty na vstupních vývodech součástky.
     pub fn inputs(&self, id: CompId) -> Vec<LogicValue> {
-        self.index
-            .get(&id)
-            .map_or_else(Vec::new, |&i| self.input_values(i))
+        self.top_nets.get(&id).map_or_else(Vec::new, |(ins, _)| {
+            ins.iter().map(|&n| self.net_values[n]).collect()
+        })
     }
 
     /// Hodnoty sítí připojených k výstupům (mohou se lišit od výstupů při kolizi).
     pub fn output_net_values(&self, id: CompId) -> Vec<LogicValue> {
-        self.index.get(&id).map_or_else(Vec::new, |&i| {
-            self.netlist.output_nets[i]
-                .iter()
-                .map(|&n| self.net_values[n])
-                .collect()
+        self.top_nets.get(&id).map_or_else(Vec::new, |(_, outs)| {
+            outs.iter().map(|&n| self.net_values[n]).collect()
         })
     }
 
@@ -567,6 +750,167 @@ mod tests {
 
     fn led(sim: &Simulator, id: CompId) -> LogicValue {
         sim.inputs(id)[0]
+    }
+
+    /// Podobvod „poloviční sčítačka“: vstupy A, B, výstupy C (přenos), S (součet).
+    fn half_adder_def(id: u32) -> SubcircuitDef {
+        let mut c = Circuit::default();
+        let a = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
+        let b = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 10));
+        assert_eq!(c.component(a).unwrap().label, "A");
+        assert_eq!(c.component(b).unwrap().label, "B");
+        // XOR na (10,1): vstupy (7,0),(7,2), výstup (13,1); AND na (10,9): (7,8),(7,10) → (13,9)
+        c.add_component(ComponentKind::gate(GateKind::Xor), Point::new(10, 1));
+        c.add_component(ComponentKind::gate(GateKind::And), Point::new(10, 9));
+        c.add_wire(Point::new(2, 0), Point::new(7, 0));
+        c.add_wire(Point::new(4, 0), Point::new(4, 8));
+        c.add_wire(Point::new(4, 8), Point::new(7, 8));
+        c.add_wire(Point::new(2, 10), Point::new(7, 10));
+        c.add_wire(Point::new(5, 10), Point::new(5, 2));
+        c.add_wire(Point::new(5, 2), Point::new(7, 2));
+        let s = c.add_component(ComponentKind::Led, Point::new(17, 1));
+        let k = c.add_component(ComponentKind::Led, Point::new(17, 9));
+        c.add_wire(Point::new(13, 1), Point::new(15, 1));
+        c.add_wire(Point::new(13, 9), Point::new(15, 9));
+        c.component_mut(s).unwrap().label = "S".into();
+        c.component_mut(k).unwrap().label = "C".into();
+        SubcircuitDef {
+            id,
+            name: "Poloviční sčítačka".into(),
+            circuit: c,
+        }
+    }
+
+    /// Hlavní obvod: přepínače X, Y → instance podobvodu → LED na výstupech.
+    fn with_instance(def: &SubcircuitDef) -> (Circuit, CompId, CompId, CompId, Vec<CompId>) {
+        let mut c = Circuit::default();
+        let kind = def.kind();
+        assert_eq!(
+            kind,
+            ComponentKind::Subcircuit {
+                id: def.id,
+                inputs: 2,
+                outputs: 2
+            }
+        );
+        let inst = c.add_component(kind, Point::new(20, 0));
+        let pins = c.component(inst).unwrap().clone();
+        let (ins, outs) = (pins.input_pins(), pins.output_pins());
+        let x = c.add_component(ComponentKind::Switch { on: false }, ins[0].offset(-2, 0));
+        let y = c.add_component(ComponentKind::Switch { on: false }, ins[1].offset(-2, 0));
+        let leds = outs
+            .iter()
+            .map(|p| c.add_component(ComponentKind::Led, p.offset(2, 0)))
+            .collect();
+        (c, inst, x, y, leds)
+    }
+
+    #[test]
+    fn subcircuit_instance_computes() {
+        let def = half_adder_def(1);
+        let (c, inst, x, y, leds) = with_instance(&def);
+        let mut sim = Simulator::with_subcircuits(&c, std::slice::from_ref(&def), None);
+        sim.run(1000);
+        // Výstupy podle popisku: C, S.
+        let out = |sim: &Simulator| leds.iter().map(|&l| led(sim, l)).collect::<Vec<_>>();
+        assert_eq!(out(&sim), [Zero, Zero]);
+        sim.set_source(x, One);
+        sim.run(1000);
+        assert_eq!(out(&sim), [Zero, One]);
+        sim.set_source(y, One);
+        sim.run(1000);
+        assert_eq!(out(&sim), [One, Zero]);
+        // Hodnoty na vývodech značky.
+        assert_eq!(sim.inputs(inst), [One, One]);
+        assert_eq!(sim.output_net_values(inst), [One, Zero]);
+        // Bez definice zůstanou výstupy nepřipojené.
+        let mut bare = Simulator::new(&c, None);
+        bare.run(1000);
+        assert_eq!(led(&bare, leds[0]), Z);
+    }
+
+    #[test]
+    fn subcircuit_keeps_gate_delays() {
+        let def = half_adder_def(1);
+        let (c, _, x, _, leds) = with_instance(&def);
+        let mut sim = Simulator::with_subcircuits(&c, std::slice::from_ref(&def), None);
+        sim.run(1000);
+        let t0 = sim.time();
+        sim.set_source(x, One);
+        while led(&sim, leds[1]) != One {
+            assert!(sim.step() > 0);
+        }
+        assert_eq!(sim.time() - t0, 1, "XOR uvnitř = jeden takt");
+    }
+
+    #[test]
+    fn nested_subcircuits_and_cycles() {
+        let inner = half_adder_def(1);
+        // Vnější podobvod obsahuje instanci vnitřního a vlastní vstupy/výstupy.
+        let (mut outer_c, _, _, _, _) = with_instance(&inner);
+        let names = ["A", "B"];
+        let mut k = 0;
+        for comp in &mut outer_c.components {
+            if comp.kind.is_input() {
+                comp.label = names[k].into();
+                k += 1;
+            }
+        }
+        let outer = SubcircuitDef {
+            id: 2,
+            name: "Obal".into(),
+            circuit: outer_c,
+        };
+        let defs = vec![inner.clone(), outer.clone()];
+        assert!(outer.uses(1, &defs));
+        assert!(!inner.uses(2, &defs));
+        let (c, _, x, y, leds) = with_instance(&outer);
+        let mut sim = Simulator::with_subcircuits(&c, &defs, None);
+        sim.set_source(x, One);
+        sim.set_source(y, One);
+        sim.run(1000);
+        assert_eq!(led(&sim, leds[0]), One);
+        assert_eq!(led(&sim, leds[1]), Zero);
+        // Podobvod, který obsahuje sám sebe, nesmí simulátor zacyklit.
+        let mut selfref = inner.clone();
+        selfref
+            .circuit
+            .add_component(selfref.kind(), Point::new(40, 0));
+        let mut sim = Simulator::with_subcircuits(&c, &[selfref, outer], None);
+        sim.run(1000);
+    }
+
+    #[test]
+    fn state_inside_subcircuit_survives_rebuild() {
+        // Podobvod: přepínač C → hodiny čítače, LED na Q0.
+        let mut c = Circuit::default();
+        c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 1));
+        let block = crate::BlockKind::Counter {
+            bits: 4,
+            down: false,
+        };
+        c.add_component(ComponentKind::Block { block }, Point::new(10, 0));
+        c.add_wire(Point::new(2, 1), Point::new(6, 1));
+        c.add_component(ComponentKind::Led, Point::new(16, -3));
+        let def = SubcircuitDef {
+            id: 7,
+            name: "Čítač".into(),
+            circuit: c,
+        };
+        let mut top = Circuit::default();
+        let inst = top.add_component(def.kind(), Point::new(10, 0));
+        let pin = top.component(inst).unwrap().input_pins()[0];
+        let sw = top.add_component(ComponentKind::Switch { on: false }, pin.offset(-2, 0));
+        let defs = [def];
+        let mut sim = Simulator::with_subcircuits(&top, &defs, None);
+        sim.run(1000);
+        for v in [One, Zero] {
+            sim.set_source(sw, v);
+            sim.run(1000);
+        }
+        assert_eq!(sim.output_net_values(inst), [One]);
+        let again = Simulator::with_subcircuits(&top, &defs, Some(&sim));
+        assert_eq!(again.output_net_values(inst), [One]);
     }
 
     #[test]

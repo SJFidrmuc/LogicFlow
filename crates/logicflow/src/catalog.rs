@@ -72,6 +72,16 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
     ]
 }
 
+/// Podobvody projektu, které lze vložit do právě upravovaného listu.
+pub fn subcircuit_items(project: &crate::project::Project) -> Vec<(String, ComponentKind)> {
+    project
+        .subcircuits
+        .iter()
+        .filter(|d| project.can_place_subcircuit(d.id))
+        .map(|d| (d.name.clone(), d.kind()))
+        .collect()
+}
+
 /// Součástky, které přibudou v dalších verzích (jen pro zobrazení v knihovně).
 pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 2] {
     [
@@ -101,6 +111,7 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
         ComponentKind::Block { block } => block_name(*block, lang),
         ComponentKind::SevenSegment => tr(lang, T::SevenSegment).to_owned(),
         ComponentKind::HexDisplay => tr(lang, T::HexDisplay).to_owned(),
+        ComponentKind::Subcircuit { .. } => tr(lang, T::Subcircuit).to_owned(),
     }
 }
 

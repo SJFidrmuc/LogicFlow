@@ -71,9 +71,34 @@ pub struct Look {
 }
 
 /// Hodnoty potřebné ke kreslení (ze simulátoru).
+#[derive(Default)]
 pub struct Values {
     pub inputs: Vec<LogicValue>,
     pub outputs: Vec<LogicValue>,
+    /// Název a názvy vývodů podobvodu (jen u instancí podobvodů).
+    pub sub: Option<SubInfo>,
+}
+
+/// Popis podobvodu pro kreslení jeho značky.
+pub struct SubInfo {
+    pub name: String,
+    pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
+}
+
+impl SubInfo {
+    pub fn of(project: &crate::project::Project, kind: ComponentKind) -> Option<Self> {
+        let ComponentKind::Subcircuit { id, .. } = kind else {
+            return None;
+        };
+        let def = project.subcircuit(id)?;
+        let (inputs, outputs) = def.pin_names();
+        Some(Self {
+            name: def.name.clone(),
+            inputs,
+            outputs,
+        })
+    }
 }
 
 pub const SELECTED: Color32 = Color32::from_rgb(0xff, 0xa0, 0x30);
@@ -325,6 +350,9 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
             draw_label(painter, cam, comp, 1.6, look);
         }
         ComponentKind::Block { block } => draw_block(painter, cam, comp, block, outline, look),
+        ComponentKind::Subcircuit { .. } => {
+            draw_subcircuit(painter, cam, comp, values.sub.as_ref(), outline, look);
+        }
         ComponentKind::SevenSegment => {
             draw_display_body(painter, cam, comp, outline, look, &SEG_NAMES);
             let segs: Vec<LogicValue> = (0..8)
@@ -460,6 +488,102 @@ fn clock_triangle(painter: &Painter, cam: Camera, comp: &Component, x0: f32, y: 
         tri.to_vec(),
         Stroke::new(cam.line_width(), ink),
     ));
+}
+
+/// Značka podobvodu: obdélník s jeho názvem a popisky vývodů. Dvojitá horní
+/// čára odlišuje podobvod od vestavěných bloků.
+fn draw_subcircuit(
+    painter: &Painter,
+    cam: Camera,
+    comp: &Component,
+    info: Option<&SubInfo>,
+    outline: Stroke,
+    look: Look,
+) {
+    let body = cam.rect(comp.body());
+    painter.rect_filled(body, cam.len(0.15), fade(colors::SYMBOL_FILL, look));
+    painter.rect_stroke(body, cam.len(0.15), outline, egui::StrokeKind::Middle);
+    let (x0, y0, x1, _) = comp.kind.body_local();
+    painter.line_segment(
+        [
+            cam.to_screen(local(comp, x0, y0 + 2.0)),
+            cam.to_screen(local(comp, x1, y0 + 2.0)),
+        ],
+        Stroke::new(1.0, fade(colors::SYMBOL, look)),
+    );
+    let (ins, outs) = comp.kind.pins_local();
+    let ink = fade(colors::TEXT, look);
+    let name_of = |names: Option<&Vec<String>>, k: usize| {
+        names.and_then(|n| n.get(k)).cloned().unwrap_or_default()
+    };
+    for (k, (_, py)) in ins.iter().enumerate() {
+        text(
+            painter,
+            cam,
+            local(comp, x0 + 0.35, *py as f32),
+            &name_of(info.map(|i| &i.inputs), k),
+            0.75,
+            align_for(comp.rotation, 1.0),
+            ink,
+        );
+    }
+    for (k, (_, py)) in outs.iter().enumerate() {
+        text(
+            painter,
+            cam,
+            local(comp, x1 - 0.35, *py as f32),
+            &name_of(info.map(|i| &i.outputs), k),
+            0.75,
+            align_for(comp.rotation, -1.0),
+            ink,
+        );
+    }
+    let name = info.map_or("?", |i| i.name.as_str());
+    let accent = fade(colors::ACCENT, look);
+    let lines = name_lines(name, 11);
+    let (size, step) = if lines.len() == 1 {
+        (0.85, 0.0)
+    } else {
+        (0.7, 0.75)
+    };
+    for (k, line) in lines.iter().enumerate() {
+        let y = y0 + 1.0 + (k as f32 - (lines.len() as f32 - 1.0) / 2.0) * step;
+        text(
+            painter,
+            cam,
+            local(comp, 0.0, y),
+            line,
+            size,
+            Align2::CENTER_CENTER,
+            accent,
+        );
+    }
+    top_label(painter, cam, comp, look);
+}
+
+/// Rozdělí název do nejvýše dvou řádků po `max` znacích (zalomí u mezery,
+/// příliš dlouhá slova zkrátí).
+fn name_lines(name: &str, max: usize) -> Vec<String> {
+    let cut = |s: &str| -> String {
+        if s.chars().count() > max {
+            s.chars().take(max - 1).chain(['.']).collect()
+        } else {
+            s.to_owned()
+        }
+    };
+    if name.chars().count() <= max {
+        return vec![name.to_owned()];
+    }
+    // Mezera nejblíž polovině názvu.
+    let half = name.len() / 2;
+    let split = name
+        .match_indices(' ')
+        .map(|(i, _)| i)
+        .min_by_key(|i| i.abs_diff(half));
+    match split {
+        Some(i) => vec![cut(&name[..i]), cut(name[i + 1..].trim())],
+        None => vec![cut(name)],
+    }
 }
 
 /// Obdélníková značka funkčního bloku s kvalifikátorem a názvy vývodů.
@@ -864,6 +988,16 @@ mod tests {
         assert!(
             (dist_to_segment(pos2(-3.0, 4.0), pos2(0.0, 0.0), pos2(10.0, 0.0)) - 5.0).abs() < 1e-6
         );
+    }
+
+    #[test]
+    fn long_names_wrap() {
+        assert_eq!(name_lines("NAND", 11), ["NAND"]);
+        assert_eq!(
+            name_lines("Poloviční sčítačka", 11),
+            ["Poloviční", "sčítačka"]
+        );
+        assert_eq!(name_lines("Dekodérosmisegment", 11), ["Dekodérosm."]);
     }
 
     #[test]

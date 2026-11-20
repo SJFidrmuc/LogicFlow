@@ -202,28 +202,14 @@ impl BlockKind {
         self.is_sequential().then(|| self.input_names().len() - 1)
     }
 
-    /// Počet řádků vývodů (výška bloku).
-    fn rows(self) -> i32 {
-        self.input_names().len().max(self.output_names().len()) as i32
-    }
-
     /// Ohraničení těla v místních souřadnicích.
     pub fn body_local(self) -> (f32, f32, f32, f32) {
-        let rows = self.rows() as f32;
-        (-3.0, -rows - 1.0, 3.0, rows + 1.0)
+        rect_body(self.input_names().len(), self.output_names().len())
     }
 
-    /// Vývody v místních souřadnicích: (vstupy, výstupy). Mezi vývody jsou 2 body
-    /// mřížky; nad prvním vývodem je místo na kvalifikační značku.
+    /// Vývody v místních souřadnicích: (vstupy, výstupy).
     pub fn pins_local(self) -> crate::circuit::LocalPins {
-        let first = 2 - self.rows();
-        let ins = (0..self.input_names().len() as i32)
-            .map(|i| (-4, first + 2 * i))
-            .collect();
-        let outs = (0..self.output_names().len() as i32)
-            .map(|i| (4, first + 2 * i))
-            .collect();
-        (ins, outs)
+        rect_pins(self.input_names().len(), self.output_names().len())
     }
 
     /// Výstupy kombinačního bloku podle vstupů (vstupy jsou hodnoty sítí).
@@ -386,6 +372,21 @@ impl BlockKind {
         }
         self.outputs_from_state(state)
     }
+}
+
+/// Tělo obdélníkové značky s `n_in` vstupy a `n_out` výstupy.
+pub fn rect_body(n_in: usize, n_out: usize) -> (f32, f32, f32, f32) {
+    let rows = n_in.max(n_out).max(1) as f32;
+    (-3.0, -rows - 1.0, 3.0, rows + 1.0)
+}
+
+/// Vývody obdélníkové značky: vstupy vlevo, výstupy vpravo, mezi vývody 2 body
+/// mřížky; nad prvním vývodem je místo na kvalifikační značku.
+pub fn rect_pins(n_in: usize, n_out: usize) -> crate::circuit::LocalPins {
+    let first = 2 - n_in.max(n_out).max(1) as i32;
+    let ins = (0..n_in as i32).map(|i| (-4, first + 2 * i)).collect();
+    let outs = (0..n_out as i32).map(|i| (4, first + 2 * i)).collect();
+    (ins, outs)
 }
 
 /// Vstup povolení: nepřipojený (Z) znamená povoleno.

@@ -2,47 +2,67 @@
 
 use logicflow_core::{
     BlockKind, Circuit, CompId, ComponentKind, FlipFlopKind, GateKind, Point, Rotation,
+    SubcircuitDef,
 };
 
 pub struct Example {
     pub name: &'static str,
     pub build: fn() -> Circuit,
+    /// Podobvody, které příklad používá.
+    pub subcircuits: fn() -> Vec<SubcircuitDef>,
 }
 
-pub const ALL: [Example; 8] = [
+pub const ALL: [Example; 9] = [
     Example {
         name: "Hradla AND a OR",
         build: and_or,
+        subcircuits: no_subs,
     },
     Example {
         name: "Poloviční sčítačka",
         build: half_adder,
+        subcircuits: no_subs,
     },
     Example {
         name: "Klopný obvod RS z hradel NOR",
         build: sr_latch,
+        subcircuits: no_subs,
     },
     Example {
         name: "Klopný obvod D s hodinami",
         build: d_flip_flop,
+        subcircuits: no_subs,
     },
     Example {
         name: "Čítač 0–7 z klopných obvodů T",
         build: counter,
+        subcircuits: no_subs,
     },
     Example {
         name: "Posuvný registr 4 bity",
         build: shift_register,
+        subcircuits: no_subs,
     },
     Example {
         name: "Multiplexor 4:1",
         build: multiplexer,
+        subcircuits: no_subs,
     },
     Example {
         name: "Dekadický čítač se sedmisegmentovkou",
         build: decade_counter,
+        subcircuits: no_subs,
+    },
+    Example {
+        name: "Úplná sčítačka ze dvou podobvodů",
+        build: full_adder,
+        subcircuits: half_adder_subcircuit,
     },
 ];
+
+fn no_subs() -> Vec<SubcircuitDef> {
+    Vec::new()
+}
 
 fn p(x: i32, y: i32) -> Point {
     Point::new(x, y)
@@ -261,6 +281,58 @@ pub fn decade_counter() -> Circuit {
     c
 }
 
+/// Podobvod „Poloviční sčítačka“ (id 1): vstupy A, B; výstupy C (přenos), S (součet).
+pub fn half_adder_subcircuit() -> Vec<SubcircuitDef> {
+    let mut c = half_adder();
+    // Výstupy pojmenované podle významu: C = přenos (AND), S = součet (XOR).
+    let names: Vec<CompId> = c
+        .components
+        .iter()
+        .filter(|k| matches!(k.kind, ComponentKind::Led))
+        .map(|k| k.id)
+        .collect();
+    label(&mut c, names[0], "S");
+    label(&mut c, names[1], "C");
+    vec![SubcircuitDef {
+        id: 1,
+        name: "Poloviční sčítačka".to_owned(),
+        circuit: c,
+    }]
+}
+
+/// Úplná sčítačka: dvě instance podobvodu „Poloviční sčítačka“ a hradlo OR.
+pub fn full_adder() -> Circuit {
+    let mut c = Circuit::default();
+    let half = ComponentKind::Subcircuit {
+        id: 1,
+        inputs: 2,
+        outputs: 2,
+    };
+    for (y, on, name) in [(0, true, "A"), (2, true, "B"), (6, false, "CI")] {
+        let sw = c.add_component(ComponentKind::Switch { on }, p(0, y));
+        label(&mut c, sw, name);
+    }
+    // HA1: vstupy (10,0), (10,2); výstupy C1 (18,0), S1 (18,2)
+    c.add_component(half, p(14, 0));
+    // HA2: vstupy (24,2), (24,4); výstupy C2 (32,2), S (32,4)
+    c.add_component(half, p(28, 2));
+    // OR: vstupy (37,-6), (37,-4); výstup (43,-5)
+    c.add_component(ComponentKind::gate(GateKind::Or), p(40, -5));
+    wire_path(&mut c, &[(2, 0), (10, 0)]);
+    wire_path(&mut c, &[(2, 2), (10, 2)]);
+    wire_path(&mut c, &[(2, 6), (22, 6), (22, 4), (24, 4)]);
+    wire_path(&mut c, &[(18, 2), (24, 2)]);
+    wire_path(&mut c, &[(18, 0), (20, 0), (20, -6), (37, -6)]);
+    wire_path(&mut c, &[(32, 2), (34, 2), (34, -4), (37, -4)]);
+    let s = c.add_component(ComponentKind::Led, p(36, 4));
+    label(&mut c, s, "S");
+    wire_path(&mut c, &[(32, 4), (34, 4)]);
+    let co = c.add_component(ComponentKind::Led, p(47, -5));
+    label(&mut c, co, "CO");
+    wire_path(&mut c, &[(43, -5), (45, -5)]);
+    c
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,6 +461,21 @@ mod tests {
             .map(|v| *v == LogicValue::One)
             .collect();
         assert_eq!(segs, [true, true, false, true, true, false, true]);
+    }
+
+    #[test]
+    fn full_adder_from_subcircuits() {
+        let subs = half_adder_subcircuit();
+        assert_eq!(subs[0].pin_names().1, ["C", "S"]);
+        let p = crate::project::Project::with_subcircuits(full_adder(), subs);
+        let table = crate::panels::compute_truth_table(&p).unwrap();
+        assert_eq!(table.inputs, ["A", "B", "CI"]);
+        assert_eq!(table.outputs, ["CO", "S"]);
+        for (bits, outs) in &table.rows {
+            let n = bits.iter().filter(|b| **b).count();
+            let expect = [n >= 2, n % 2 == 1].map(LogicValue::from_bool);
+            assert_eq!(outs[..], expect, "{bits:?}");
+        }
     }
 
     #[test]

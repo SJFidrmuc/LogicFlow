@@ -560,7 +560,7 @@ impl LogicFlowApp {
 
 fn example_project(i: usize) -> Project {
     let ex = &examples::ALL[i.min(examples::ALL.len() - 1)];
-    let mut p = Project::new((ex.build)());
+    let mut p = Project::with_subcircuits((ex.build)(), (ex.subcircuits)());
     p.title = Some(ex.name.to_owned());
     p
 }
@@ -572,6 +572,32 @@ impl eframe::App for LogicFlowApp {
             symbols: self.symbols,
         };
         eframe::set_value(storage, SETTINGS_KEY, &settings);
+    }
+
+    /// Tab slouží ke vstupu do podobvodu a zpět (jako v Blenderu). Mimo textová pole
+    /// ho proto egui nedostane – jinak by jím přesouvalo fokus mezi tlačítky.
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // Nevyužitý stisk z minulého snímku (myš nebyla nad schématem) se zahodí.
+        crate::schematic::take_tab(ctx);
+        if ctx.text_edit_focused() {
+            return;
+        }
+        let mut pressed = false;
+        raw_input.events.retain(|e| match e {
+            egui::Event::Key {
+                key: Key::Tab,
+                modifiers,
+                pressed: p,
+                ..
+            } if !modifiers.any() => {
+                pressed |= *p;
+                false
+            }
+            _ => true,
+        });
+        if pressed {
+            crate::schematic::request_tab(ctx);
+        }
     }
 
     /// Paměť egui (rozbalené skupiny apod.) se neukládá – jen naše nastavení a okno.

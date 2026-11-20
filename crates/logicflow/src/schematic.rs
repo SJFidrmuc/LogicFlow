@@ -56,6 +56,8 @@ pub struct SchematicView {
     pub needs_fit: bool,
     tool: Tool,
     add_menu: Option<Pos2>,
+    /// List, který byl zobrazený naposledy (při změně se pohled přizpůsobí).
+    shown_sheet: Option<Option<u32>>,
 }
 
 impl Default for SchematicView {
@@ -66,6 +68,7 @@ impl Default for SchematicView {
             needs_fit: true,
             tool: Tool::Idle,
             add_menu: None,
+            shown_sheet: None,
         }
     }
 }
@@ -95,6 +98,14 @@ impl SchematicView {
         let response = ui.allocate_rect(rect, Sense::click_and_drag());
         let painter = ui.painter_at(rect);
 
+        if self.shown_sheet != Some(project.sheet) {
+            if self.shown_sheet.is_some() {
+                self.tool = Tool::Idle;
+                self.add_menu = None;
+            }
+            self.shown_sheet = Some(project.sheet);
+            self.needs_fit = true;
+        }
         if self.needs_fit && rect.width() > 10.0 {
             self.fit(rect, &project.circuit);
         }
@@ -143,7 +154,7 @@ impl SchematicView {
         painter.rect_filled(rect, 0.0, colors::CANVAS);
         draw_grid(&painter, rect, cam);
         self.draw_circuit(&painter, cam, project, mouse);
-        self.draw_tool(&painter, cam, mouse_pt);
+        self.draw_tool(&painter, cam, mouse_pt, project);
 
         if project.circuit.components.is_empty() && project.circuit.wires.is_empty() {
             painter.text(
@@ -177,7 +188,7 @@ impl SchematicView {
             colors::TEXT_WEAK,
         );
 
-        self.add_menu_ui(ui, lang);
+        self.add_menu_ui(ui, lang, catalog::subcircuit_items(project));
     }
 
     fn keyboard(
@@ -202,6 +213,23 @@ impl SchematicView {
                 i.consume_key(Modifiers::NONE, Key::Home),
             )
         });
+        let tab = take_tab(ui.ctx());
+        // Tab: do vybraného podobvodu a zpět (jako skupiny uzlů v Blenderu).
+        if tab && matches!(self.tool, Tool::Idle) {
+            let target = project.selection.single_comp().and_then(|id| {
+                match project.circuit.component(id).map(|c| c.kind) {
+                    Some(ComponentKind::Subcircuit { id, .. }) => Some(id),
+                    _ => None,
+                }
+            });
+            match target {
+                Some(id) => project.enter_subcircuit(id),
+                None => {
+                    project.leave_subcircuit();
+                }
+            }
+            return;
+        }
         let busy = !matches!(self.tool, Tool::Idle);
         if esc {
             if self.add_menu.take().is_some() {
@@ -537,6 +565,7 @@ impl SchematicView {
             let values = Values {
                 inputs: project.sim.inputs(comp.id),
                 outputs: project.sim.output_net_values(comp.id),
+                sub: symbols::SubInfo::of(project, comp.kind),
             };
             let look = Look {
                 selected: project.selection.comps.contains(&comp.id),
@@ -558,7 +587,13 @@ impl SchematicView {
         }
     }
 
-    fn draw_tool(&self, painter: &Painter, cam: Camera, mouse_pt: Option<Point>) {
+    fn draw_tool(
+        &self,
+        painter: &Painter,
+        cam: Camera,
+        mouse_pt: Option<Point>,
+        project: &Project,
+    ) {
         match &self.tool {
             Tool::Place { kind, rotation } => {
                 if let Some(p) = mouse_pt {
@@ -571,8 +606,8 @@ impl SchematicView {
                         pressed: false,
                     };
                     let values = Values {
-                        inputs: vec![],
-                        outputs: vec![],
+                        sub: symbols::SubInfo::of(project, *kind),
+                        ..Default::default()
                     };
                     let look = Look {
                         ghost: true,
@@ -612,7 +647,7 @@ impl SchematicView {
         }
     }
 
-    fn add_menu_ui(&mut self, ui: &Ui, lang: Lang) {
+    fn add_menu_ui(&mut self, ui: &Ui, lang: Lang, subs: Vec<(String, ComponentKind)>) {
         let Some(pos) = self.add_menu else { return };
         let mut chosen = None;
         let area = egui::Area::new(ui.scope_id().with("add_menu"))
@@ -634,6 +669,16 @@ impl SchematicView {
                             }
                         });
                     }
+                    if !subs.is_empty() {
+                        ui.menu_button(tr(lang, T::CatSubcircuits), |ui| {
+                            for (name, kind) in subs {
+                                if ui.button(name).clicked() {
+                                    chosen = Some(kind);
+                                    ui.close();
+                                }
+                            }
+                        });
+                    }
                 });
             });
         if let Some(kind) = chosen {
@@ -646,6 +691,20 @@ impl SchematicView {
             self.add_menu = None;
         }
     }
+}
+
+fn tab_id() -> egui::Id {
+    egui::Id::unique("logicflow-tab")
+}
+
+/// Zaznamená stisk klávesy Tab (zachycený dřív, než ho zpracuje egui).
+pub fn request_tab(ctx: &egui::Context) {
+    ctx.data_mut(|d| d.insert_temp(tab_id(), true));
+}
+
+pub fn take_tab(ctx: &egui::Context) -> bool {
+    ctx.data_mut(|d| d.remove_temp::<bool>(tab_id()))
+        .unwrap_or(false)
 }
 
 fn click(project: &mut Project, m: Pos2, shift: bool) {

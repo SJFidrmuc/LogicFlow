@@ -103,6 +103,9 @@ pub enum ComponentKind {
     SevenSegment,
     /// Hexadecimální zobrazovač se 4bitovým vstupem.
     HexDisplay,
+    /// Instance podobvodu (definice `id` v projektu). Počty vývodů jsou kopií
+    /// rozhraní definice, aby šlo značku nakreslit a propojit bez ní.
+    Subcircuit { id: u32, inputs: u8, outputs: u8 },
 }
 
 /// Druh klopného obvodu.
@@ -217,6 +220,7 @@ impl ComponentKind {
             Self::Constant { .. } => "K",
             Self::Led | Self::SevenSegment | Self::HexDisplay => "Y",
             Self::Block { .. } => "IO",
+            Self::Subcircuit { .. } => "P",
             Self::FlipFlop { .. } => "KO",
             Self::Clock { .. } => "CLK",
         }
@@ -245,6 +249,9 @@ impl ComponentKind {
             Self::Block { block } => block.body_local(),
             Self::SevenSegment => (-3.0, -8.0, 3.0, 8.0),
             Self::HexDisplay => (-3.0, -4.0, 3.0, 4.0),
+            Self::Subcircuit {
+                inputs, outputs, ..
+            } => crate::block::rect_body(*inputs as usize, *outputs as usize),
         }
     }
 
@@ -267,6 +274,9 @@ impl ComponentKind {
             Self::Block { block } => block.pins_local(),
             Self::SevenSegment => ((0..8).map(|i| (-4, -7 + 2 * i)).collect(), vec![]),
             Self::HexDisplay => ((0..4).map(|i| (-4, -3 + 2 * i)).collect(), vec![]),
+            Self::Subcircuit {
+                inputs, outputs, ..
+            } => crate::block::rect_pins(*inputs as usize, *outputs as usize),
         }
     }
 }
@@ -680,6 +690,108 @@ impl Circuit {
     }
 }
 
+impl Circuit {
+    /// Vstupy (přepínače, tlačítka) a výstupy (LED) obvodu seřazené podle popisku.
+    /// U podobvodu tvoří jeho rozhraní – vývody značky shora dolů.
+    pub fn io(&self) -> (Vec<&Component>, Vec<&Component>) {
+        let mut ins: Vec<&Component> = self
+            .components
+            .iter()
+            .filter(|c| c.kind.is_input())
+            .collect();
+        let mut outs: Vec<&Component> = self
+            .components
+            .iter()
+            .filter(|c| matches!(c.kind, ComponentKind::Led))
+            .collect();
+        ins.sort_by(|a, b| natural_cmp(&a.label, &b.label));
+        outs.sort_by(|a, b| natural_cmp(&a.label, &b.label));
+        (ins, outs)
+    }
+}
+
+/// Porovnání popisků „přirozeně“: A2 < A10.
+pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    let split = |s: &str| {
+        let i = s.find(|c: char| c.is_ascii_digit()).unwrap_or(s.len());
+        (s[..i].to_owned(), s[i..].parse::<u64>().unwrap_or(0))
+    };
+    split(a).cmp(&split(b)).then_with(|| a.cmp(b))
+}
+
+/// Nejvyšší počet vývodů podobvodu na každé straně.
+pub const MAX_SUBCIRCUIT_PINS: usize = 32;
+
+/// Definice podobvodu: pojmenovaný obvod, který lze vložit jako součástku.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SubcircuitDef {
+    pub id: u32,
+    pub name: String,
+    pub circuit: Circuit,
+}
+
+impl SubcircuitDef {
+    /// Názvy vstupů a výstupů značky (popisky přepínačů a LED uvnitř).
+    pub fn pin_names(&self) -> (Vec<String>, Vec<String>) {
+        let (ins, outs) = self.circuit.io();
+        let names = |v: Vec<&Component>| {
+            v.into_iter()
+                .take(MAX_SUBCIRCUIT_PINS)
+                .map(|c| c.label.clone())
+                .collect()
+        };
+        (names(ins), names(outs))
+    }
+
+    /// Druh součástky pro vložení instance.
+    pub fn kind(&self) -> ComponentKind {
+        let (ins, outs) = self.pin_names();
+        ComponentKind::Subcircuit {
+            id: self.id,
+            inputs: ins.len() as u8,
+            outputs: outs.len() as u8,
+        }
+    }
+
+    /// Obsahuje tento podobvod (i nepřímo) instanci podobvodu `target`?
+    pub fn uses(&self, target: u32, defs: &[SubcircuitDef]) -> bool {
+        circuit_uses(&self.circuit, target, defs, 0)
+    }
+}
+
+/// Obsahuje obvod (i nepřímo) instanci podobvodu `target`?
+pub fn circuit_uses(c: &Circuit, target: u32, defs: &[SubcircuitDef], depth: usize) -> bool {
+    depth < 32
+        && c.components.iter().any(|k| match k.kind {
+            ComponentKind::Subcircuit { id, .. } => {
+                id == target
+                    || defs
+                        .iter()
+                        .find(|d| d.id == id)
+                        .is_some_and(|d| circuit_uses(&d.circuit, target, defs, depth + 1))
+            }
+            _ => false,
+        })
+}
+
+/// Upraví počty vývodů instancí podobvodů v obvodu podle aktuálních definic.
+/// Vrací `true`, pokud se něco změnilo.
+pub fn sync_instances(circuit: &mut Circuit, defs: &[SubcircuitDef]) -> bool {
+    let mut changed = false;
+    for c in &mut circuit.components {
+        if let ComponentKind::Subcircuit { id, .. } = c.kind
+            && let Some(d) = defs.iter().find(|d| d.id == id)
+        {
+            let kind = d.kind();
+            if c.kind != kind {
+                c.kind = kind;
+                changed = true;
+            }
+        }
+    }
+    changed
+}
+
 /// Formát souboru projektu `.logicflow`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectFile {
@@ -687,22 +799,26 @@ pub struct ProjectFile {
     pub format: u32,
     pub app: String,
     pub circuit: Circuit,
+    /// Definice podobvodů (od verze 0.3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subcircuits: Vec<SubcircuitDef>,
 }
 
 impl ProjectFile {
     pub const FORMAT: u32 = 1;
     pub const EXTENSION: &'static str = "logicflow";
 
-    pub fn to_json(circuit: &Circuit) -> String {
+    pub fn to_json(circuit: &Circuit, subcircuits: &[SubcircuitDef]) -> String {
         let file = ProjectFile {
             format: Self::FORMAT,
             app: format!("LogicFlow {}", crate::VERSION),
             circuit: circuit.clone(),
+            subcircuits: subcircuits.to_vec(),
         };
         serde_json::to_string_pretty(&file).expect("serializace obvodu nemůže selhat")
     }
 
-    pub fn from_json(text: &str) -> Result<Circuit, String> {
+    pub fn from_json(text: &str) -> Result<(Circuit, Vec<SubcircuitDef>), String> {
         let file: ProjectFile = serde_json::from_str(text).map_err(|e| e.to_string())?;
         if file.format > Self::FORMAT {
             return Err(format!(
@@ -711,7 +827,7 @@ impl ProjectFile {
                 Self::FORMAT
             ));
         }
-        Ok(file.circuit)
+        Ok((file.circuit, file.subcircuits))
     }
 }
 
@@ -780,8 +896,8 @@ mod tests {
         let mut c = Circuit::default();
         c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
         c.add_wire(Point::new(2, 0), Point::new(6, 0));
-        let text = ProjectFile::to_json(&c);
-        let mut loaded = ProjectFile::from_json(&text).unwrap();
+        let text = ProjectFile::to_json(&c, &[]);
+        let (mut loaded, _) = ProjectFile::from_json(&text).unwrap();
         assert_eq!(loaded, c);
         let id = loaded.add_component(ComponentKind::Led, Point::new(8, 0));
         assert!(id.0 >= 2, "nové id nesmí kolidovat s načtenými");
