@@ -34,6 +34,11 @@ struct Settings {
 
 const SETTINGS_KEY: &str = "settings";
 
+/// Webová stránka projektu.
+pub const WEBSITE: &str = "https://www.logicflow-sim.cz";
+/// Zdrojový kód a stažení.
+pub const REPOSITORY: &str = "https://github.com/SJFidrmuc/LogicFlow";
+
 pub struct LogicFlowApp {
     lang: Lang,
     symbols: SymbolStyle,
@@ -358,6 +363,13 @@ impl LogicFlowApp {
                             self.help.show_section(help::SECTION_WINDOWS);
                         }
                         ui.separator();
+                        if ui
+                            .button(tr(lang, T::Website))
+                            .on_hover_text(WEBSITE)
+                            .clicked()
+                        {
+                            ui.ctx().open_url(egui::OpenUrl::new_tab(WEBSITE));
+                        }
                         if ui.button(tr(lang, T::About)).clicked() {
                             self.about_open = true;
                         }
@@ -540,7 +552,18 @@ impl LogicFlowApp {
                     "© 2026 Stanislav Jan Fidrmuc · {}",
                     tr(lang, T::License)
                 ));
-                ui.hyperlink("https://github.com/SJFidrmuc/LogicFlow");
+                ui.add_space(6.0);
+                egui::Grid::new("about_links")
+                    .num_columns(2)
+                    .spacing([10.0, 4.0])
+                    .show(ui, |ui| {
+                        ui.label(tr(lang, T::Website));
+                        ui.hyperlink_to("www.logicflow-sim.cz", WEBSITE);
+                        ui.end_row();
+                        ui.label(tr(lang, T::SourceCode));
+                        ui.hyperlink_to("github.com/SJFidrmuc/LogicFlow", REPOSITORY);
+                        ui.end_row();
+                    });
             });
         self.about_open = open;
     }

@@ -2,9 +2,11 @@
 
 Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástupce programu DigitalWorks: česky, s rozhraním ve stylu Blenderu, pro Windows, macOS, Linux i Raspberry Pi.
 
+**Webová stránka projektu: [www.logicflow-sim.cz](https://www.logicflow-sim.cz)**
+
 ![Čítač 0–7 z klopných obvodů T v pracovní ploše Simulace](docs/screenshots/simulace.png)
 
-> **Stav:** verze 0.2 (milník M2). Kreslení obvodů z hradel, klopných obvodů a generátorů hodin, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, ukládání souborů a vestavěná nápověda.
+> **Stav:** verze 0.3 (milník M3). Kreslení obvodů z hradel, klopných obvodů, funkčních bloků (čítače, registry, multiplexory, dekodéry…) a podobvodů, sedmisegmentovka, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, evropské i americké značky, ukládání souborů a vestavěná nápověda.
 
 ## Stažení
 
