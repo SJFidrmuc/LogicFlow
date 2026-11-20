@@ -14,6 +14,7 @@ use egui::{Key, KeyboardShortcut, Modifiers, RichText};
 use egui_tiles::Tree;
 use logicflow_core::Circuit;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 /// Akce, která čeká na rozhodnutí o neuložených změnách.
 #[derive(Clone, Copy, Debug)]
@@ -69,6 +70,11 @@ pub const WEBSITE: &str = "https://www.logicflow-sim.cz";
 /// Zdrojový kód a stažení.
 pub const REPOSITORY: &str = "https://github.com/SJFidrmuc/LogicFlow";
 
+/// Nejdelší úsek času simulace za jeden snímek (s).
+const MAX_FRAME_DT: f64 = 0.5;
+/// Nejdelší prodleva mezi snímky při běžící simulaci (s).
+const REPAINT_INTERVAL: f64 = 0.05;
+
 pub struct LogicFlowApp {
     lang: Lang,
     symbols: SymbolStyle,
@@ -86,6 +92,9 @@ pub struct LogicFlowApp {
     last_dir: Option<PathBuf>,
     last_title: String,
     allow_close: bool,
+    /// Okamžik předchozího snímku – čas simulace se měří skutečnými hodinami,
+    /// ne odhadem egui (`stable_dt` při překreslování „za chvíli“ vrací jen 1/60 s).
+    last_frame: Option<Instant>,
 }
 
 impl LogicFlowApp {
@@ -124,6 +133,7 @@ impl LogicFlowApp {
             error,
             last_title: String::new(),
             allow_close: false,
+            last_frame: None,
         }
     }
 
@@ -679,11 +689,22 @@ impl eframe::App for LogicFlowApp {
             self.handle_shortcuts(&ctx);
         }
 
-        let dt = ctx.input(|i| i.stable_dt).min(0.1) as f64;
+        let now = Instant::now();
+        let dt = self
+            .last_frame
+            .map_or(0.0, |t| now.duration_since(t).as_secs_f64())
+            // Po uspání nebo minimalizaci okna simulace nepřeskakuje dlouhý úsek.
+            .min(MAX_FRAME_DT);
+        self.last_frame = Some(now);
         self.project.update(dt);
         if self.project.running {
-            // Časový diagram se posouvá, proto překreslujeme průběžně.
-            ctx.request_repaint_after(std::time::Duration::from_millis(50));
+            // Časový diagram se posouvá, proto překreslujeme průběžně – a nejpozději
+            // v okamžiku příští hrany hodin, aby LED blikaly přesně v rytmu.
+            let wait = self
+                .project
+                .time_to_next_clock_edge()
+                .map_or(REPAINT_INTERVAL, |t| t.clamp(0.0, REPAINT_INTERVAL));
+            ctx.request_repaint_after(Duration::from_secs_f64(wait));
         }
 
         self.top_bar(ui);
