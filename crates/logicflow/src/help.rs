@@ -224,6 +224,7 @@ const CS: &[Section] = &[
             List(&[
                 "Sedmisegmentovka má vstupy a–g a desetinnou tečku dp; každý segment svítí při 1.",
                 "Hex displej ukáže číslici 0–F podle 4bitového vstupu D0–D3. Při neznámém vstupu jsou segmenty tmavě šedé.",
+                "Ve Vlastnostech jde zvolit, na které straně má zobrazovač vývody (vlevo, vpravo, nahoře, dole). Číslice zůstane vždy rovně – na rozdíl od otočení klávesou R.",
             ]),
             Tip(
                 "Příklad Dekadický čítač se sedmisegmentovkou ukazuje čítač nulovaný hradlem AND při stavu 10 (1010) – takto vzniká čítač do libovolného čísla.",
@@ -541,6 +542,7 @@ const EN: &[Section] = &[
             List(&[
                 "The seven-segment display has inputs a–g and the decimal point dp; a segment is lit at 1.",
                 "The hex display shows 0–F from the 4-bit input D0–D3; unknown input shows grey segments.",
+                "In Properties you can choose the side of the pins (left, right, top, bottom); the digit stays upright, unlike rotating with R.",
             ]),
             Tip(
                 "The example Decade counter with a seven-segment display resets a counter with an AND gate at 10 (1010) – this is how a counter to any number is made.",

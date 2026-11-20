@@ -550,7 +550,9 @@ impl Simulator {
     fn evaluate(&mut self, i: usize) {
         let new: Vec<LogicValue> = match self.kinds[i] {
             ComponentKind::Gate { gate, .. } => vec![gate.eval(&self.input_values(i))],
-            ComponentKind::Led | ComponentKind::SevenSegment | ComponentKind::HexDisplay => {
+            ComponentKind::Led
+            | ComponentKind::SevenSegment { .. }
+            | ComponentKind::HexDisplay { .. } => {
                 return;
             }
             ComponentKind::Block { block } if block.is_sequential() => {

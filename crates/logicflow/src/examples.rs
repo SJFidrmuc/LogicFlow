@@ -271,7 +271,12 @@ pub fn decade_counter() -> Circuit {
     for y in (-5..=7).step_by(2) {
         wire_path(&mut c, &[(34, y), (38, y)]);
     }
-    let disp = c.add_component(ComponentKind::SevenSegment, p(42, 2));
+    let disp = c.add_component(
+        ComponentKind::SevenSegment {
+            pins: logicflow_core::PinSide::Left,
+        },
+        p(42, 2),
+    );
     label(&mut c, disp, "Y1");
     // Nulování při 10 (1010): AND(Q1, Q3) → R
     c.add_component(ComponentKind::gate(GateKind::And), p(4, -8));
@@ -445,7 +450,7 @@ mod tests {
             .circuit
             .components
             .iter()
-            .find(|c| c.kind == ComponentKind::SevenSegment)
+            .find(|c| matches!(c.kind, ComponentKind::SevenSegment { .. }))
             .unwrap()
             .id;
         let mut seen = Vec::new();
@@ -512,7 +517,7 @@ mod tests {
             .filter(|k| {
                 matches!(
                     k.kind,
-                    ComponentKind::SevenSegment
+                    ComponentKind::SevenSegment { .. }
                         | ComponentKind::Block {
                             block: BlockKind::BcdTo7Seg
                         }

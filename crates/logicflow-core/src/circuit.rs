@@ -100,12 +100,60 @@ pub enum ComponentKind {
     /// Funkční blok (multiplexor, dekodér, čítač, …).
     Block { block: BlockKind },
     /// Sedmisegmentový zobrazovač se vstupy a–g a desetinnou tečkou.
-    SevenSegment,
+    SevenSegment {
+        #[serde(default)]
+        pins: PinSide,
+    },
     /// Hexadecimální zobrazovač se 4bitovým vstupem.
-    HexDisplay,
+    HexDisplay {
+        #[serde(default)]
+        pins: PinSide,
+    },
     /// Instance podobvodu (definice `id` v projektu). Počty vývodů jsou kopií
     /// rozhraní definice, aby šlo značku nakreslit a propojit bez ní.
     Subcircuit { id: u32, inputs: u8, outputs: u8 },
+}
+
+/// Strana, na které má zobrazovač vývody (číslice zůstává vždy rovně).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PinSide {
+    #[default]
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+impl PinSide {
+    pub const ALL: [Self; 4] = [Self::Left, Self::Right, Self::Top, Self::Bottom];
+
+    /// Tělo a vývody zobrazovače s `n` vstupy. `along` je poloviční délka strany
+    /// s vývody, `across` poloviční šířka (u vývodů vlevo/vpravo).
+    fn display_layout(self, n: i32, along: f32, across: f32) -> ((f32, f32, f32, f32), LocalPins) {
+        let first = -(n - 1);
+        let reach = across as i32 + 1;
+        match self {
+            Self::Left | Self::Right => {
+                let x = if self == Self::Left { -reach } else { reach };
+                (
+                    (-across, -along, across, along),
+                    ((0..n).map(|i| (x, first + 2 * i)).collect(), vec![]),
+                )
+            }
+            Self::Top | Self::Bottom => {
+                // Vývody vedle sebe: tělo je široké podle počtu vývodů.
+                let half_w = (n as f32).max(across + 1.0);
+                let half_h = (along - 2.0).max(4.0);
+                let y = half_h as i32 + 1;
+                let y = if self == Self::Top { -y } else { y };
+                (
+                    (-half_w, -half_h, half_w, half_h),
+                    ((0..n).map(|i| (first + 2 * i, y)).collect(), vec![]),
+                )
+            }
+        }
+    }
 }
 
 /// Druh klopného obvodu.
@@ -204,7 +252,10 @@ impl ComponentKind {
 
     /// Je to výstup obvodu (zobrazovací prvek)?
     pub fn is_display(&self) -> bool {
-        matches!(self, Self::Led | Self::SevenSegment | Self::HexDisplay)
+        matches!(
+            self,
+            Self::Led | Self::SevenSegment { .. } | Self::HexDisplay { .. }
+        )
     }
 
     /// Je to vstup obvodu (zdroj signálu ovládaný uživatelem)?
@@ -218,7 +269,7 @@ impl ComponentKind {
             Self::Gate { .. } => "G",
             Self::Switch { .. } | Self::Button => "",
             Self::Constant { .. } => "K",
-            Self::Led | Self::SevenSegment | Self::HexDisplay => "Y",
+            Self::Led | Self::SevenSegment { .. } | Self::HexDisplay { .. } => "Y",
             Self::Block { .. } => "IO",
             Self::Subcircuit { .. } => "P",
             Self::FlipFlop { .. } => "KO",
@@ -247,8 +298,8 @@ impl ComponentKind {
             Self::FlipFlop { .. } => (-2.0, -2.5, 2.0, 2.5),
             Self::Clock { .. } => (-1.4, -1.0, 1.4, 1.0),
             Self::Block { block } => block.body_local(),
-            Self::SevenSegment => (-3.0, -8.0, 3.0, 8.0),
-            Self::HexDisplay => (-3.0, -4.0, 3.0, 4.0),
+            Self::SevenSegment { pins } => pins.display_layout(8, 8.0, 3.0).0,
+            Self::HexDisplay { pins } => pins.display_layout(4, 4.0, 3.0).0,
             Self::Subcircuit {
                 inputs, outputs, ..
             } => crate::block::rect_body(*inputs as usize, *outputs as usize),
@@ -272,8 +323,8 @@ impl ComponentKind {
             Self::FlipFlop { .. } => (vec![(-3, -1), (-3, 1)], vec![(3, -1), (3, 1)]),
             Self::Clock { .. } => (vec![], vec![(3, 0)]),
             Self::Block { block } => block.pins_local(),
-            Self::SevenSegment => ((0..8).map(|i| (-4, -7 + 2 * i)).collect(), vec![]),
-            Self::HexDisplay => ((0..4).map(|i| (-4, -3 + 2 * i)).collect(), vec![]),
+            Self::SevenSegment { pins } => pins.display_layout(8, 8.0, 3.0).1,
+            Self::HexDisplay { pins } => pins.display_layout(4, 4.0, 3.0).1,
             Self::Subcircuit {
                 inputs, outputs, ..
             } => crate::block::rect_pins(*inputs as usize, *outputs as usize),
@@ -1118,6 +1169,37 @@ mod tests {
         assert_eq!(sim.inputs(led)[0], LogicValue::One);
         // Původní obvod zůstal beze změny.
         assert_eq!(c.wires.len(), 1);
+    }
+
+    #[test]
+    fn display_pin_sides() {
+        // Soubor z verze bez volby strany se načte s vývody vlevo.
+        let old: ComponentKind = serde_json::from_str(r#"{"type":"seven_segment"}"#).unwrap();
+        assert_eq!(
+            old,
+            ComponentKind::SevenSegment {
+                pins: PinSide::Left
+            }
+        );
+        for side in PinSide::ALL {
+            for kind in [
+                ComponentKind::SevenSegment { pins: side },
+                ComponentKind::HexDisplay { pins: side },
+            ] {
+                let (x0, y0, x1, y1) = kind.body_local();
+                let (ins, _) = kind.pins_local();
+                for &(x, y) in &ins {
+                    let (x, y) = (x as f32, y as f32);
+                    let on_side = match side {
+                        PinSide::Left => x < x0 && y > y0 && y < y1,
+                        PinSide::Right => x > x1 && y > y0 && y < y1,
+                        PinSide::Top => y < y0 && x > x0 && x < x1,
+                        PinSide::Bottom => y > y1 && x > x0 && x < x1,
+                    };
+                    assert!(on_side, "{kind:?} vývod ({x},{y})");
+                }
+            }
+        }
     }
 
     #[test]

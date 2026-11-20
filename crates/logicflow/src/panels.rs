@@ -5,7 +5,7 @@ use crate::i18n::{Lang, T, tr};
 use crate::project::{Project, natural_cmp};
 use crate::theme::colors;
 use egui::{RichText, Ui};
-use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, LogicValue};
+use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, LogicValue, PinSide};
 
 fn padded(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     egui::ScrollArea::vertical()
@@ -383,18 +383,50 @@ fn component_properties(
                     }
                     ui.end_row();
                 }
-                ComponentKind::Button
-                | ComponentKind::Led
-                | ComponentKind::SevenSegment
-                | ComponentKind::HexDisplay => {}
+                ComponentKind::SevenSegment { pins } | ComponentKind::HexDisplay { pins } => {
+                    ui.label(weak(tr(lang, T::PinSideLabel)));
+                    let side_name = |p: PinSide| {
+                        tr(
+                            lang,
+                            match p {
+                                PinSide::Left => T::SideLeft,
+                                PinSide::Right => T::SideRight,
+                                PinSide::Top => T::SideTop,
+                                PinSide::Bottom => T::SideBottom,
+                            },
+                        )
+                    };
+                    let mut new_pins = pins;
+                    egui::ComboBox::from_id_salt("pin_side")
+                        .selected_text(side_name(pins))
+                        .show_ui(ui, |ui| {
+                            for p in PinSide::ALL {
+                                ui.selectable_value(&mut new_pins, p, side_name(p));
+                            }
+                        });
+                    if new_pins != pins {
+                        project.checkpoint();
+                        if let Some(c) = project.circuit.component_mut(id) {
+                            c.kind = match c.kind {
+                                ComponentKind::SevenSegment { .. } => {
+                                    ComponentKind::SevenSegment { pins: new_pins }
+                                }
+                                _ => ComponentKind::HexDisplay { pins: new_pins },
+                            };
+                        }
+                        structure_changed = true;
+                    }
+                    ui.end_row();
+                }
+                ComponentKind::Button | ComponentKind::Led => {}
             }
 
             let is_led = matches!(comp.kind, ComponentKind::Led);
             let multi = matches!(
                 comp.kind,
                 ComponentKind::Block { .. }
-                    | ComponentKind::SevenSegment
-                    | ComponentKind::HexDisplay
+                    | ComponentKind::SevenSegment { .. }
+                    | ComponentKind::HexDisplay { .. }
                     | ComponentKind::Subcircuit { .. }
             );
             let shown = if is_led {
@@ -569,8 +601,8 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                             | ComponentKind::Clock { .. } => group == 0,
                             ComponentKind::Gate { .. } => group == 1,
                             ComponentKind::Led
-                            | ComponentKind::SevenSegment
-                            | ComponentKind::HexDisplay => group == 2,
+                            | ComponentKind::SevenSegment { .. }
+                            | ComponentKind::HexDisplay { .. } => group == 2,
                             ComponentKind::FlipFlop { .. } => group == 3,
                             ComponentKind::Block { .. } => group == 4,
                             ComponentKind::Subcircuit { .. } => group == 5,

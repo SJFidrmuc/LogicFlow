@@ -14,7 +14,7 @@ pub mod value;
 
 pub use block::BlockKind;
 pub use circuit::{
-    Circuit, CompId, Component, ComponentKind, FlipFlopKind, Point, ProjectFile, Rotation,
+    Circuit, CompId, Component, ComponentKind, FlipFlopKind, PinSide, Point, ProjectFile, Rotation,
     SubcircuitDef, Wire, WireId,
 };
 pub use gate::GateKind;
