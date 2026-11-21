@@ -130,6 +130,12 @@ const CS: &[Section] = &[
             P(
                 "V oblasti Vlastnosti jde u vybrané součástky změnit popisek, druh hradla, počet vstupů (2–8), hodnotu konstanty a otočení.",
             ),
+            H("Kontextová nabídka (pravé tlačítko)"),
+            List(&[
+                "Kliknutí pravým tlačítkem (bez tažení) otevře nabídku podle místa: u součástky Přepnout, Frekvence, Počet vstupů, popisek, Otočit, Duplikovat, Přesunout, Smazat; u vodiče Vybrat celou síť, Smazat úsek, Smazat celou síť; v prázdném místě Přidat součástku sem, Vybrat vše, Celé schéma a ovládání simulace.",
+                "Tažení pravým tlačítkem dál posouvá pohled; během rozdělané akce pravé tlačítko akci zruší.",
+                "V režimu simulace jsou úpravy zašedlé. Pravé tlačítko funguje i v Hierarchii a v pravdivostní tabulce (Kopírovat jako text).",
+            ]),
         ],
     },
     Section {
@@ -479,6 +485,12 @@ const EN: &[Section] = &[
             P(
                 "The Properties area lets you change the label, gate type, number of inputs (2–8), constant value and rotation of the selected component.",
             ),
+            H("Context menu (right button)"),
+            List(&[
+                "A right-click (without dragging) opens a menu depending on the place: on a component Toggle, Frequency, Inputs, label, Rotate, Duplicate, Move, Delete; on a wire Select the whole net, Delete segment, Delete the whole net; on an empty place Add component here, Select all, Fit view and simulation controls.",
+                "Dragging with the right button still pans; during an action in progress the right button cancels it.",
+                "In simulation mode edits are greyed out. The right button also works in the Hierarchy and in the truth table (Copy as text).",
+            ]),
         ],
     },
     Section {

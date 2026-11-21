@@ -8,7 +8,7 @@
 
 ## Pravdivostní tabulka
 
-Tabulka se spočítá simulací všech kombinací vstupů, nejvýše 8 vstupů (256 řádků). Vstupy jsou přepínače a tlačítka, výstupy LED. Zvýrazněný řádek odpovídá aktuálnímu nastavení přepínačů. Najdete ji na pracovní ploše **Analýza**.
+Tabulka se spočítá simulací všech kombinací vstupů, nejvýše 8 vstupů (256 řádků). Vstupy jsou přepínače a tlačítka, výstupy LED. Zvýrazněný řádek odpovídá aktuálnímu nastavení přepínačů. Najdete ji na pracovní ploše **Analýza**. Pravé tlačítko na tabulce → **Kopírovat jako text** ji zkopíruje do schránky; po vložení do Wordu nebo tabulkového procesoru vzniknou sloupce.
 
 ![Pravdivostní tabulka poloviční sčítačky](obrazky/analyza.png)
 

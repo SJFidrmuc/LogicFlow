@@ -29,9 +29,25 @@
 | A, Alt+A | select all, deselect |
 | Ctrl+Z, Ctrl+Shift+Z | undo, redo |
 
+## Context menu (right button)
+
+**Clicking the right button** (without dragging) opens a menu depending on where you click. Dragging with the right button still pans the view, and during an action in progress (moving, drawing a wire, placing) the right button cancels it.
+
+| Where you click | What the menu offers |
+| --- | --- |
+| component | by kind: Toggle (switch), Frequency (clock), Inputs (gate), Pins (display), Bits and Count direction (function block), Open subcircuit; then the label, Rotate, Duplicate, Move, Delete |
+| wire | Select the whole net, Delete wire segment, Delete the whole net |
+| several selected items | Rotate, Duplicate, Move, Delete, Deselect |
+| empty place | Add component here (placed at the clicked point), Select all, Fit view, Back one level (in a subcircuit), simulation controls |
+
+- A component or wire that is not selected gets selected first by the right-click.
+- Every item shows its keyboard shortcut on the right – the menu teaches the shortcuts too.
+- In simulation mode edits are greyed out; Toggle, clock Frequency, Open subcircuit, selection and the simulation controls work.
+- The right button also works in the **Hierarchy** (on a sheet: Open, Delete subcircuit; on a component: Find in schematic, Toggle, Rotate, Delete) and in the **truth table** (Copy as text).
+
 ## Viewing the schematic
 
-- The **mouse wheel** zooms, the **middle or right button** with dragging pans the view.
+- The **mouse wheel** zooms, the **middle or right button** with dragging pans the view (a plain right-click opens the context menu).
 - **Home** or the **Fit all** button in the header shows the whole circuit. The current zoom is shown next to it in percent.
 - A line with the most important keys is shown at the bottom of the schematic.
 

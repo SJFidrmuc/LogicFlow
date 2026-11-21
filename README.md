@@ -34,7 +34,9 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 - **Funkční bloky** – multiplexor, dekodér (demultiplexor), prioritní kodér, sčítačka, komparátor, převodník BCD na 7 segmentů, čítač nahoru/dolů, registr a posuvný registr s nastavitelným počtem bitů.
 - **Podobvody** – libovolný obvod jde použít jako blok v jiném obvodu (vstupy jsou jeho přepínače, výstupy LED). Tab otevře podobvod a vrátí se zpět jako skupiny uzlů v Blenderu. Simulace zachovává zpoždění hradel i uvnitř podobvodů.
 - **Událostní simulace** se zpožděním hradel a hodnotami 0, 1, X (neurčitá, kolize) a Z (nepřipojeno). Simulátor pozná kmitající obvod a obvody s pamětí (klopný obvod z hradel) si pamatují stav i po úpravě schématu.
-- **Krokování** – při pozastavené simulaci (mezerník) se šipkou vpravo provádí jeden takt; je vidět, jak signál prochází hradly.
+- **Režim úprav a režim simulace** – F5 (nebo plocha Simulace) zamkne schéma, fungují jen ovládací prvky a nastavení hodin; Esc vrátí k úpravám a stav obvodu zůstane.
+- **Kontextová nabídka** na pravém tlačítku podle místa kliknutí (součástka, vodič, výběr, prázdné místo) se zkratkami u položek.
+- **Krokování** – v režimu simulace se šipkou vpravo provádí jeden takt; je vidět, jak signál prochází hradly.
 - **Časový diagram** vstupů a výstupů a **pravdivostní tabulka** spočítaná simulací všech kombinací vstupů.
 - **Soubory** `.logicflow` (čitelný JSON), vlastní prohlížeč souborů, Zpět/Znovu, vestavěné příklady (hradla, poloviční sčítačka, klopný obvod RS z hradel, klopný obvod D s hodinami, čítač 0–7, posuvný registr, multiplexor 4:1, dekadický čítač se sedmisegmentovkou, úplná sčítačka ze dvou podobvodů).
 - Okno rozdělené na **oblasti** a **pracovní plochy** (Návrh, Simulace, Analýza, Paměť) jako v Blenderu. Oblasti jde rozdělovat a zavírat (nabídka **Oblast** v záhlaví nebo pravé tlačítko na záhlaví) a v každé zvolit typ editoru.
@@ -56,6 +58,7 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 | F1 | nápověda |
 | Shift+A | nabídka Přidat součástku |
 | tažení z vývodu (Ctrl+tažení odkudkoli) | nakreslit vodič |
+| klik pravým tlačítkem | kontextová nabídka podle místa |
 | F5 / Esc (Shift+F5) | režim simulace (schéma zamčené) / zpět k úpravám, stav obvodu zůstane |
 | klik na přepínač / držení tlačítka | změna vstupu v simulaci (v režimu úprav dvojklik) |
 | klik, Shift+klik, tažení v prázdném místě | výběr, přidání do výběru, výběr obdélníkem |

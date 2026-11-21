@@ -33,9 +33,25 @@
 | A, Alt+A | vybrat vše, zrušit výběr |
 | Ctrl+Z, Ctrl+Shift+Z | zpět, znovu |
 
+## Kontextová nabídka (pravé tlačítko)
+
+**Kliknutí pravým tlačítkem** (bez tažení) otevře nabídku podle toho, kam kliknete. Tažení pravým tlačítkem dál posouvá pohled a během rozdělané akce (přesun, kreslení vodiče, umisťování) pravé tlačítko akci zruší.
+
+| Kam kliknete | Co nabídka nabízí |
+| --- | --- |
+| součástka | podle druhu: Přepnout (přepínač), Frekvence (hodiny), Počet vstupů (hradlo), Strana vývodů (zobrazovač), Počet bitů a Směr čítání (funkční blok), Otevřít podobvod; dále popisek, Otočit, Duplikovat, Přesunout, Smazat |
+| vodič | Vybrat celou síť, Smazat úsek vodiče, Smazat celou síť |
+| výběr více prvků | Otočit, Duplikovat, Přesunout, Smazat, Zrušit výběr |
+| prázdné místo | Přidat součástku sem (vloží se na místo kliknutí), Vybrat vše, Celé schéma, Zpět o úroveň výš (v podobvodu), ovládání simulace |
+
+- Nevybraná součástka nebo vodič se kliknutím pravým tlačítkem nejdřív vybere.
+- U každé položky je vpravo klávesová zkratka – nabídka tak zkratky i učí.
+- V režimu simulace jsou úpravy zašedlé; funguje Přepnout, Frekvence hodin, Otevřít podobvod, výběr a ovládání simulace.
+- Pravé tlačítko funguje i v **Hierarchii** (u listu: Otevřít, Smazat podobvod; u součástky: Najít ve schématu, Přepnout, Otočit, Smazat) a v **pravdivostní tabulce** (Kopírovat jako text).
+
 ## Pohled na schéma
 
-- **Kolečko myši** přibližuje a oddaluje, **prostřední nebo pravé tlačítko** s tažením posouvá pohled.
+- **Kolečko myši** přibližuje a oddaluje, **prostřední nebo pravé tlačítko** s tažením posouvá pohled (samotné kliknutí pravým tlačítkem otevře kontextovou nabídku).
 - **Home** nebo tlačítko **Celé schéma** v záhlaví zobrazí celý obvod. Vedle tlačítka je vidět aktuální zvětšení v procentech.
 - Dole ve schématu je řádek s nejdůležitějšími klávesami.
 

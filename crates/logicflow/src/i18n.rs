@@ -225,6 +225,14 @@ pub enum T {
     EditMode,
     PropsLocked,
     LibraryLocked,
+    CtxToggle,
+    CtxAddHere,
+    CtxSelectNet,
+    CtxDeleteSegment,
+    CtxDeleteNet,
+    CtxOpen,
+    CtxFind,
+    CopyAsText,
     // Stavový řádek
     // [en] Status bar
     Running,
@@ -433,6 +441,14 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
                 "Za běhu simulace jde měnit jen přepínače a frekvenci hodin. Pro úpravy zastavte simulaci (Esc)."
             }
             LibraryLocked => "Součástky jde přidávat v režimu úprav – simulaci zastaví Esc.",
+            CtxToggle => "Přepnout",
+            CtxAddHere => "Přidat součástku sem",
+            CtxSelectNet => "Vybrat celou síť",
+            CtxDeleteSegment => "Smazat úsek vodiče",
+            CtxDeleteNet => "Smazat celou síť",
+            CtxOpen => "Otevřít",
+            CtxFind => "Najít ve schématu",
+            CopyAsText => "Kopírovat jako text",
             Running => "Simulace běží",
             Paused => "Simulace pozastavena",
             Unsaved => "neuloženo",
@@ -630,6 +646,14 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
                 "While simulating, only switches and the clock frequency can be changed. Stop the simulation to edit (Esc)."
             }
             LibraryLocked => "Components can be added in edit mode – Esc stops the simulation.",
+            CtxToggle => "Toggle",
+            CtxAddHere => "Add component here",
+            CtxSelectNet => "Select the whole net",
+            CtxDeleteSegment => "Delete wire segment",
+            CtxDeleteNet => "Delete the whole net",
+            CtxOpen => "Open",
+            CtxFind => "Find in schematic",
+            CopyAsText => "Copy as text",
             Running => "Simulation running",
             Paused => "Simulation paused",
             Unsaved => "unsaved",

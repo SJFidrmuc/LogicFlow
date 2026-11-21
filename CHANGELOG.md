@@ -12,6 +12,8 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Kontextová nabídka na pravém tlačítku** podle místa kliknutí: u součástky Přepnout, Frekvence, Počet vstupů, Strana vývodů, Počet bitů, Směr čítání, Otevřít podobvod, popisek, Otočit, Duplikovat, Přesunout, Smazat; u vodiče Vybrat / Smazat celou síť a Smazat úsek; v prázdném místě Přidat součástku sem, Vybrat vše, Celé schéma a ovládání simulace. Tažení pravým tlačítkem dál posouvá pohled. V režimu simulace jsou úpravy zašedlé.
+- Pravé tlačítko i v Hierarchii (Otevřít a Smazat podobvod, Najít ve schématu) a v pravdivostní tabulce (Kopírovat jako text – do Wordu nebo tabulky po sloupcích).
 - **Režim úprav a režim simulace** (jako v DigitalWorks): F5 spustí simulaci a schéma se zamkne – fungují jen přepínače, tlačítka, posun, zoom, Tab a frekvence hodin; Esc nebo Shift+F5 vrátí k úpravám a stav obvodu (klopné obvody, čítače, LED, časový diagram) zůstane. Jantarový rámeček se štítkem SIMULACE, režim ve stavovém řádku, hláška „Pro úpravy zastavte simulaci (Esc)“. Volba Simulace → Povolit úpravy za běhu simulace (výchozí vypnuto).
 - Pracovní plocha **Simulace** zapíná režim simulace: přepnutím na ni se simulace spustí a schéma zamkne, odchodem z ní (nebo Esc) se zastaví a program se vrátí na předchozí plochu.
 - Nabídky ukazují u každé položky klávesovou zkratku a nedostupné položky jsou zašedlé; nabídka Úpravy nově nabízí Vybrat vše, Zrušit výběr, Otočit, Smazat a Otevřít podobvod / zpět, nabídka Zobrazit přepínání pracovních ploch.
