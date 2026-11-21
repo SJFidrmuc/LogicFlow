@@ -5,7 +5,7 @@
 1. Každá změna vzniká ve vlastní větvi (např. `m4-sbernice`) a do `main` se dostane přes pull request.
 2. CI na každé větvi kontroluje formát a clippy, spouští testy na 6 platformách a sestavuje nápovědu.
 3. Pull request se slučuje, až je CI zelené a kontrolní seznam v šabloně PR je splněný.
-4. Vydání se dělá až po sloučení do `main`, s tagem ve tvaru `vX.Y.Z` (viz README → Vydání nové verze).
+4. Vydání se dělá až po sloučení do `main`, s tagem ve tvaru `vX.Y.Z` (viz Vydání nové verze níže).
 
 ## Struktura kódu
 
@@ -67,11 +67,37 @@ Změna je hotová, když jsou hotové **všechny** tyto části – ve stejném 
 - **nápověda v Markdownu** v `docs/napoveda/cs` i `docs/napoveda/en` – nová funkce má svůj popis, změněné chování opravený text, nové klávesy jsou v kapitole Klávesové zkratky,
 - **snímky obrazovky** v nápovědě, pokud se změnil vzhled (`scripts/snimky-napovedy.sh`),
 - **přenositelnost** – jádro bez souborů a systémového času, čas v aplikaci přes `web_time` (viz Přenositelnost),
+- **přehled změn** – řádek v sekci Nevydáno v [CHANGELOG.md](CHANGELOG.md) i [CHANGELOG.en.md](CHANGELOG.en.md), pokud změna mění něco, čeho si všimne uživatel (nová funkce, oprava, změna chování), nebo něco důležitého pro vývoj,
 - **README** a plán vývoje u nových funkcí, případně diagram `docs/architektura.svg` při změně struktury.
 
 Do verze 0.4 je nápověda ještě i přímo v kódu (`crates/logicflow/src/help.rs`). Od verze 0.4 (etapa J2) bude program zobrazovat přímo soubory z `docs/napoveda` a tento dvojí zápis odpadne.
 
 Anglická nápověda může být při vývoji o krok pozadu, ale **kapitoly musí existovat** v obou jazycích – hlídá to test `crates/logicflow/tests/napoveda.rs`.
+
+## Přehled změn a vydání nové verze
+
+### Přehled změn
+
+[CHANGELOG.md](CHANGELOG.md) (česky) a [CHANGELOG.en.md](CHANGELOG.en.md) (anglicky) popisují, co přinesla která verze a co se plánuje dál. Oba soubory mají stejnou stavbu:
+
+- `## [Nevydáno]` / `## [Unreleased]` – změny, které vyjdou v příští verzi, rozdělené na **Přidáno / Added**, **Změněno / Changed**, **Opraveno / Fixed** (případně **Odstraněno / Removed**);
+- `## [X.Y.Z] – RRRR-MM-DD` – vydané verze, nejnovější nahoře;
+- `## Plán dalších verzí` / `## Roadmap` – stručný plán (podrobný plán vede autor projektu);
+- na konci odkazy `[X.Y.Z]: …` na vydání nebo porovnání verzí.
+
+Píše se pro uživatele (učitele, žáky): co se změnilo a k čemu to je, ne jak je to naprogramované. Jeden řádek = jedna změna. Kontrolu (stejné verze a data v obou jazycích, sekce Nevydáno, popis aktuální verze z `Cargo.toml`, odkazy) dělá `python3 scripts/zmeny.py kontrola` v CI.
+
+### Vydání nové verze
+
+1. **Pull request „Verze X.Y.Z“:**
+   - zvýšit `version` v `Cargo.toml` (`[workspace.package]`) a stav verze v README;
+   - v obou přehledech změn přejmenovat `[Nevydáno]` / `[Unreleased]` na `[X.Y.Z] – dnešní datum` a nad ni vložit novou prázdnou sekci Nevydáno / Unreleased (může obsahovat jen nadpis a prázdný řádek – kontrola prázdnou sekci Nevydáno připouští);
+   - upravit odkazy na konci: `[Nevydáno]: …/compare/vX.Y.Z...HEAD` a nový `[X.Y.Z]: …/releases/tag/vX.Y.Z`;
+   - upravit **Plán dalších verzí** (vydané body odebrat, posunout plán) a tabulku Plán v README;
+   - CI musí být zelené (`scripts/zmeny.py kontrola` hlídá, že verze z `Cargo.toml` je v přehledu popsaná).
+2. Pull request sloučit do `main`.
+3. Na GitHubu *Releases → Draft a new release* → **nový** tag `vX.Y.Z` (*Create new tag on publish*), cíl *main*. Tag se nikdy nevytváří předem – existující tag by se použil znovu i se starou revizí. Popis vydání lze nechat **prázdný**: workflow ho doplní z přehledu změn (česky i anglicky). → *Publish release*.
+4. Workflow **Vydání** nejdřív ověří, že tag odpovídá verzi v `Cargo.toml` a že je verze v přehledu změn; pak sestaví balíčky pro všechny platformy a nápovědu a připojí je k vydání.
 
 ## Užitečné příkazy
 
@@ -81,6 +107,8 @@ cargo test --workspace                 # testy (včetně kontroly nápovědy)
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt
 python3 scripts/komentare.py kontrola  # komentáře česky i anglicky
+python3 scripts/zmeny.py kontrola      # přehled změn CHANGELOG.md / CHANGELOG.en.md
+python3 scripts/zmeny.py poznamky 0.3.1  # poznámky k vydání z přehledu změn
 mdbook serve docs/napoveda/cs --open   # náhled nápovědy (cargo install mdbook --locked)
 scripts/snimky-napovedy.sh             # snímky obrazovky pro nápovědu (Linux)
 ```

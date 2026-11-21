@@ -28,6 +28,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # Komentáře v kódu česky i anglicky (CONTRIBUTING.md → Komentáře v kódu).
       - run: python3 scripts/komentare.py kontrola
+      # Přehled změn CHANGELOG.md / CHANGELOG.en.md (CONTRIBUTING.md → Vydání nové verze).
+      - run: python3 scripts/zmeny.py kontrola
       # Přenositelnost na web (CONTRIBUTING.md → Přenositelnost): aplikace používá
       # web_time místo std::time (std::time::Instant::now() ve WebAssembly spadne).
       - name: Přenositelnost – čas přes web_time

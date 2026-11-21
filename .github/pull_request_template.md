@@ -11,4 +11,5 @@
 - [ ] Do verze 0.4: změna je i ve vestavěné nápovědě `crates/logicflow/src/help.rs`
 - [ ] Nové nebo změněné texty rozhraní jsou česky i anglicky (`i18n.rs`)
 - [ ] Snímky obrazovky v nápovědě jsou aktuální (`scripts/snimky-napovedy.sh`), pokud se změnil vzhled
+- [ ] Přehled změn: řádek v sekci Nevydáno v `CHANGELOG.md` i `CHANGELOG.en.md` (u změn viditelných pro uživatele)
 - [ ] README / plán vývoje upraveny, pokud jde o novou funkci

@@ -82,6 +82,8 @@ Ve škole může program povolit správce sítě pro všechny počítače najedn
 
 ## Plán
 
+Co přinesla která verze a co se chystá: **[přehled změn a plán vývoje](CHANGELOG.md)** ([English](CHANGELOG.en.md)).
+
 | Verze | Obsah | Termín (orientačně) |
 | --- | --- | --- |
 | ~~0.1~~ | kreslení schémat, hradla, přepínače, LED, ukládání | hotovo |
@@ -115,7 +117,7 @@ Nápověda se píše v Markdownu ve složce [`docs/napoveda`](docs/napoveda) (č
 
 ### Vydání nové verze
 
-V GitHubu zvolte *Releases → Draft a new release*, zadejte nový tag ve tvaru `vX.Y.Z` (např. `v0.3.1`), cíl *main*, a klikněte na *Publish release*. Workflow *Vydání* pak během několika minut sestaví program pro všech šest platforem a nápovědu v HTML a soubory sám připojí k vydání. Nápověda se může zároveň zveřejnit na webu (GitHub Pages) – postup zapnutí je v `.github/workflows/release.yml`.
+Postup je v [CONTRIBUTING.md → Přehled změn a vydání nové verze](CONTRIBUTING.md#vydání-nové-verze): pull request se zvýšením verze a zápisem do přehledu změn, sloučení do `main`, pak na GitHubu *Releases → Draft a new release* s **novým** tagem `vX.Y.Z` (cíl *main*) a *Publish release*. Workflow *Vydání* ověří verzi a přehled změn, během několika minut sestaví program pro všech šest platforem a nápovědu v HTML, připojí je k vydání a prázdný popis vydání doplní z přehledu změn. Nápověda se může zároveň zveřejnit na webu (GitHub Pages) – postup zapnutí je v `.github/workflows/release.yml`.
 
 ## Struktura projektu
 
