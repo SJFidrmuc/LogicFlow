@@ -146,6 +146,14 @@ pub struct LogicFlowApp {
     ///
     /// [en] Selected workspace.
     workspace: usize,
+    /// Pracovní plocha v minulém snímku (ke zjištění přepnutí).
+    ///
+    /// [en] Workspace in the previous frame (to detect a switch).
+    shown_workspace: usize,
+    /// Plocha, na kterou se vrátí zastavení simulace na ploše Simulace.
+    ///
+    /// [en] Workspace that stopping the simulation on the Simulation workspace returns to.
+    return_workspace: usize,
     /// Rozložení oblastí každé pracovní plochy.
     ///
     /// [en] Area layout of each workspace.
@@ -229,6 +237,8 @@ impl LogicFlowApp {
             symbols: settings.symbols,
             edit_while_simulating: settings.edit_while_simulating,
             workspace: 0,
+            shown_workspace: 0,
+            return_workspace: 0,
             trees: Workspace::ALL.iter().map(|w| w.default_tree()).collect(),
             last_dir: project
                 .path
@@ -372,6 +382,37 @@ impl LogicFlowApp {
             // [en] They need a schematic view (mouse position, camera) – only from the keyboard over the schematic.
             Command::Add | Command::Grab | Command::Duplicate | Command::FitView => {}
         }
+    }
+
+    /// Pracovní plocha Simulace = režim simulace: přepnutím na ni se simulace spustí
+    /// (schéma se zamkne), odchodem z ní se zastaví. Zastavení simulace na ploše Simulace
+    /// (Esc, Shift+F5) vrátí na plochu, odkud se přišlo. Jinde jde simulaci spustit
+    /// i klávesou F5 bez změny plochy.
+    ///
+    /// [en] The Simulation workspace = simulation mode: switching to it starts the
+    /// simulation (the schematic is locked), leaving it stops it. Stopping the simulation
+    /// on the Simulation workspace (Esc, Shift+F5) returns to the workspace it came from.
+    /// Elsewhere the simulation can also be started with F5 without changing the workspace.
+    fn sync_workspace_mode(&mut self) {
+        let sim_ws = Workspace::ALL
+            .iter()
+            .position(|w| *w == Workspace::Simulation)
+            .unwrap_or(1);
+        let step = workspace_rule(
+            self.shown_workspace,
+            self.workspace,
+            self.return_workspace,
+            sim_ws,
+            self.project.is_simulating(),
+        );
+        match step.mode {
+            Some(true) => self.project.start_simulation(),
+            Some(false) => self.project.stop_simulation(),
+            None => {}
+        }
+        self.workspace = step.workspace;
+        self.return_workspace = step.return_to;
+        self.shown_workspace = self.workspace;
     }
 
     /// Položky nabídky pro seznam příkazů; `None` znamená oddělovač.
@@ -741,6 +782,63 @@ impl LogicFlowApp {
     }
 }
 
+/// Výsledek pravidla „plocha Simulace = režim simulace“.
+///
+/// [en] Result of the rule "Simulation workspace = simulation mode".
+#[derive(Debug, PartialEq, Eq)]
+struct WorkspaceStep {
+    /// Plocha, která má být vybraná.
+    ///
+    /// [en] Workspace that should be selected.
+    workspace: usize,
+    /// Změna režimu: `Some(true)` spustit simulaci, `Some(false)` zastavit.
+    ///
+    /// [en] Mode change: `Some(true)` start the simulation, `Some(false)` stop it.
+    mode: Option<bool>,
+    /// Plocha, na kterou se vrátí zastavení simulace na ploše Simulace.
+    ///
+    /// [en] Workspace that stopping the simulation on the Simulation workspace returns to.
+    return_to: usize,
+}
+
+/// Pravidlo „plocha Simulace = režim simulace“ (viz `sync_workspace_mode`).
+/// `shown` je plocha v minulém snímku, `current` teď vybraná, `sim_ws` index
+/// plochy Simulace.
+///
+/// [en] The rule "Simulation workspace = simulation mode" (see `sync_workspace_mode`).
+/// `shown` is the workspace in the previous frame, `current` the one selected now,
+/// `sim_ws` the index of the Simulation workspace.
+fn workspace_rule(
+    shown: usize,
+    current: usize,
+    return_to: usize,
+    sim_ws: usize,
+    simulating: bool,
+) -> WorkspaceStep {
+    let mut step = WorkspaceStep {
+        workspace: current,
+        mode: None,
+        return_to,
+    };
+    if current != shown {
+        if current == sim_ws {
+            // Příchod na plochu Simulace: spustit.
+            // [en] Arriving at the Simulation workspace: start.
+            step.return_to = shown;
+            step.mode = Some(true);
+        } else if shown == sim_ws && simulating {
+            // Odchod z plochy Simulace: zastavit (stav obvodu zůstává).
+            // [en] Leaving the Simulation workspace: stop (the circuit state stays).
+            step.mode = Some(false);
+        }
+    } else if current == sim_ws && !simulating {
+        // Simulace zastavená na ploše Simulace (Esc, Shift+F5): zpět na předchozí plochu.
+        // [en] Simulation stopped on the Simulation workspace (Esc, Shift+F5): back to the previous workspace.
+        step.workspace = if return_to == sim_ws { 0 } else { return_to };
+    }
+    step
+}
+
 /// Projekt z vestavěného příkladu.
 ///
 /// [en] Project from a built-in example.
@@ -882,6 +980,7 @@ impl eframe::App for LogicFlowApp {
         {
             self.project.stop_simulation();
         }
+        self.sync_workspace_mode();
         self.dialogs(&ctx);
         self.update_title(&ctx);
     }
@@ -890,6 +989,33 @@ impl eframe::App for LogicFlowApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn simulation_workspace_is_simulation_mode() {
+        // Plochy: 0 Návrh, 1 Simulace, 2 Analýza.
+        // [en] Workspaces: 0 Design, 1 Simulation, 2 Analysis.
+        let sim = 1;
+        // Přepnutí z Analýzy na Simulaci spustí a zapamatuje si Analýzu.
+        // [en] Switching from Analysis to Simulation starts and remembers Analysis.
+        let s = workspace_rule(2, sim, 0, sim, false);
+        assert_eq!((s.workspace, s.mode, s.return_to), (sim, Some(true), 2));
+        // Odchod ze Simulace zastaví.
+        // [en] Leaving Simulation stops.
+        let s = workspace_rule(sim, 0, 2, sim, true);
+        assert_eq!((s.workspace, s.mode), (0, Some(false)));
+        // Esc na ploše Simulace: zpět na Analýzu, režim už je zastavený.
+        // [en] Esc on the Simulation workspace: back to Analysis, the mode is already stopped.
+        let s = workspace_rule(sim, sim, 2, sim, false);
+        assert_eq!((s.workspace, s.mode), (2, None));
+        // Na ploše Simulace pozastavená simulace (mezerník) plochu nemění.
+        // [en] On the Simulation workspace a paused simulation (space) keeps the workspace.
+        let s = workspace_rule(sim, sim, 0, sim, true);
+        assert_eq!((s.workspace, s.mode), (sim, None));
+        // F5 na ploše Návrh: plocha i režim beze změny pravidlem.
+        // [en] F5 on the Design workspace: the rule changes neither the workspace nor the mode.
+        let s = workspace_rule(0, 0, 0, sim, true);
+        assert_eq!((s.workspace, s.mode), (0, None));
+    }
 
     #[test]
     fn defaults_follow_system_locale() {

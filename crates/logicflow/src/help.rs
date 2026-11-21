@@ -91,7 +91,7 @@ const CS: &[Section] = &[
             ]),
             H("Pracovní plochy"),
             P(
-                "Záložky Návrh, Simulace, Analýza a Paměť v horní liště jsou pracovní plochy – každá má vlastní rozložení oblastí, ale všechny pracují se stejným obvodem. Přepínají se i klávesami Ctrl+PageUp a Ctrl+PageDown. Zobrazit > Obnovit rozložení oblastí vrátí výchozí stav.",
+                "Záložky Návrh, Simulace, Analýza a Paměť v horní liště jsou pracovní plochy – každá má vlastní rozložení oblastí, ale všechny pracují se stejným obvodem. Přepnutím na plochu Simulace se simulace spustí a schéma se zamkne, odchodem z ní se zastaví. Přepínají se i klávesami Ctrl+PageUp a Ctrl+PageDown. Zobrazit > Obnovit rozložení oblastí vrátí výchozí stav.",
             ),
             Tip(
                 "Každý editor schématu má vlastní pohled. Můžete mít v jedné oblasti celek a ve druhé přiblížený detail.",
@@ -296,7 +296,7 @@ const CS: &[Section] = &[
             H("Režim úprav a režim simulace"),
             List(&[
                 "Režim úprav: schéma kreslíte a upravujete, logika se přepočítává hned, ale hodiny stojí. Přepínač se přepne dvojklikem, tlačítko druhým stiskem dvojkliku.",
-                "Režim simulace spustí F5 (nebo mezerník). Schéma je zamčené, fungují jen přepínače, tlačítka, posun, zoom, Tab a frekvence hodin ve Vlastnostech. Schéma má jantarový rámeček se štítkem SIMULACE.",
+                "Režim simulace spustí F5 (nebo mezerník) nebo přepnutí na plochu Simulace. Schéma je zamčené, fungují jen přepínače, tlačítka, posun, zoom, Tab a frekvence hodin ve Vlastnostech. Schéma má jantarový rámeček se štítkem SIMULACE.",
                 "Esc nebo Shift+F5 vrátí do režimu úprav. Stav obvodu zůstane, vynuluje ho jen Restartovat simulaci (Ctrl+R).",
                 "Úpravy za běhu povolí Simulace > Povolit úpravy za běhu simulace (výchozí vypnuto).",
             ]),
@@ -440,7 +440,7 @@ const EN: &[Section] = &[
             ]),
             H("Workspaces"),
             P(
-                "The Design, Simulation, Analysis and Memory tabs in the top bar are workspaces – each has its own area layout but all work with the same circuit. Ctrl+PageUp and Ctrl+PageDown switch them too. View > Reset area layout restores the default.",
+                "The Design, Simulation, Analysis and Memory tabs in the top bar are workspaces – each has its own area layout but all work with the same circuit. Switching to the Simulation workspace starts the simulation and locks the schematic, leaving it stops the simulation. Ctrl+PageUp and Ctrl+PageDown switch them too. View > Reset area layout restores the default.",
             ),
             Tip(
                 "Every schematic editor has its own view: one area can show the whole circuit while another zooms into a detail.",
@@ -633,7 +633,7 @@ const EN: &[Section] = &[
             H("Edit mode and simulation mode"),
             List(&[
                 "Edit mode: you draw and edit the schematic, logic is recomputed at once, but clocks stand still. A switch is toggled by a double-click, a button by the second press of a double-click.",
-                "Simulation mode is started with F5 (or Space). The schematic is locked; only switches, buttons, panning, zooming, Tab and the clock frequency in Properties work. The schematic has an amber frame with a SIMULATION badge.",
+                "Simulation mode is started with F5 (or Space) or by switching to the Simulation workspace. The schematic is locked; only switches, buttons, panning, zooming, Tab and the clock frequency in Properties work. The schematic has an amber frame with a SIMULATION badge.",
                 "Esc or Shift+F5 returns to edit mode. The circuit state stays; only Restart simulation (Ctrl+R) clears it.",
                 "Simulation > Allow editing while simulating permits edits while running (off by default).",
             ]),

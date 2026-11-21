@@ -7,9 +7,9 @@ Každé hradlo má zpoždění jeden takt, takže se signál obvodem šíří po
 Program pracuje ve dvou režimech, podobně jako DigitalWorks:
 
 - **Režim úprav** – schéma kreslíte a upravujete. Logika se přepočítává hned (LED reagují), ale čas stojí: hodiny netikají a časový diagram se neposouvá. Přepínač se přepne **dvojklikem**, tlačítko se stiskne druhým stiskem dvojkliku – jedno kliknutí součástku jen vybere, takže ji nepřepnete omylem při přesouvání.
-- **Režim simulace** – spustí ho **F5** (nebo Simulace → Spustit simulaci, nebo mezerník). Schéma je zamčené: nejde přidávat, mazat, přesouvat, otáčet ani kreslit vodiče. Fungují jen ovládací prvky – přepínač a tlačítko jedním kliknutím, posun a zoom pohledu, Tab do podobvodů, časový diagram a pravdivostní tabulka. Ve Vlastnostech jde měnit frekvenci hodin.
+- **Režim simulace** – spustí ho **F5** (nebo Simulace → Spustit simulaci, nebo mezerník) a také přepnutí na **pracovní plochu Simulace**. Schéma je zamčené: nejde přidávat, mazat, přesouvat, otáčet ani kreslit vodiče. Fungují jen ovládací prvky – přepínač a tlačítko jedním kliknutím, posun a zoom pohledu, Tab do podobvodů, časový diagram a pravdivostní tabulka. Ve Vlastnostech jde měnit frekvenci hodin.
 - Schéma má v režimu simulace **jantarový rámeček** se štítkem **SIMULACE**, stavový řádek ukazuje Režim úprav / Simulace běží / Simulace pozastavena.
-- **Esc** nebo **Shift+F5** simulaci zastaví a vrátí do režimu úprav. **Stav obvodu zůstane** (klopné obvody, čítače, LED i časový diagram); vynuluje ho jen Restartovat simulaci (Ctrl+R).
+- **Esc** nebo **Shift+F5** simulaci zastaví a vrátí do režimu úprav (na ploše Simulace zároveň na plochu, odkud jste přišli). **Stav obvodu zůstane** (klopné obvody, čítače, LED i časový diagram); vynuluje ho jen Restartovat simulaci (Ctrl+R).
 - Když se v režimu simulace pokusíte o úpravu, objeví se nahoře hláška „Pro úpravy zastavte simulaci (Esc)“.
 - Kdo chce upravovat i za běhu, zapne **Simulace → Povolit úpravy za běhu simulace** (výchozí vypnuto).
 
