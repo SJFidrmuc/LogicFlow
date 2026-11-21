@@ -4,7 +4,8 @@
 
 use logicflow_core::circuit::sync_instances;
 use logicflow_core::{
-    Circuit, CompId, ComponentKind, LogicValue, ProjectFile, Simulator, SubcircuitDef, WireId,
+    Circuit, CompId, ComponentKind, LogicValue, Point, ProjectFile, Rotation, Simulator,
+    SubcircuitDef, WireId,
 };
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -208,6 +209,10 @@ pub struct Project {
     ///
     /// [en] Recorded signals for the timing diagram.
     pub signals: Vec<Signal>,
+    /// Součástka, na kterou má editor schématu zaměřit pohled („Najít ve schématu“).
+    ///
+    /// [en] Component the schematic editor should centre the view on ("Find in schematic").
+    pub focus_request: Option<CompId>,
     /// Součástka vybraná v knihovně, která se má umístit do schématu.
     ///
     /// [en] Component chosen in the library that is to be placed in the schematic.
@@ -248,6 +253,7 @@ impl Project {
             time: 0.0,
             signals: Vec::new(),
             pending_place: None,
+            focus_request: None,
         };
         p.record_signals();
         p
@@ -647,6 +653,73 @@ impl Project {
             if let Some(c) = self.circuit.component_mut(id) {
                 c.rotation = c.rotation.next();
             }
+        }
+        self.after_structure_change();
+    }
+
+    /// Změní druh součástky (frekvence hodin, počet vstupů, strana vývodů…) s uložením
+    /// pro „Zpět“. Stav obvodu se zachová.
+    ///
+    /// [en] Changes the kind of a component (clock frequency, number of inputs, pin
+    /// side…) saving for "Undo". The circuit state is kept.
+    pub fn set_kind(&mut self, id: CompId, kind: ComponentKind) {
+        if self.circuit.component(id).is_none_or(|c| c.kind == kind) {
+            return;
+        }
+        self.checkpoint();
+        if let Some(c) = self.circuit.component_mut(id) {
+            c.kind = kind;
+        }
+        self.after_structure_change();
+    }
+
+    /// Přidá součástku na bod mřížky, vybere ji (s uložením pro „Zpět“).
+    ///
+    /// [en] Adds a component at a grid point and selects it (saving for "Undo").
+    pub fn add_component_at(
+        &mut self,
+        kind: ComponentKind,
+        pos: Point,
+        rotation: Rotation,
+    ) -> CompId {
+        self.checkpoint();
+        let id = self.circuit.add_component(kind, pos);
+        if let Some(c) = self.circuit.component_mut(id) {
+            c.rotation = rotation;
+        }
+        self.selection.clear();
+        self.selection.comps.insert(id);
+        self.after_structure_change();
+        id
+    }
+
+    /// Všechny vodiče sítě, do které patří vodič `wire` (spojené vodiče).
+    ///
+    /// [en] All wires of the net the wire `wire` belongs to (connected wires).
+    pub fn net_wires(&self, wire: WireId) -> Vec<WireId> {
+        let nets = &self.sim.netlist().wire_net;
+        let Some(net) = nets.get(&wire) else {
+            return vec![wire];
+        };
+        let mut wires: Vec<WireId> = nets
+            .iter()
+            .filter(|(_, n)| *n == net)
+            .map(|(w, _)| *w)
+            .collect();
+        wires.sort();
+        wires
+    }
+
+    /// Smaže vodiče (s uložením pro „Zpět“).
+    ///
+    /// [en] Deletes wires (saving for "Undo").
+    pub fn delete_wires(&mut self, wires: &[WireId]) {
+        if wires.is_empty() {
+            return;
+        }
+        self.checkpoint();
+        for &w in wires {
+            self.circuit.remove_wire(w);
         }
         self.after_structure_change();
     }
@@ -1185,6 +1258,48 @@ mod tests {
         p.step();
         assert!(p.is_simulating() && !p.running);
         assert!((p.time - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn context_menu_operations() {
+        // Přepínač → LED, vodič ze dvou úseků v jedné síti a jeden samostatný vodič.
+        // [en] Switch → LED, a wire of two segments in one net and one separate wire.
+        let mut c = Circuit::default();
+        c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
+        c.add_component(ComponentKind::Led, Point::new(8, 0));
+        let w1 = c.add_wire(Point::new(2, 0), Point::new(4, 0)).unwrap();
+        let w2 = c.add_wire(Point::new(4, 0), Point::new(6, 0)).unwrap();
+        let lone = c.add_wire(Point::new(0, 10), Point::new(4, 10)).unwrap();
+        let mut p = Project::new(c);
+        let mut net = p.net_wires(w1);
+        net.sort();
+        assert_eq!(net, [w1, w2]);
+        assert_eq!(p.net_wires(lone), [lone]);
+        // Smazání celé sítě jde vrátit.
+        // [en] Deleting the whole net can be undone.
+        p.delete_wires(&net);
+        assert_eq!(p.circuit.wires.len(), 1);
+        p.undo();
+        assert_eq!(p.circuit.wires.len(), 3);
+        // Přidání na bod a změna druhu.
+        // [en] Adding at a point and changing the kind.
+        let id = p.add_component_at(
+            ComponentKind::Clock { period_ms: 1000 },
+            Point::new(20, 20),
+            Rotation::R90,
+        );
+        assert_eq!(p.selection.single_comp(), Some(id));
+        assert_eq!(p.circuit.component(id).unwrap().rotation, Rotation::R90);
+        p.set_kind(id, ComponentKind::Clock { period_ms: 200 });
+        assert_eq!(
+            p.circuit.component(id).unwrap().kind,
+            ComponentKind::Clock { period_ms: 200 }
+        );
+        p.undo();
+        assert_eq!(
+            p.circuit.component(id).unwrap().kind,
+            ComponentKind::Clock { period_ms: 1000 }
+        );
     }
 
     #[test]

@@ -591,6 +591,28 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
                 if r.clicked() {
                     open = Some(Some(id));
                 }
+                // Pravé tlačítko na listu: otevřít, smazat nepoužitý podobvod.
+                // [en] Right button on a sheet: open, delete an unused subcircuit.
+                r.context_menu(|ui| {
+                    if ui.button(tr(lang, T::CtxOpen)).clicked() {
+                        open = Some(Some(id));
+                        ui.close();
+                    }
+                    let used = project.is_subcircuit_used(id);
+                    let del = ui.add_enabled(
+                        !used && project.can_edit(),
+                        egui::Button::new(tr(lang, T::DeleteSubcircuit)),
+                    );
+                    let del = if used {
+                        del.on_disabled_hover_text(tr(lang, T::SubcircuitUsed))
+                    } else {
+                        del.on_disabled_hover_text(tr(lang, T::LockedHint))
+                    };
+                    if del.clicked() {
+                        project.delete_subcircuit(id);
+                        ui.close();
+                    }
+                });
             }
             if ui
                 .add_enabled(
@@ -715,10 +737,12 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                         .show(ui, |ui| {
                             for (id, text) in items {
                                 let sel = project.selection.comps.contains(&id);
-                                if ui.add(egui::Button::selectable(sel, text)).clicked() {
+                                let r = ui.add(egui::Button::selectable(sel, text));
+                                if r.clicked() {
                                     project.selection.clear();
                                     project.selection.comps.insert(id);
                                 }
+                                component_context_menu(&r, project, id, lang);
                             }
                         });
                 }
@@ -728,6 +752,50 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                     project.circuit.wires.len()
                 )));
             });
+    });
+}
+
+/// Kontextová nabídka součástky v Hierarchii: najít ve schématu, přepnout, otevřít
+/// podobvod, otočit, smazat.
+///
+/// [en] Context menu of a component in the Hierarchy: find in schematic, toggle, open
+/// subcircuit, rotate, delete.
+fn component_context_menu(
+    r: &egui::Response,
+    project: &mut Project,
+    id: logicflow_core::CompId,
+    lang: Lang,
+) {
+    r.context_menu(|ui| {
+        project.selection.clear();
+        project.selection.comps.insert(id);
+        if ui.button(tr(lang, T::CtxFind)).clicked() {
+            project.focus_request = Some(id);
+            ui.close();
+        }
+        if matches!(
+            project.circuit.component(id).map(|c| c.kind),
+            Some(ComponentKind::Switch { .. })
+        ) && ui.button(tr(lang, T::CtxToggle)).clicked()
+        {
+            project.toggle_switch(id);
+            ui.close();
+        }
+        if project.selected_subcircuit().is_some()
+            && commands::menu_item(ui, Command::Subcircuit, lang, project)
+        {
+            project.toggle_subcircuit();
+            ui.close();
+        }
+        ui.separator();
+        if commands::menu_item(ui, Command::Rotate, lang, project) {
+            project.rotate_selection();
+            ui.close();
+        }
+        if commands::menu_item(ui, Command::Delete, lang, project) {
+            project.delete_selection();
+            ui.close();
+        }
     });
 }
 
@@ -834,6 +902,35 @@ pub struct TruthTable {
     pub rows: Vec<(Vec<bool>, Vec<LogicValue>)>,
 }
 
+impl TruthTable {
+    /// Tabulka jako text oddělený tabulátory (první řádek názvy sloupců) – po vložení
+    /// do tabulkového procesoru nebo Wordu vzniknou sloupce.
+    ///
+    /// [en] The table as tab-separated text (the first row has column names) – pasted
+    /// into a spreadsheet or Word it becomes columns.
+    pub fn to_text(&self) -> String {
+        let mut out = String::new();
+        let head: Vec<&str> = self
+            .inputs
+            .iter()
+            .chain(&self.outputs)
+            .map(String::as_str)
+            .collect();
+        out.push_str(&head.join("\t"));
+        out.push('\n');
+        for (bits, values) in &self.rows {
+            let row: Vec<String> = bits
+                .iter()
+                .map(|b| if *b { "1".to_owned() } else { "0".to_owned() })
+                .chain(values.iter().map(ToString::to_string))
+                .collect();
+            out.push_str(&row.join("\t"));
+            out.push('\n');
+        }
+        out
+    }
+}
+
 /// Uložená tabulka s číslem revize obvodu, pro kterou platí (nebo důvod, proč ji nejde spočítat).
 ///
 /// [en] Stored table with the circuit revision it belongs to (or the reason why it cannot be computed).
@@ -926,7 +1023,7 @@ pub fn truth_table(ui: &mut Ui, project: &Project, cache: &mut TruthCache, lang:
             .iter()
             .map(|id| project.sim.output(*id) == Some(LogicValue::One))
             .collect();
-        egui::Grid::new("truth")
+        let grid = egui::Grid::new("truth")
             .striped(true)
             .spacing([16.0, 5.0])
             .show(ui, |ui| {
@@ -962,6 +1059,14 @@ pub fn truth_table(ui: &mut Ui, project: &Project, cache: &mut TruthCache, lang:
                     ui.end_row();
                 }
             });
+        // Pravé tlačítko na tabulce: zkopírovat ji jako text (do Wordu, sešitu, e-mailu).
+        // [en] Right button on the table: copy it as text (to Word, a workbook, an e-mail).
+        grid.response.container_context_menu(|ui| {
+            if ui.button(tr(lang, T::CopyAsText)).clicked() {
+                ui.ctx().copy_text(table.to_text());
+                ui.close();
+            }
+        });
         ui.add_space(6.0);
         ui.label(
             RichText::new(tr(lang, T::TruthNote))
@@ -1011,6 +1116,16 @@ pub fn memory(ui: &mut Ui, lang: Lang) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn truth_table_as_text() {
+        let p = Project::new(crate::examples::and_or());
+        let t = compute_truth_table(&p).unwrap();
+        assert_eq!(
+            t.to_text(),
+            "A\tB\tY1\tY2\n0\t0\t0\t0\n0\t1\t0\t1\n1\t0\t0\t1\n1\t1\t1\t1\n"
+        );
+    }
 
     #[test]
     fn truth_table_of_and_or() {

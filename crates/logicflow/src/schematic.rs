@@ -155,6 +155,37 @@ pub struct SchematicView {
     /// [en] Last press on a push button in the circuit (id, time) – in edit mode the
     /// button is pressed only by the second press of a double-click.
     last_button_press: Option<(CompId, f64)>,
+    /// Na co se kliklo pravým tlačítkem – podle toho se plní kontextová nabídka.
+    ///
+    /// [en] What was right-clicked – the context menu is filled accordingly.
+    menu_target: Option<MenuTarget>,
+    /// Bod mřížky, kam se kliklo pravým tlačítkem (sem se vloží součástka z nabídky).
+    ///
+    /// [en] Grid point that was right-clicked (a component from the menu is placed here).
+    menu_point: Point,
+}
+
+/// Cíl kontextové nabídky.
+///
+/// [en] Target of the context menu.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MenuTarget {
+    /// Jedna součástka.
+    ///
+    /// [en] One component.
+    Component(CompId),
+    /// Jeden vodič.
+    ///
+    /// [en] One wire.
+    Wire(WireId),
+    /// Výběr více součástek nebo vodičů.
+    ///
+    /// [en] A selection of several components or wires.
+    Selection,
+    /// Prázdné místo schématu.
+    ///
+    /// [en] An empty place of the schematic.
+    Empty,
 }
 
 impl Default for SchematicView {
@@ -168,6 +199,8 @@ impl Default for SchematicView {
             shown_sheet: None,
             locked_hint_until: 0.0,
             last_button_press: None,
+            menu_target: None,
+            menu_point: Point::new(0, 0),
         }
     }
 }
@@ -216,6 +249,15 @@ impl SchematicView {
         }
         if self.needs_fit && rect.width() > 10.0 {
             self.fit(rect, &project.circuit);
+        }
+        // „Najít ve schématu“ z Hierarchie: pohled se vystředí na součástku.
+        // [en] "Find in schematic" from the Hierarchy: the view is centred on the component.
+        if let Some(c) = project
+            .focus_request
+            .take()
+            .and_then(|id| project.circuit.component(id))
+        {
+            self.offset = -vec2(c.pos.x as f32, c.pos.y as f32) * UNIT * self.zoom;
         }
 
         // Posun prostředním tlačítkem (nebo tažením pravým).
@@ -271,7 +313,18 @@ impl SchematicView {
         if response.hovered() && !ui.ctx().egui_wants_keyboard_input() {
             self.keyboard(ui, rect, project, mouse_pt);
         }
+        // Pravé tlačítko během rozdělané akce ji ruší (viz `pointer`) – nabídka se neotevře.
+        // [en] The right button during an action in progress cancels it (see `pointer`) – no menu opens.
+        let menu_allowed = matches!(self.tool, Tool::Idle) || !response.secondary_clicked();
         self.pointer(ui, &response, cam, project, mouse, mouse_pt);
+        if menu_allowed {
+            if response.secondary_clicked()
+                && let Some(m) = mouse
+            {
+                self.open_menu_at(project, m);
+            }
+            response.context_menu(|ui| self.context_menu_ui(ui, rect, project, lang));
+        }
 
         // --- Kreslení ---
         // [en]
@@ -378,6 +431,11 @@ impl SchematicView {
                 }
             }
             Command::FitView => self.fit(rect, &project.circuit),
+            Command::RunPause => project.toggle_run(),
+            Command::Start => project.start_simulation(),
+            Command::Stop => project.stop_simulation(),
+            Command::Step => project.step(),
+            Command::ResetSim => project.reset_simulation(),
             Command::Rotate => match &mut self.tool {
                 Tool::Place { rotation, .. } => *rotation = rotation.next(),
                 Tool::Idle => project.rotate_selection(),
@@ -635,14 +693,7 @@ impl SchematicView {
                     && let Some(p) = mouse_pt
                 {
                     let (kind, rotation) = (*kind, *rotation);
-                    project.checkpoint();
-                    let id = project.circuit.add_component(kind, p);
-                    if let Some(c) = project.circuit.component_mut(id) {
-                        c.rotation = rotation;
-                    }
-                    project.selection.clear();
-                    project.selection.comps.insert(id);
-                    project.after_structure_change();
+                    project.add_component_at(kind, p, rotation);
                     // Se Shift zůstane nástroj aktivní pro další kus.
                     // [en] With Shift the tool stays active for another piece.
                     if !shift {
@@ -930,6 +981,351 @@ impl SchematicView {
     /// Nabídka Přidat (Shift+A) u ukazatele myši.
     ///
     /// [en] The Add menu (Shift+A) at the mouse pointer.
+    /// Zapamatuje si cíl kontextové nabídky podle místa kliknutí pravým tlačítkem.
+    /// Nevybraná součástka nebo vodič se nejdřív vybere.
+    ///
+    /// [en] Remembers the context menu target according to the right-click position.
+    /// A component or wire that is not selected gets selected first.
+    fn open_menu_at(&mut self, project: &mut Project, m: Pos2) {
+        self.add_menu = None;
+        self.menu_point = snap(m);
+        let total = |p: &Project| p.selection.comps.len() + p.selection.wires.len();
+        self.menu_target = Some(if let Some(id) = component_at(&project.circuit, m) {
+            if !project.selection.comps.contains(&id) {
+                project.selection.clear();
+                project.selection.comps.insert(id);
+            }
+            if total(project) > 1 {
+                MenuTarget::Selection
+            } else {
+                MenuTarget::Component(id)
+            }
+        } else if let Some(w) = wire_at(&project.circuit, m) {
+            if !project.selection.wires.contains(&w) {
+                project.selection.clear();
+                project.selection.wires.insert(w);
+            }
+            if total(project) > 1 {
+                MenuTarget::Selection
+            } else {
+                MenuTarget::Wire(w)
+            }
+        } else {
+            MenuTarget::Empty
+        });
+    }
+
+    /// Obsah kontextové nabídky podle cíle. Položky volají stejné příkazy jako klávesy
+    /// a hlavní nabídky; úpravy jsou v režimu simulace zašedlé s vysvětlením.
+    ///
+    /// [en] Context menu content according to the target. Items call the same commands
+    /// as keys and main menus; edits are greyed out with an explanation in simulation mode.
+    fn context_menu_ui(&mut self, ui: &mut Ui, rect: Rect, project: &mut Project, lang: Lang) {
+        let Some(target) = self.menu_target else {
+            ui.close();
+            return;
+        };
+        ui.set_min_width(210.0);
+        match target {
+            MenuTarget::Component(id) => {
+                let Some(comp) = project.circuit.component(id).cloned() else {
+                    ui.close();
+                    return;
+                };
+                let title = if comp.label.is_empty() {
+                    catalog::kind_name(&comp.kind, lang)
+                } else {
+                    format!(
+                        "{}  ·  {}",
+                        comp.label,
+                        catalog::kind_name(&comp.kind, lang)
+                    )
+                };
+                ui.label(egui::RichText::new(title).strong());
+                ui.separator();
+                self.kind_items(ui, project, lang, id, comp.kind);
+                // Popisek přímo v nabídce.
+                // [en] The label right in the menu.
+                ui.horizontal(|ui| {
+                    ui.label(tr(lang, T::Label));
+                    let mut label = comp.label.clone();
+                    let r = ui.add_enabled(
+                        project.can_edit(),
+                        egui::TextEdit::singleline(&mut label).desired_width(110.0),
+                    );
+                    if r.gained_focus() {
+                        project.checkpoint();
+                    }
+                    if r.changed()
+                        && let Some(c) = project.circuit.component_mut(id)
+                    {
+                        c.label = label;
+                        project.touch();
+                    }
+                });
+                ui.separator();
+                for cmd in [
+                    Command::Rotate,
+                    Command::Duplicate,
+                    Command::Grab,
+                    Command::Delete,
+                ] {
+                    self.menu_command(ui, cmd, rect, project, lang);
+                }
+            }
+            MenuTarget::Wire(w) => {
+                ui.label(egui::RichText::new(tr(lang, T::Wire)).strong());
+                ui.separator();
+                if ui.button(tr(lang, T::CtxSelectNet)).clicked() {
+                    project.selection.clear();
+                    project.selection.wires = project.net_wires(w).into_iter().collect();
+                    ui.close();
+                }
+                if edit_button(ui, project, lang, tr(lang, T::CtxDeleteSegment)) {
+                    project.selection.clear();
+                    project.delete_wires(&[w]);
+                    ui.close();
+                }
+                if edit_button(ui, project, lang, tr(lang, T::CtxDeleteNet)) {
+                    let net = project.net_wires(w);
+                    project.selection.clear();
+                    project.delete_wires(&net);
+                    ui.close();
+                }
+            }
+            MenuTarget::Selection => {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "{}: {} · {}: {}",
+                        tr(lang, T::Components),
+                        project.selection.comps.len(),
+                        tr(lang, T::Wires),
+                        project.selection.wires.len()
+                    ))
+                    .strong(),
+                );
+                ui.separator();
+                for cmd in [
+                    Command::Rotate,
+                    Command::Duplicate,
+                    Command::Grab,
+                    Command::Delete,
+                    Command::SelectNone,
+                ] {
+                    self.menu_command(ui, cmd, rect, project, lang);
+                }
+            }
+            MenuTarget::Empty => {
+                // Přidat součástku přímo na místo kliknutí (stejné kategorie jako Shift+A).
+                // [en] Add a component right at the clicked place (same categories as Shift+A).
+                let mut chosen = None;
+                ui.add_enabled_ui(project.can_edit(), |ui| {
+                    ui.menu_button(tr(lang, T::CtxAddHere), |ui| {
+                        for cat in catalog::catalog(lang) {
+                            ui.menu_button(tr(lang, cat.title), |ui| {
+                                for (name, kind) in cat.items {
+                                    if ui.button(name).clicked() {
+                                        chosen = Some(kind);
+                                    }
+                                }
+                            });
+                        }
+                        let subs = catalog::subcircuit_items(project);
+                        if !subs.is_empty() {
+                            ui.menu_button(tr(lang, T::CatSubcircuits), |ui| {
+                                for (name, kind) in subs {
+                                    if ui.button(name).clicked() {
+                                        chosen = Some(kind);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                })
+                .response
+                .on_disabled_hover_text(tr(lang, T::LockedHint));
+                if let Some(kind) = chosen {
+                    project.add_component_at(kind, self.menu_point, Rotation::R0);
+                    ui.close();
+                }
+                ui.separator();
+                for cmd in [Command::SelectAll, Command::FitView] {
+                    self.menu_command(ui, cmd, rect, project, lang);
+                }
+                if project.sheet.is_some() {
+                    let text = commands::with_shortcut(
+                        tr(lang, T::CmdBackToParent),
+                        Command::Subcircuit,
+                        lang,
+                    );
+                    if ui.button(text).clicked() {
+                        project.leave_subcircuit();
+                        ui.close();
+                    }
+                }
+                ui.separator();
+                // Ovládání simulace – užitečné hlavně pro dotyk a projektor.
+                // [en] Simulation controls – useful mainly for touch and a projector.
+                let first = if project.is_simulating() {
+                    Command::RunPause
+                } else {
+                    Command::Start
+                };
+                for cmd in [first, Command::Step, Command::Stop, Command::ResetSim] {
+                    self.menu_command(ui, cmd, rect, project, lang);
+                }
+            }
+        }
+    }
+
+    /// Položky podle druhu součástky (přepnout, frekvence, počet vstupů, bity…).
+    ///
+    /// [en] Items according to the component kind (toggle, frequency, inputs, bits…).
+    fn kind_items(
+        &mut self,
+        ui: &mut Ui,
+        project: &mut Project,
+        lang: Lang,
+        id: CompId,
+        kind: ComponentKind,
+    ) {
+        let can_edit = project.can_edit();
+        let mut new_kind = kind;
+        match kind {
+            ComponentKind::Switch { .. } => {
+                if ui.button(tr(lang, T::CtxToggle)).clicked() {
+                    project.toggle_switch(id);
+                    ui.close();
+                }
+            }
+            ComponentKind::Subcircuit { .. } => {
+                if commands::menu_item(ui, Command::Subcircuit, lang, project) {
+                    project.toggle_subcircuit();
+                    ui.close();
+                }
+            }
+            // Frekvence hodin jde měnit i za běhu simulace.
+            // [en] The clock frequency can be changed while simulating too.
+            ComponentKind::Clock { period_ms } => {
+                ui.menu_button(tr(lang, T::Frequency), |ui| {
+                    for hz in [0.2_f32, 0.5, 1.0, 2.0, 5.0, 10.0] {
+                        let p = (1000.0 / hz).round() as u32;
+                        if ui
+                            .add(egui::Button::selectable(
+                                period_ms == p,
+                                symbols::format_hz(hz),
+                            ))
+                            .clicked()
+                        {
+                            new_kind = ComponentKind::Clock { period_ms: p };
+                        }
+                    }
+                });
+            }
+            ComponentKind::Gate { gate, inputs } if !gate.is_unary() => {
+                edit_submenu(ui, can_edit, lang, tr(lang, T::InputCount), |ui| {
+                    for n in ComponentKind::MIN_INPUTS..=ComponentKind::MAX_INPUTS {
+                        if ui
+                            .add(egui::Button::selectable(inputs == n, n.to_string()))
+                            .clicked()
+                        {
+                            new_kind = ComponentKind::Gate { gate, inputs: n };
+                        }
+                    }
+                });
+            }
+            ComponentKind::SevenSegment { pins } | ComponentKind::HexDisplay { pins } => {
+                edit_submenu(ui, can_edit, lang, tr(lang, T::PinSideLabel), |ui| {
+                    for p in logicflow_core::PinSide::ALL {
+                        let name = tr(
+                            lang,
+                            match p {
+                                logicflow_core::PinSide::Left => T::SideLeft,
+                                logicflow_core::PinSide::Right => T::SideRight,
+                                logicflow_core::PinSide::Top => T::SideTop,
+                                logicflow_core::PinSide::Bottom => T::SideBottom,
+                            },
+                        );
+                        if ui.add(egui::Button::selectable(pins == p, name)).clicked() {
+                            new_kind = match kind {
+                                ComponentKind::SevenSegment { .. } => {
+                                    ComponentKind::SevenSegment { pins: p }
+                                }
+                                _ => ComponentKind::HexDisplay { pins: p },
+                            };
+                        }
+                    }
+                });
+            }
+            ComponentKind::Block { block } => {
+                if let Some(n) = block.param() {
+                    let (lo, hi) = block.param_range();
+                    let title = if matches!(
+                        block,
+                        logicflow_core::BlockKind::Mux { .. }
+                            | logicflow_core::BlockKind::Decoder { .. }
+                    ) {
+                        T::SelectBits
+                    } else {
+                        T::Bits
+                    };
+                    edit_submenu(ui, can_edit, lang, tr(lang, title), |ui| {
+                        for m in lo..=hi {
+                            if ui
+                                .add(egui::Button::selectable(n == m, m.to_string()))
+                                .clicked()
+                            {
+                                new_kind = ComponentKind::Block {
+                                    block: block.with_param(m),
+                                };
+                            }
+                        }
+                    });
+                }
+                if let logicflow_core::BlockKind::Counter { bits, down } = block {
+                    edit_submenu(ui, can_edit, lang, tr(lang, T::CountDirection), |ui| {
+                        for (d, t) in [(false, T::CountUp), (true, T::CountDown)] {
+                            if ui
+                                .add(egui::Button::selectable(down == d, tr(lang, t)))
+                                .clicked()
+                            {
+                                new_kind = ComponentKind::Block {
+                                    block: logicflow_core::BlockKind::Counter { bits, down: d },
+                                };
+                            }
+                        }
+                    });
+                }
+            }
+            _ => {}
+        }
+        if new_kind != kind {
+            project.set_kind(id, new_kind);
+            ui.close();
+        }
+    }
+
+    /// Položka nabídky pro příkaz; po kliknutí ho provede na místě kliknutí pravým tlačítkem.
+    ///
+    /// [en] Menu item for a command; when clicked, it runs it at the right-clicked place.
+    fn menu_command(
+        &mut self,
+        ui: &mut Ui,
+        cmd: Command,
+        rect: Rect,
+        project: &mut Project,
+        lang: Lang,
+    ) {
+        if commands::menu_item(ui, cmd, lang, project) {
+            let at = Some(self.menu_point);
+            self.run_command(cmd, ui, rect, project, at);
+            ui.close();
+        }
+    }
+
+    /// Nabídka Přidat (Shift+A) u ukazatele myši.
+    ///
+    /// [en] The Add menu (Shift+A) at the mouse pointer.
     fn add_menu_ui(&mut self, ui: &Ui, lang: Lang, subs: Vec<(String, ComponentKind)>) {
         let Some(pos) = self.add_menu else { return };
         let mut chosen = None;
@@ -975,6 +1371,28 @@ impl SchematicView {
             self.add_menu = None;
         }
     }
+}
+
+/// Tlačítko úpravy v nabídce: v režimu simulace zašedlé s vysvětlením. Vrací `true`
+/// po kliknutí.
+///
+/// [en] Edit button in a menu: greyed out with an explanation in simulation mode.
+/// Returns `true` when clicked.
+fn edit_button(ui: &mut Ui, project: &Project, lang: Lang, text: &str) -> bool {
+    ui.add_enabled(project.can_edit(), egui::Button::new(text))
+        .on_disabled_hover_text(tr(lang, T::LockedHint))
+        .clicked()
+}
+
+/// Podnabídka úprav (počet vstupů, bity…): v režimu simulace zašedlá s vysvětlením.
+///
+/// [en] Edit submenu (inputs, bits…): greyed out with an explanation in simulation mode.
+fn edit_submenu(ui: &mut Ui, can_edit: bool, lang: Lang, title: &str, add: impl FnOnce(&mut Ui)) {
+    ui.add_enabled_ui(can_edit, |ui| {
+        ui.menu_button(title, add);
+    })
+    .response
+    .on_disabled_hover_text(tr(lang, T::LockedHint));
 }
 
 /// Klíč pro předání stisku Tab mezi snímky.
