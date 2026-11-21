@@ -124,6 +124,10 @@ const CS: &[Section] = &[
                 ("R", "otočit o 90°"),
                 ("X, Delete", "smazat výběr"),
                 ("Shift+D", "duplikovat výběr"),
+                (
+                    "Ctrl+C / X / V",
+                    "kopírovat / vyjmout / vložit k ukazateli myši (i mezi listy a okny, s podobvody)",
+                ),
                 ("A / Alt+A", "vybrat vše / zrušit výběr"),
                 ("Ctrl+Z / Ctrl+Shift+Z", "zpět / znovu"),
             ]),
@@ -360,6 +364,7 @@ const CS: &[Section] = &[
             ("R", "otočit"),
             ("X, Delete", "smazat"),
             ("Shift+D", "duplikovat"),
+            ("Ctrl+C / X / V", "kopírovat / vyjmout / vložit"),
             ("A / Alt+A", "vybrat vše / nic"),
             (
                 "Esc",
@@ -479,6 +484,10 @@ const EN: &[Section] = &[
                 ("R", "rotate by 90°"),
                 ("X, Delete", "delete selection"),
                 ("Shift+D", "duplicate selection"),
+                (
+                    "Ctrl+C / X / V",
+                    "copy / cut / paste at the mouse pointer (also between sheets and windows, with subcircuits)",
+                ),
                 ("A / Alt+A", "select all / deselect"),
                 ("Ctrl+Z / Ctrl+Shift+Z", "undo / redo"),
             ]),
@@ -703,6 +712,7 @@ const EN: &[Section] = &[
             ("R", "rotate"),
             ("X, Delete", "delete"),
             ("Shift+D", "duplicate"),
+            ("Ctrl+C / X / V", "copy / cut / paste"),
             ("A / Alt+A", "select all / none"),
             (
                 "Esc",

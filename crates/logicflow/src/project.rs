@@ -724,6 +724,143 @@ impl Project {
         self.after_structure_change();
     }
 
+    /// Výběr jako text pro schránku: soubor .logicflow s vybranými součástkami,
+    /// vodiči mezi nimi a definicemi použitých podobvodů. `None`, když není nic vybráno.
+    ///
+    /// [en] The selection as clipboard text: a .logicflow file with the selected
+    /// components, the wires between them and the definitions of the subcircuits used.
+    /// `None` when nothing is selected.
+    pub fn copy_selection(&self) -> Option<String> {
+        if self.selection.is_empty() {
+            return None;
+        }
+        let clip = self
+            .circuit
+            .extract(&self.selection.comp_vec(), &self.selection.wire_vec());
+        let (_, defs) = self.snapshot();
+        let mut needed: Vec<SubcircuitDef> = Vec::new();
+        let mut stack: Vec<u32> = subcircuit_ids(&clip);
+        while let Some(id) = stack.pop() {
+            if needed.iter().any(|d| d.id == id) {
+                continue;
+            }
+            if let Some(d) = defs.iter().find(|d| d.id == id) {
+                stack.extend(subcircuit_ids(&d.circuit));
+                needed.push(d.clone());
+            }
+        }
+        needed.sort_by_key(|d| d.id);
+        Some(ProjectFile::to_json(&clip, &needed))
+    }
+
+    /// Vloží obvod ze schránky (text souboru .logicflow). Se `at` se vloží tak, aby
+    /// střed vkládaných součástek ležel v tomto bodě; bez něj o 2 body vedle původní
+    /// polohy. Podobvody, které projekt ještě nemá, se přidají (stejné se použijí
+    /// znovu, kolize názvů se přejmenují); podobvod, který by obsahoval sám sebe,
+    /// se vynechá. Vložené prvky se vyberou. Vrací `false`, když text není obvod.
+    ///
+    /// [en] Pastes a circuit from the clipboard (the text of a .logicflow file). With `at`
+    /// it is placed so that the centre of the pasted components lies at this point;
+    /// without it 2 points next to the original position. Subcircuits the project does
+    /// not have yet are added (identical ones are reused, name clashes are renamed); a
+    /// subcircuit that would contain itself is left out. The pasted items get selected.
+    /// Returns `false` when the text is not a circuit.
+    pub fn paste_text(&mut self, text: &str, at: Option<Point>) -> bool {
+        let Ok((mut clip, clip_defs)) = ProjectFile::from_json(text) else {
+            return false;
+        };
+        if clip.components.is_empty() && clip.wires.is_empty() {
+            return false;
+        }
+        self.checkpoint();
+        // Sloučení definic podobvodů.
+        // [en] Merging subcircuit definitions.
+        self.store_sheet();
+        let mut map: HashMap<u32, u32> = HashMap::new();
+        let mut added: Vec<SubcircuitDef> = Vec::new();
+        for d in &clip_defs {
+            let same = self.subcircuits.iter().find(|e| {
+                e.name == d.name
+                    && e.circuit.components == d.circuit.components
+                    && e.circuit.wires == d.circuit.wires
+            });
+            if let Some(e) = same {
+                map.insert(d.id, e.id);
+                continue;
+            }
+            let id = self
+                .subcircuits
+                .iter()
+                .chain(&added)
+                .map(|e| e.id + 1)
+                .max()
+                .unwrap_or(1);
+            let taken = |n: &str| self.subcircuits.iter().chain(&added).any(|e| e.name == n);
+            let name = if taken(&d.name) {
+                (2..)
+                    .map(|k| format!("{} ({k})", d.name))
+                    .find(|n| !taken(n))
+                    .unwrap_or_default()
+            } else {
+                d.name.clone()
+            };
+            map.insert(d.id, id);
+            added.push(SubcircuitDef {
+                id,
+                name,
+                circuit: d.circuit.clone(),
+            });
+        }
+        for d in &mut added {
+            remap_subcircuits(&mut d.circuit, &map);
+        }
+        remap_subcircuits(&mut clip, &map);
+        self.subcircuits.extend(added);
+        // Podobvod nesmí obsahovat sám sebe.
+        // [en] A subcircuit must not contain itself.
+        clip.components.retain(|c| match c.kind {
+            ComponentKind::Subcircuit { id, .. } => self.can_place_subcircuit(id),
+            _ => true,
+        });
+        let defs = self.subcircuits.clone();
+        sync_instances(&mut clip, &defs);
+        // Posun: střed součástek (nebo vodičů) do bodu `at`.
+        // [en] Offset: the centre of the components (or wires) to the point `at`.
+        let (dx, dy) = match at {
+            Some(p) => {
+                let pts: Vec<Point> = if clip.components.is_empty() {
+                    clip.wires.iter().flat_map(|w| [w.a, w.b]).collect()
+                } else {
+                    clip.components.iter().map(|c| c.pos).collect()
+                };
+                let (min_x, max_x) = (
+                    pts.iter().map(|q| q.x).min().unwrap_or(0),
+                    pts.iter().map(|q| q.x).max().unwrap_or(0),
+                );
+                let (min_y, max_y) = (
+                    pts.iter().map(|q| q.y).min().unwrap_or(0),
+                    pts.iter().map(|q| q.y).max().unwrap_or(0),
+                );
+                (p.x - (min_x + max_x) / 2, p.y - (min_y + max_y) / 2)
+            }
+            None => (2, 2),
+        };
+        let (comps, wires) = self.circuit.insert(&clip, dx, dy);
+        self.selection.comps = comps.into_iter().collect();
+        self.selection.wires = wires.into_iter().collect();
+        self.after_structure_change();
+        true
+    }
+
+    /// Vyjmout: zkopíruje výběr jako text a smaže ho.
+    ///
+    /// [en] Cut: copies the selection as text and deletes it.
+    pub fn cut_selection(&mut self) -> Option<String> {
+        let text = self.copy_selection()?;
+        self.delete_selection();
+        Some(text)
+    }
+
     /// Vybere všechny součástky a vodiče otevřeného listu.
     ///
     /// [en] Selects all components and wires of the open sheet.
@@ -1028,6 +1165,32 @@ impl Project {
     }
 }
 
+/// Id definic podobvodů, jejichž instance obvod přímo obsahuje.
+///
+/// [en] Ids of the subcircuit definitions whose instances the circuit directly contains.
+fn subcircuit_ids(c: &Circuit) -> Vec<u32> {
+    c.components
+        .iter()
+        .filter_map(|k| match k.kind {
+            ComponentKind::Subcircuit { id, .. } => Some(id),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Přečísluje odkazy instancí podobvodů podle mapy staré id → nové id.
+///
+/// [en] Renumbers the references of subcircuit instances according to the map old id → new id.
+fn remap_subcircuits(c: &mut Circuit, map: &HashMap<u32, u32>) {
+    for k in &mut c.components {
+        if let ComponentKind::Subcircuit { id, .. } = &mut k.kind
+            && let Some(&new) = map.get(id)
+        {
+            *id = new;
+        }
+    }
+}
+
 pub use logicflow_core::circuit::natural_cmp;
 
 #[cfg(test)]
@@ -1300,6 +1463,78 @@ mod tests {
             p.circuit.component(id).unwrap().kind,
             ComponentKind::Clock { period_ms: 1000 }
         );
+    }
+
+    #[test]
+    fn copy_and_paste() {
+        let mut p = small();
+        p.select_all();
+        let text = p.copy_selection().unwrap();
+        // Vložení do téhož projektu o 2 body vedle; popisek A je obsazený.
+        // [en] Pasting into the same project 2 points aside; label A is taken.
+        assert!(p.paste_text(&text, None));
+        assert_eq!(p.circuit.components.len(), 4);
+        assert_eq!(p.circuit.wires.len(), 2);
+        assert_eq!(p.selection.comps.len(), 2);
+        let sw = p.selection.comp_vec()[0];
+        assert_eq!(p.circuit.component(sw).unwrap().pos, Point::new(2, 2));
+        // Zpět vložení vrátí.
+        // [en] Undo reverts the paste.
+        p.undo();
+        assert_eq!(p.circuit.components.len(), 2);
+        // Vložení do jiného projektu na bod (20, 20): popisky zůstanou.
+        // [en] Pasting into another project at point (20, 20): labels stay.
+        let mut q = Project::new(Circuit::default());
+        assert!(q.paste_text(&text, Some(Point::new(20, 20))));
+        let labels: Vec<&str> = q
+            .circuit
+            .components
+            .iter()
+            .map(|c| c.label.as_str())
+            .collect();
+        assert_eq!(labels, ["A", "Y1"]);
+        assert_eq!(q.circuit.components[0].pos, Point::new(17, 20));
+        // Text, který není obvod, se ignoruje.
+        // [en] Text that is not a circuit is ignored.
+        assert!(!q.paste_text("ahoj", None));
+        // Vyjmout = kopírovat + smazat.
+        // [en] Cut = copy + delete.
+        q.select_all();
+        assert!(q.cut_selection().is_some());
+        assert!(q.circuit.components.is_empty());
+    }
+
+    #[test]
+    fn paste_brings_subcircuits() {
+        // Projekt s podobvodem a jeho instancí v hlavním obvodu.
+        // [en] A project with a subcircuit and its instance in the main circuit.
+        let mut p = small();
+        let id = p.new_subcircuit("Blok");
+        p.circuit
+            .add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
+        p.circuit
+            .add_component(ComponentKind::Led, Point::new(4, 0));
+        p.after_structure_change();
+        p.leave_subcircuit();
+        let kind = p.subcircuit(id).unwrap().kind();
+        p.add_component_at(kind, Point::new(20, 0), Rotation::R0);
+        let text = p.copy_selection().unwrap();
+        // Do jiného projektu přijde i definice podobvodu.
+        // [en] The subcircuit definition comes to another project too.
+        let mut q = small();
+        assert!(q.paste_text(&text, Some(Point::new(0, 10))));
+        assert_eq!(q.subcircuits.len(), 1);
+        assert_eq!(q.subcircuits[0].name, "Blok 1");
+        // Do téhož projektu se definice použije znovu (žádná kopie).
+        // [en] Into the same project the definition is reused (no copy).
+        assert!(p.paste_text(&text, None));
+        assert_eq!(p.subcircuits.len(), 1);
+        // Uvnitř podobvodu nejde vložit jeho vlastní instanci.
+        // [en] Inside a subcircuit its own instance cannot be pasted.
+        p.enter_subcircuit(id);
+        let before = p.circuit.components.len();
+        p.paste_text(&text, None);
+        assert_eq!(p.circuit.components.len(), before);
     }
 
     #[test]

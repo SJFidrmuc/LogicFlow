@@ -340,7 +340,7 @@ impl LogicFlowApp {
             if cmd == Command::Help {
                 self.help.open = !self.help.open;
             } else {
-                self.run(cmd);
+                self.run(ctx, cmd);
             }
         }
     }
@@ -350,7 +350,7 @@ impl LogicFlowApp {
     ///
     /// [en] Carries out a command from the keyboard or a menu. Schematic editor commands
     /// that do not need a view (rotate, delete, select, Tab) can also be run from the Edit menu.
-    fn run(&mut self, cmd: Command) {
+    fn run(&mut self, ctx: &egui::Context, cmd: Command) {
         if !cmd.available(&self.project) {
             return;
         }
@@ -378,6 +378,23 @@ impl LogicFlowApp {
             Command::NextWorkspace => self.workspace = (self.workspace + 1) % n,
             Command::PrevWorkspace => self.workspace = (self.workspace + n - 1) % n,
             Command::Help => self.help.show_section(0),
+            Command::Copy => {
+                if let Some(text) = self.project.copy_selection() {
+                    commands::set_clipboard(ctx, text);
+                }
+            }
+            Command::Cut => {
+                if let Some(text) = self.project.cut_selection() {
+                    commands::set_clipboard(ctx, text);
+                }
+            }
+            // Z hlavní nabídky se vkládá 2 body vedle původní polohy.
+            // [en] From the main menu, pasting goes 2 points next to the original position.
+            Command::Paste => {
+                if let Some(text) = commands::take_paste(ctx) {
+                    self.project.paste_text(&text, None);
+                }
+            }
             // Potřebují pohled schématu (polohu myši, kameru) – jen z klávesnice nad schématem.
             // [en] They need a schematic view (mouse position, camera) – only from the keyboard over the schematic.
             Command::Add | Command::Grab | Command::Duplicate | Command::FitView => {}
@@ -423,7 +440,8 @@ impl LogicFlowApp {
             match *item {
                 Some(cmd) => {
                     if commands::menu_item(ui, cmd, self.lang, &self.project) {
-                        self.run(cmd);
+                        let ctx = ui.ctx().clone();
+                        self.run(&ctx, cmd);
                     }
                 }
                 None => {
@@ -478,6 +496,10 @@ impl LogicFlowApp {
                             &[
                                 Some(Command::Undo),
                                 Some(Command::Redo),
+                                None,
+                                Some(Command::Copy),
+                                Some(Command::Cut),
+                                Some(Command::Paste),
                                 None,
                                 Some(Command::SelectAll),
                                 Some(Command::SelectNone),

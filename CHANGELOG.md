@@ -12,6 +12,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Schránka Ctrl+C / X / V**: kopírování vybraných součástek i s vodiči mezi nimi, vložení k ukazateli myši (vložená část se hned posouvá, klik ji položí); funguje mezi listy i mezi dvěma okny LogicFlow, použité podobvody se přenesou s sebou. Položky Kopírovat, Vyjmout a Vložit i v nabídce Úpravy a v kontextové nabídce.
 - **Kontextová nabídka na pravém tlačítku** podle místa kliknutí: u součástky Přepnout, Frekvence, Počet vstupů, Strana vývodů, Počet bitů, Směr čítání, Otevřít podobvod, popisek, Otočit, Duplikovat, Přesunout, Smazat; u vodiče Vybrat / Smazat celou síť a Smazat úsek; v prázdném místě Přidat součástku sem, Vybrat vše, Celé schéma a ovládání simulace. Tažení pravým tlačítkem dál posouvá pohled. V režimu simulace jsou úpravy zašedlé.
 - Pravé tlačítko i v Hierarchii (Otevřít a Smazat podobvod, Najít ve schématu) a v pravdivostní tabulce (Kopírovat jako text – do Wordu nebo tabulky po sloupcích).
 - **Režim úprav a režim simulace** (jako v DigitalWorks): F5 spustí simulaci a schéma se zamkne – fungují jen přepínače, tlačítka, posun, zoom, Tab a frekvence hodin; Esc nebo Shift+F5 vrátí k úpravám a stav obvodu (klopné obvody, čítače, LED, časový diagram) zůstane. Jantarový rámeček se štítkem SIMULACE, režim ve stavovém řádku, hláška „Pro úpravy zastavte simulaci (Esc)“. Volba Simulace → Povolit úpravy za běhu simulace (výchozí vypnuto).

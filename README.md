@@ -66,6 +66,7 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 | R | otočit o 90° (i při umisťování) |
 | X, Delete | smazat výběr |
 | Shift+D | duplikovat výběr |
+| Ctrl+C, Ctrl+X, Ctrl+V | kopírovat, vyjmout, vložit (i mezi listy a okny, s podobvody) |
 | A / Alt+A | vybrat vše / zrušit výběr |
 | Tab | otevřít vybraný podobvod / zpět o úroveň výš |
 | kolečko, prostřední tlačítko, Home | zoom, posun, celé schéma |
