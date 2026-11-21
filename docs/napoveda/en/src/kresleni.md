@@ -26,8 +26,18 @@
 | R | rotate by 90° |
 | X, Delete | delete the selection |
 | Shift+D | duplicate the selection |
+| Ctrl+C, Ctrl+X | copy, cut the selection to the clipboard |
+| Ctrl+V | paste from the clipboard at the mouse pointer |
 | A, Alt+A | select all, deselect |
 | Ctrl+Z, Ctrl+Shift+Z | undo, redo |
+
+### Clipboard
+
+- **Ctrl+C** copies the selected components together with the wires connecting them (wires to unselected components are not copied). **Ctrl+X** also deletes the selection.
+- **Ctrl+V** pastes the clipboard at the mouse pointer; the pasted part follows the mouse right away and a click drops it (Esc leaves it where it was pasted).
+- Copying and pasting works between sheets (main circuit, subcircuits) and between two running LogicFlow windows. Subcircuits used come along; identical ones are not added again, on a name clash the new subcircuit gets a number, e.g. "Adder (2)".
+- Labels (A, B, Y1…) stay if the target circuit does not have them yet; otherwise they get new ones.
+- The clipboard holds the circuit as text in the .logicflow file format – the whole content of a file opened in a text editor can be pasted the same way.
 
 ## Context menu (right button)
 
@@ -35,10 +45,10 @@
 
 | Where you click | What the menu offers |
 | --- | --- |
-| component | by kind: Toggle (switch), Frequency (clock), Inputs (gate), Pins (display), Bits and Count direction (function block), Open subcircuit; then the label, Rotate, Duplicate, Move, Delete |
+| component | by kind: Toggle (switch), Frequency (clock), Inputs (gate), Pins (display), Bits and Count direction (function block), Open subcircuit; then the label, Rotate, Duplicate, Move, Copy, Cut, Delete |
 | wire | Select the whole net, Delete wire segment, Delete the whole net |
-| several selected items | Rotate, Duplicate, Move, Delete, Deselect |
-| empty place | Add component here (placed at the clicked point), Select all, Fit view, Back one level (in a subcircuit), simulation controls |
+| several selected items | Rotate, Duplicate, Move, Copy, Cut, Delete, Deselect |
+| empty place | Add component here (placed at the clicked point), Paste, Select all, Fit view, Back one level (in a subcircuit), simulation controls |
 
 - A component or wire that is not selected gets selected first by the right-click.
 - Every item shows its keyboard shortcut on the right – the menu teaches the shortcuts too.

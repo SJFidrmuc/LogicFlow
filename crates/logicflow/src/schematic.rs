@@ -471,6 +471,26 @@ impl SchematicView {
                     self.start_grab(project, start, true, false);
                 }
             }
+            Command::Copy => {
+                if let Some(text) = project.copy_selection() {
+                    commands::set_clipboard(ui.ctx(), text);
+                }
+            }
+            Command::Cut => {
+                if let Some(text) = project.cut_selection() {
+                    commands::set_clipboard(ui.ctx(), text);
+                }
+            }
+            // Vložená část se objeví u ukazatele myši a jde s ní hned posunout (klik ji položí).
+            // [en] The pasted part appears at the mouse pointer and can be moved at once (a click drops it).
+            Command::Paste => {
+                if let Some(text) = commands::take_paste(ui.ctx())
+                    && project.paste_text(&text, mouse_pt)
+                    && let Some(start) = mouse_pt
+                {
+                    self.start_grab(project, start, true, true);
+                }
+            }
             _ => {}
         }
     }
@@ -1068,6 +1088,8 @@ impl SchematicView {
                     Command::Rotate,
                     Command::Duplicate,
                     Command::Grab,
+                    Command::Copy,
+                    Command::Cut,
                     Command::Delete,
                 ] {
                     self.menu_command(ui, cmd, rect, project, lang);
@@ -1109,6 +1131,8 @@ impl SchematicView {
                     Command::Rotate,
                     Command::Duplicate,
                     Command::Grab,
+                    Command::Copy,
+                    Command::Cut,
                     Command::Delete,
                     Command::SelectNone,
                 ] {
@@ -1148,6 +1172,7 @@ impl SchematicView {
                     project.add_component_at(kind, self.menu_point, Rotation::R0);
                     ui.close();
                 }
+                self.menu_command(ui, Command::Paste, rect, project, lang);
                 ui.separator();
                 for cmd in [Command::SelectAll, Command::FitView] {
                     self.menu_command(ui, cmd, rect, project, lang);

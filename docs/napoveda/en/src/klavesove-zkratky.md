@@ -8,6 +8,7 @@
 | R | rotate by 90° |
 | X, Delete | delete |
 | Shift+D | duplicate |
+| Ctrl+C, Ctrl+X, Ctrl+V | copy, cut, paste (at the mouse pointer) |
 | A, Alt+A | select all, deselect |
 | Esc | cancel tool or selection; in simulation back to editing |
 | Home | fit the whole schematic |

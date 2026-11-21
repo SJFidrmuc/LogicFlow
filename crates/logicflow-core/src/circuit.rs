@@ -1097,6 +1097,97 @@ impl Circuit {
         (new_comps, new_wires)
     }
 
+    /// Kopie vybraných součástek a vodičů jako samostatný obvod (pro schránku).
+    /// Přibere i vodiče, které propojují jen vybrané součástky – celou skupinu
+    /// spojených vodičů, jejíž všechny připojené vývody patří vybraným součástkám.
+    ///
+    /// [en] A copy of the selected components and wires as a separate circuit (for the
+    /// clipboard). It also takes the wires that connect only selected components – a
+    /// whole group of joined wires whose connected pins all belong to selected components.
+    pub fn extract(&self, comps: &[CompId], wires: &[WireId]) -> Circuit {
+        let components: Vec<Component> = self
+            .components
+            .iter()
+            .filter(|c| comps.contains(&c.id))
+            .cloned()
+            .collect();
+        let selected_pins: Vec<Point> = components.iter().flat_map(|c| c.pins()).collect();
+        let other_pins: Vec<Point> = self
+            .components
+            .iter()
+            .filter(|c| !comps.contains(&c.id))
+            .flat_map(|c| c.pins())
+            .collect();
+        // Skupiny spojených vodičů (konec jednoho leží na druhém).
+        // [en] Groups of joined wires (the end of one lies on the other).
+        let n = self.wires.len();
+        let mut group: Vec<usize> = (0..n).collect();
+        fn root(g: &mut [usize], mut i: usize) -> usize {
+            while g[i] != i {
+                g[i] = g[g[i]];
+                i = g[i];
+            }
+            i
+        }
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let (a, b) = (&self.wires[i], &self.wires[j]);
+                if a.contains(b.a) || a.contains(b.b) || b.contains(a.a) || b.contains(a.b) {
+                    let (ri, rj) = (root(&mut group, i), root(&mut group, j));
+                    group[ri] = rj;
+                }
+            }
+        }
+        let mut take = vec![false; n];
+        for (i, t) in take.iter_mut().enumerate() {
+            let r = root(&mut group, i);
+            let members: Vec<&Wire> = (0..n)
+                .filter(|&k| root(&mut group, k) == r)
+                .map(|k| &self.wires[k])
+                .collect();
+            let touches = |pins: &[Point]| {
+                members
+                    .iter()
+                    .any(|w| pins.contains(&w.a) || pins.contains(&w.b))
+            };
+            *t = wires.contains(&self.wires[i].id)
+                || (touches(&selected_pins) && !touches(&other_pins));
+        }
+        Circuit {
+            components,
+            wires: (0..n).filter(|&i| take[i]).map(|i| self.wires[i]).collect(),
+            next_id: 0,
+        }
+    }
+
+    /// Vloží kopii jiného obvodu posunutou o (dx, dy) a vrátí id nových prvků.
+    /// Popisky se zachovají, pokud ještě nejsou obsazené; jinak dostanou nový
+    /// automatický popisek (jako při duplikaci).
+    ///
+    /// [en] Inserts a copy of another circuit moved by (dx, dy) and returns the ids of
+    /// the new items. Labels are kept if they are not taken yet; otherwise they get a
+    /// new automatic label (as when duplicating).
+    pub fn insert(&mut self, other: &Circuit, dx: i32, dy: i32) -> (Vec<CompId>, Vec<WireId>) {
+        let mut comps = Vec::new();
+        for k in &other.components {
+            let label_free =
+                !k.label.is_empty() && !self.components.iter().any(|c| c.label == k.label);
+            let id = self.add_component(k.kind, k.pos.offset(dx, dy));
+            let copy = self.component_mut(id).expect("právě přidáno");
+            copy.rotation = k.rotation;
+            if label_free || matches!(k.kind, ComponentKind::Gate { .. }) {
+                copy.label = k.label.clone();
+            }
+            comps.push(id);
+        }
+        let wires = other
+            .wires
+            .iter()
+            .filter_map(|w| self.add_wire(w.a.offset(dx, dy), w.b.offset(dx, dy)))
+            .collect();
+        (comps, wires)
+    }
+
     /// Sloučí úseky vodiče, které leží v jedné přímce a stýkají se v bodě, kde
     /// není nic jiného (vývod, další vodič). Rovný vodič pak nemá skrytý styčný
     /// bod, na který by se nechtěně napojil jiný vodič. Zapojení se nemění.
@@ -1489,6 +1580,44 @@ impl ProjectFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extract_takes_wires_between_selected() {
+        // A → AND ← B, AND → LED; vybrané jen A, B a hradlo (bez vodičů).
+        // [en] A → AND ← B, AND → LED; only A, B and the gate selected (no wires).
+        let mut c = Circuit::default();
+        let a = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
+        let b = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 4));
+        let g = c.add_component(ComponentKind::gate(GateKind::And), Point::new(10, 1));
+        c.add_component(ComponentKind::Led, Point::new(20, 1));
+        // A (2,0) → (7,0); B (2,4) → (5,4) → (5,2) → (7,2); hradlo (13,1) → LED (18,1)
+        // [en] A (2,0) → (7,0); B (2,4) → (5,4) → (5,2) → (7,2); gate (13,1) → LED (18,1)
+        c.add_wire(Point::new(2, 0), Point::new(7, 0)).unwrap();
+        c.add_wire(Point::new(2, 4), Point::new(5, 4)).unwrap();
+        c.add_wire(Point::new(5, 4), Point::new(5, 2)).unwrap();
+        c.add_wire(Point::new(5, 2), Point::new(7, 2)).unwrap();
+        c.add_wire(Point::new(13, 1), Point::new(18, 1)).unwrap();
+        let clip = c.extract(&[a, b, g], &[]);
+        assert_eq!(clip.components.len(), 3);
+        // Vodič k LED vede k nevybrané součástce – nepřibere se.
+        // [en] The wire to the LED leads to an unselected component – it is not taken.
+        assert_eq!(clip.wires.len(), 4);
+        // Vložení: popisky A, B jsou obsazené → nové; posun o 30.
+        // [en] Insert: labels A, B are taken → new ones; offset 30.
+        let (comps, wires) = c.insert(&clip, 30, 0);
+        assert_eq!((comps.len(), wires.len()), (3, 4));
+        let labels: Vec<&str> = comps
+            .iter()
+            .map(|id| c.component(*id).unwrap().label.as_str())
+            .collect();
+        assert_eq!(labels, ["C", "D", ""]);
+        assert_eq!(c.component(comps[0]).unwrap().pos, Point::new(30, 0));
+        // Do prázdného obvodu se popisky zachovají.
+        // [en] Into an empty circuit the labels are kept.
+        let mut empty = Circuit::default();
+        let (comps, _) = empty.insert(&clip, 0, 0);
+        assert_eq!(empty.component(comps[1]).unwrap().label, "B");
+    }
 
     #[test]
     fn rotation_moves_pins() {

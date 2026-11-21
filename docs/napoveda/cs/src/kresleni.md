@@ -30,8 +30,18 @@
 | R | otočit o 90° |
 | X, Delete | smazat výběr |
 | Shift+D | duplikovat výběr |
+| Ctrl+C, Ctrl+X | kopírovat, vyjmout výběr do schránky |
+| Ctrl+V | vložit ze schránky k ukazateli myši |
 | A, Alt+A | vybrat vše, zrušit výběr |
 | Ctrl+Z, Ctrl+Shift+Z | zpět, znovu |
+
+### Schránka
+
+- **Ctrl+C** zkopíruje vybrané součástky i s vodiči, které je propojují (vodiče k nevybraným součástkám se nezkopírují). **Ctrl+X** výběr zároveň smaže.
+- **Ctrl+V** vloží obsah schránky k ukazateli myši; vložená část se hned posouvá s myší a kliknutím ji položíte (Esc ji nechá na místě vložení).
+- Kopírovat a vkládat jde mezi listy (hlavní obvod, podobvody) i mezi dvěma spuštěnými okny LogicFlow. Použité podobvody se přenesou s sebou; stejné se znovu nepřidávají, při shodě názvů dostane nový podobvod číslo, např. „Sčítačka (2)“.
+- Popisky (A, B, Y1…) zůstanou, pokud v cílovém obvodu ještě nejsou; jinak dostanou nové.
+- Schránka obsahuje obvod jako text ve formátu souboru .logicflow – stejně jde vložit i celý obsah souboru otevřeného v textovém editoru.
 
 ## Kontextová nabídka (pravé tlačítko)
 
@@ -39,10 +49,10 @@
 
 | Kam kliknete | Co nabídka nabízí |
 | --- | --- |
-| součástka | podle druhu: Přepnout (přepínač), Frekvence (hodiny), Počet vstupů (hradlo), Strana vývodů (zobrazovač), Počet bitů a Směr čítání (funkční blok), Otevřít podobvod; dále popisek, Otočit, Duplikovat, Přesunout, Smazat |
+| součástka | podle druhu: Přepnout (přepínač), Frekvence (hodiny), Počet vstupů (hradlo), Strana vývodů (zobrazovač), Počet bitů a Směr čítání (funkční blok), Otevřít podobvod; dále popisek, Otočit, Duplikovat, Přesunout, Kopírovat, Vyjmout, Smazat |
 | vodič | Vybrat celou síť, Smazat úsek vodiče, Smazat celou síť |
-| výběr více prvků | Otočit, Duplikovat, Přesunout, Smazat, Zrušit výběr |
-| prázdné místo | Přidat součástku sem (vloží se na místo kliknutí), Vybrat vše, Celé schéma, Zpět o úroveň výš (v podobvodu), ovládání simulace |
+| výběr více prvků | Otočit, Duplikovat, Přesunout, Kopírovat, Vyjmout, Smazat, Zrušit výběr |
+| prázdné místo | Přidat součástku sem (vloží se na místo kliknutí), Vložit, Vybrat vše, Celé schéma, Zpět o úroveň výš (v podobvodu), ovládání simulace |
 
 - Nevybraná součástka nebo vodič se kliknutím pravým tlačítkem nejdřív vybere.
 - U každé položky je vpravo klávesová zkratka – nabídka tak zkratky i učí.

@@ -12,6 +12,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **Clipboard Ctrl+C / X / V**: copying the selected components with the wires between them, pasting at the mouse pointer (the pasted part follows the mouse, a click drops it); works between sheets and between two LogicFlow windows, subcircuits used come along. Copy, Cut and Paste also in the Edit menu and the context menu.
 - **Context menu on the right button** depending on the clicked place: on a component Toggle, Frequency, Inputs, Pins, Bits, Count direction, Open subcircuit, label, Rotate, Duplicate, Move, Delete; on a wire Select / Delete the whole net and Delete segment; on an empty place Add component here, Select all, Fit view and simulation controls. Dragging with the right button still pans. Edits are greyed out in simulation mode.
 - Right button also in the Hierarchy (Open and Delete subcircuit, Find in schematic) and in the truth table (Copy as text – into Word or a spreadsheet as columns).
 - **Edit mode and simulation mode** (as in DigitalWorks): F5 starts the simulation and locks the schematic – only switches, buttons, panning, zooming, Tab and the clock frequency work; Esc or Shift+F5 returns to editing and the circuit state (flip-flops, counters, LEDs, timing diagram) stays. Amber frame with a SIMULATION badge, the mode in the status bar, the message "Stop the simulation to edit (Esc)". Option Simulation → Allow editing while simulating (off by default).

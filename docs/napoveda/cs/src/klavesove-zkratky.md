@@ -8,6 +8,7 @@
 | R | otočit o 90° |
 | X, Delete | smazat |
 | Shift+D | duplikovat |
+| Ctrl+C, Ctrl+X, Ctrl+V | kopírovat, vyjmout, vložit (k ukazateli myši) |
 | A, Alt+A | vybrat vše, zrušit výběr |
 | Esc | zrušit nástroj nebo výběr; v simulaci zpět k úpravám |
 | Home | zobrazit celé schéma |

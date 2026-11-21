@@ -129,6 +129,18 @@ pub enum Command {
     ///
     /// [en] Duplicate the selection and move the copy.
     Duplicate,
+    /// Kopírovat výběr do schránky (i s vodiči mezi součástkami a podobvody).
+    ///
+    /// [en] Copy the selection to the clipboard (with the wires between components and subcircuits).
+    Copy,
+    /// Vyjmout výběr do schránky.
+    ///
+    /// [en] Cut the selection to the clipboard.
+    Cut,
+    /// Vložit ze schránky k ukazateli myši.
+    ///
+    /// [en] Paste from the clipboard at the mouse pointer.
+    Paste,
     /// Vybrat vše.
     ///
     /// [en] Select all.
@@ -203,7 +215,7 @@ impl Command {
     /// Všechny příkazy (pořadí = pořadí v nápovědě).
     ///
     /// [en] All commands (order = order in the help).
-    pub const ALL: [Command; 25] = [
+    pub const ALL: [Command; 28] = [
         Command::New,
         Command::Open,
         Command::Save,
@@ -216,6 +228,9 @@ impl Command {
         Command::Rotate,
         Command::Delete,
         Command::Duplicate,
+        Command::Copy,
+        Command::Cut,
+        Command::Paste,
         Command::SelectAll,
         Command::SelectNone,
         Command::Cancel,
@@ -259,6 +274,9 @@ impl Command {
             Rotate => &[s!(NONE, R)],
             Delete => &[s!(NONE, X), s!(NONE, Delete)],
             Duplicate => &[s!(Modifiers::SHIFT, D)],
+            Copy => &[s!(CMD, C)],
+            Cut => &[s!(CMD, X)],
+            Paste => &[s!(CMD, V)],
             SelectAll => &[s!(NONE, A)],
             SelectNone => &[s!(Modifiers::ALT, A)],
             Cancel => &[s!(NONE, Escape)],
@@ -288,8 +306,8 @@ impl Command {
     pub fn scope(self) -> Scope {
         use Command::*;
         match self {
-            Add | Grab | Rotate | Delete | Duplicate | SelectAll | SelectNone | Cancel
-            | FitView | Subcircuit => Scope::Schematic,
+            Add | Grab | Rotate | Delete | Duplicate | Copy | Cut | Paste | SelectAll
+            | SelectNone | Cancel | FitView | Subcircuit => Scope::Schematic,
             _ => Scope::Global,
         }
     }
@@ -336,6 +354,9 @@ impl Command {
                 Rotate => T::CmdRotate,
                 Delete => T::CmdDelete,
                 Duplicate => T::CmdDuplicate,
+                Copy => T::CmdCopy,
+                Cut => T::CmdCut,
+                Paste => T::CmdPaste,
                 SelectAll => T::CmdSelectAll,
                 SelectNone => T::CmdSelectNone,
                 Cancel => T::CmdCancel,
@@ -394,7 +415,9 @@ impl Command {
         match self {
             Undo => project.can_undo(),
             Redo => project.can_redo(),
-            Grab | Rotate | Delete | Duplicate | SelectNone => !project.selection.is_empty(),
+            Grab | Rotate | Delete | Duplicate | Copy | Cut | SelectNone => {
+                !project.selection.is_empty()
+            }
             SelectAll => !project.circuit.components.is_empty(),
             Subcircuit => project.selected_subcircuit().is_some() || project.sheet.is_some(),
             Step => !project.running,
@@ -409,7 +432,10 @@ impl Command {
     /// [en] Does the command change the schematic (adding, moving, rotating, deleting, Undo / Redo)?
     pub fn edits(self) -> bool {
         use Command::*;
-        matches!(self, Add | Grab | Rotate | Delete | Duplicate | Undo | Redo)
+        matches!(
+            self,
+            Add | Grab | Rotate | Delete | Duplicate | Cut | Paste | Undo | Redo
+        )
     }
 
     /// Je příkaz nedostupný jen proto, že běží režim simulace (schéma je zamčené)?
@@ -454,18 +480,73 @@ pub fn take_pressed(ctx: &egui::Context, scope: Scope) -> Vec<Command> {
         .filter(|c| c.scope() == scope && (!typing || c.while_typing()))
         .collect();
     let mut found = Vec::new();
+    let mut pasted = None;
     ctx.input_mut(|i| {
         i.events.retain(|e| {
-            let hit = candidates
-                .iter()
-                .find(|c| c.shortcuts().iter().any(|&sc| matches(e, sc)));
-            if let Some(&c) = hit {
+            // Ctrl+C / X / V posílá systém jako zvláštní události, ne jako klávesy.
+            // [en] Ctrl+C / X / V are sent by the system as special events, not as keys.
+            let hit = match e {
+                Event::Copy => Some(Command::Copy),
+                Event::Cut => Some(Command::Cut),
+                Event::Paste(text) => {
+                    pasted = Some(text.clone());
+                    Some(Command::Paste)
+                }
+                _ => candidates
+                    .iter()
+                    .find(|c| c.shortcuts().iter().any(|&sc| matches(e, sc)))
+                    .copied(),
+            }
+            .filter(|c| candidates.contains(c));
+            if let Some(c) = hit {
                 found.push(c);
             }
             hit.is_none()
         });
     });
+    if let Some(text) = pasted.filter(|_| found.contains(&Command::Paste)) {
+        ctx.data_mut(|d| d.insert_temp(paste_id(), text));
+    }
     found
+}
+
+/// Klíč textu vloženého v tomto snímku (Ctrl+V).
+///
+/// [en] Key of the text pasted in this frame (Ctrl+V).
+fn paste_id() -> egui::Id {
+    egui::Id::unique("logicflow-paste")
+}
+
+/// Klíč posledního obsahu zkopírovaného v tomto okně (pro Vložit z nabídky).
+///
+/// [en] Key of the last content copied in this window (for Paste from a menu).
+fn clipboard_id() -> egui::Id {
+    egui::Id::unique("logicflow-clipboard")
+}
+
+/// Uloží text do systémové schránky a zapamatuje si ho i pro Vložit z nabídky.
+///
+/// [en] Puts the text into the system clipboard and also remembers it for Paste from a menu.
+pub fn set_clipboard(ctx: &egui::Context, text: String) {
+    ctx.copy_text(text.clone());
+    ctx.data_mut(|d| d.insert_temp(clipboard_id(), text));
+}
+
+/// Je co vložit z nabídky (něco zkopírovaného v tomto okně)?
+///
+/// [en] Is there anything to paste from a menu (something copied in this window)?
+pub fn has_clipboard(ctx: &egui::Context) -> bool {
+    ctx.data(|d| d.get_temp::<String>(clipboard_id()).is_some())
+}
+
+/// Text k vložení: ze systémové schránky při Ctrl+V v tomto snímku, jinak naposledy
+/// zkopírovaný obsah v tomto okně (Vložit z nabídky).
+///
+/// [en] Text to paste: from the system clipboard on Ctrl+V in this frame, otherwise the
+/// content copied last in this window (Paste from a menu).
+pub fn take_paste(ctx: &egui::Context) -> Option<String> {
+    ctx.data_mut(|d| d.remove_temp::<String>(paste_id()))
+        .or_else(|| ctx.data(|d| d.get_temp::<String>(clipboard_id())))
 }
 
 /// Položka nabídky pro příkaz: název podle stavu, zkratka vpravo, zašedlá, když
@@ -477,7 +558,10 @@ pub fn menu_item(ui: &mut Ui, cmd: Command, lang: Lang, project: &Project) -> bo
     let mac = ui.ctx().os() == egui::os::OperatingSystem::Mac;
     let button = egui::Button::new(cmd.label_for(lang, project))
         .shortcut_text(cmd.shortcut().text(lang, mac));
-    let response = ui.add_enabled(cmd.available(project), button);
+    // Vložit z nabídky potřebuje něco zkopírovaného v tomto okně.
+    // [en] Paste from a menu needs something copied in this window.
+    let enabled = cmd.available(project) && (cmd != Command::Paste || has_clipboard(ui.ctx()));
+    let response = ui.add_enabled(enabled, button);
     let response = if cmd.blocked_by_simulation(project) {
         response.on_disabled_hover_text(tr(lang, T::LockedHint))
     } else {
