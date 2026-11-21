@@ -6,7 +6,7 @@ Simulátor logických obvodů pro výuku číslicové techniky. Moderní nástup
 
 ![Čítač 0–7 z klopných obvodů T v pracovní ploše Simulace](docs/screenshots/simulace.png)
 
-> **Stav:** verze 0.3 (milník M3). Kreslení obvodů z hradel, klopných obvodů, funkčních bloků (čítače, registry, multiplexory, dekodéry…) a podobvodů, sedmisegmentovka, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, evropské i americké značky, ukládání souborů a vestavěná nápověda.
+> **Stav:** verze 0.3.1 (milník M3). Kreslení obvodů z hradel, klopných obvodů, funkčních bloků (čítače, registry, multiplexory, dekodéry…) a podobvodů, sedmisegmentovka, simulace v reálném čase s krokováním, časový diagram, pravdivostní tabulka, evropské i americké značky, ukládání souborů a vestavěná nápověda.
 
 ## Stažení
 
