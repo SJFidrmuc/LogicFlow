@@ -4,6 +4,7 @@
 //! [en] Main window: top bar with menus and workspaces, areas, status bar,
 //! working with files.
 
+use crate::commands::{self, Command, Scope};
 use crate::examples;
 use crate::filedialog::{self, FileDialog};
 use crate::help::{self, HelpWindow};
@@ -13,7 +14,7 @@ use crate::panes::{self, AreaBehavior, Pane, Workspace};
 use crate::project::Project;
 use crate::symbols::SymbolStyle;
 use crate::theme::{self, colors};
-use egui::{Key, KeyboardShortcut, Modifiers, RichText};
+use egui::{Key, RichText};
 use egui_tiles::Tree;
 use logicflow_core::Circuit;
 use std::path::PathBuf;
@@ -309,72 +310,71 @@ impl LogicFlowApp {
         }
     }
 
-    /// Globální klávesové zkratky (Ctrl+N/O/S, Ctrl+Z/Y, mezerník, F1…).
+    /// Globální klávesové zkratky (Ctrl+N/O/S, Ctrl+Z/Y, mezerník, F1…) – seznam
+    /// a zkratky jsou v `commands.rs`.
     ///
-    /// [en] Global keyboard shortcuts (Ctrl+N/O/S, Ctrl+Z/Y, space, F1…).
+    /// [en] Global keyboard shortcuts (Ctrl+N/O/S, Ctrl+Z/Y, space, F1…) – the list
+    /// and the shortcuts are in `commands.rs`.
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
-        let typing = ctx.egui_wants_keyboard_input();
-        let sc = |m, k| KeyboardShortcut::new(m, k);
-        let ctrl_shift = Modifiers::COMMAND | Modifiers::SHIFT;
-        let (save_as, save, open, new, redo, undo, redo_y, next_ws, prev_ws, quit) =
-            ctx.input_mut(|i| {
-                (
-                    i.consume_shortcut(&sc(ctrl_shift, Key::S)),
-                    i.consume_shortcut(&sc(Modifiers::COMMAND, Key::S)),
-                    i.consume_shortcut(&sc(Modifiers::COMMAND, Key::O)),
-                    i.consume_shortcut(&sc(Modifiers::COMMAND, Key::N)),
-                    !typing && i.consume_shortcut(&sc(ctrl_shift, Key::Z)),
-                    !typing && i.consume_shortcut(&sc(Modifiers::COMMAND, Key::Z)),
-                    !typing && i.consume_shortcut(&sc(Modifiers::COMMAND, Key::Y)),
-                    i.consume_shortcut(&sc(Modifiers::COMMAND, Key::PageDown)),
-                    i.consume_shortcut(&sc(Modifiers::COMMAND, Key::PageUp)),
-                    i.consume_shortcut(&sc(Modifiers::COMMAND, Key::Q)),
-                )
-            });
-        let (space, step) = if typing {
-            (false, false)
-        } else {
-            ctx.input_mut(|i| {
-                (
-                    i.consume_key(Modifiers::NONE, Key::Space),
-                    i.consume_key(Modifiers::NONE, Key::ArrowRight),
-                )
-            })
-        };
-        if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::F1)) {
-            self.help.open = !self.help.open;
+        for cmd in commands::take_pressed(ctx, Scope::Global) {
+            if cmd == Command::Help {
+                self.help.open = !self.help.open;
+            } else {
+                self.run(cmd);
+            }
         }
-        if save_as {
-            self.save_file(true);
-        } else if save {
-            self.save_file(false);
-        }
-        if open {
-            self.request(Pending::Open);
-        }
-        if new {
-            self.request(Pending::New);
-        }
-        if redo || redo_y {
-            self.project.redo();
-        } else if undo {
-            self.project.undo();
-        }
-        if space {
-            self.project.running = !self.project.running;
-        }
-        if step && !self.project.running {
-            self.project.step();
+    }
+
+    /// Provede příkaz z klávesnice nebo z nabídky. Příkazy editoru schématu, které
+    /// nepotřebují pohled (otočit, smazat, vybrat, Tab), jdou spustit i z nabídky Úpravy.
+    ///
+    /// [en] Carries out a command from the keyboard or a menu. Schematic editor commands
+    /// that do not need a view (rotate, delete, select, Tab) can also be run from the Edit menu.
+    fn run(&mut self, cmd: Command) {
+        if !cmd.available(&self.project) {
+            return;
         }
         let n = self.trees.len();
-        if next_ws {
-            self.workspace = (self.workspace + 1) % n;
+        match cmd {
+            Command::New => self.request(Pending::New),
+            Command::Open => self.request(Pending::Open),
+            Command::Save => self.save_file(false),
+            Command::SaveAs => self.save_file(true),
+            Command::Quit => self.request(Pending::Quit),
+            Command::Undo => self.project.undo(),
+            Command::Redo => self.project.redo(),
+            Command::Rotate => self.project.rotate_selection(),
+            Command::Delete => self.project.delete_selection(),
+            Command::SelectAll => self.project.select_all(),
+            Command::SelectNone | Command::Cancel => self.project.selection.clear(),
+            Command::Subcircuit => self.project.toggle_subcircuit(),
+            Command::RunPause => self.project.running = !self.project.running,
+            Command::Step => self.project.step(),
+            Command::ResetSim => self.project.reset_simulation(),
+            Command::NextWorkspace => self.workspace = (self.workspace + 1) % n,
+            Command::PrevWorkspace => self.workspace = (self.workspace + n - 1) % n,
+            Command::Help => self.help.show_section(0),
+            // Potřebují pohled schématu (polohu myši, kameru) – jen z klávesnice nad schématem.
+            // [en] They need a schematic view (mouse position, camera) – only from the keyboard over the schematic.
+            Command::Add | Command::Grab | Command::Duplicate | Command::FitView => {}
         }
-        if prev_ws {
-            self.workspace = (self.workspace + n - 1) % n;
-        }
-        if quit {
-            self.request(Pending::Quit);
+    }
+
+    /// Položky nabídky pro seznam příkazů; `None` znamená oddělovač.
+    ///
+    /// [en] Menu items for a list of commands; `None` means a separator.
+    fn menu_commands(&mut self, ui: &mut egui::Ui, items: &[Option<Command>]) {
+        for item in items {
+            match *item {
+                Some(cmd) => {
+                    if commands::menu_item(ui, cmd, self.lang, &self.project) {
+                        self.run(cmd);
+                    }
+                }
+                None => {
+                    ui.separator();
+                }
+            }
         }
     }
 
@@ -398,18 +398,7 @@ impl LogicFlowApp {
                     );
                     ui.add_space(8.0);
                     ui.menu_button(tr(lang, T::MenuFile), |ui| {
-                        if ui
-                            .add(egui::Button::new(tr(lang, T::New)).shortcut_text("Ctrl+N"))
-                            .clicked()
-                        {
-                            self.request(Pending::New);
-                        }
-                        if ui
-                            .add(egui::Button::new(tr(lang, T::Open)).shortcut_text("Ctrl+O"))
-                            .clicked()
-                        {
-                            self.request(Pending::Open);
-                        }
+                        self.menu_commands(ui, &[Some(Command::New), Some(Command::Open)]);
                         ui.menu_button(tr(lang, T::Examples), |ui| {
                             for (i, ex) in examples::ALL.iter().enumerate() {
                                 if ui.button(ex.name).clicked() {
@@ -417,46 +406,47 @@ impl LogicFlowApp {
                                 }
                             }
                         });
-                        ui.separator();
-                        if ui
-                            .add(egui::Button::new(tr(lang, T::Save)).shortcut_text("Ctrl+S"))
-                            .clicked()
-                        {
-                            self.save_file(false);
-                        }
-                        if ui
-                            .add(
-                                egui::Button::new(tr(lang, T::SaveAs))
-                                    .shortcut_text("Ctrl+Shift+S"),
-                            )
-                            .clicked()
-                        {
-                            self.save_file(true);
-                        }
-                        ui.separator();
-                        if ui
-                            .add(egui::Button::new(tr(lang, T::Quit)).shortcut_text("Ctrl+Q"))
-                            .clicked()
-                        {
-                            self.request(Pending::Quit);
-                        }
+                        self.menu_commands(
+                            ui,
+                            &[
+                                None,
+                                Some(Command::Save),
+                                Some(Command::SaveAs),
+                                None,
+                                Some(Command::Quit),
+                            ],
+                        );
                     });
                     ui.menu_button(tr(lang, T::MenuEdit), |ui| {
-                        let undo = egui::Button::new(tr(lang, T::Undo)).shortcut_text("Ctrl+Z");
-                        if ui.add_enabled(self.project.can_undo(), undo).clicked() {
-                            self.project.undo();
-                        }
-                        let redo =
-                            egui::Button::new(tr(lang, T::Redo)).shortcut_text("Ctrl+Shift+Z");
-                        if ui.add_enabled(self.project.can_redo(), redo).clicked() {
-                            self.project.redo();
-                        }
+                        self.menu_commands(
+                            ui,
+                            &[
+                                Some(Command::Undo),
+                                Some(Command::Redo),
+                                None,
+                                Some(Command::SelectAll),
+                                Some(Command::SelectNone),
+                                None,
+                                Some(Command::Rotate),
+                                Some(Command::Delete),
+                                None,
+                                Some(Command::Subcircuit),
+                            ],
+                        );
                     });
                     ui.menu_button(tr(lang, T::MenuView), |ui| {
                         if ui.button(tr(lang, T::ResetLayout)).clicked() {
                             let ws = Workspace::ALL[self.workspace];
                             self.trees[self.workspace] = ws.default_tree();
                         }
+                        self.menu_commands(
+                            ui,
+                            &[
+                                Some(Command::NextWorkspace),
+                                Some(Command::PrevWorkspace),
+                                None,
+                            ],
+                        );
                         ui.menu_button(tr(lang, T::Language), |ui| {
                             ui.radio_value(&mut self.lang, Lang::Cs, "Čeština");
                             ui.radio_value(&mut self.lang, Lang::En, "English");
@@ -475,46 +465,18 @@ impl LogicFlowApp {
                         });
                     });
                     ui.menu_button(tr(lang, T::MenuSimulation), |ui| {
-                        let label = if self.project.running {
-                            T::Pause
-                        } else {
-                            T::Run
-                        };
-                        if ui
-                            .add(egui::Button::new(tr(lang, label)).shortcut_text(
-                                if lang == Lang::Cs {
-                                    "mezerník"
-                                } else {
-                                    "Space"
-                                },
-                            ))
-                            .clicked()
-                        {
-                            self.project.running = !self.project.running;
-                        }
-                        let arrow = if lang == Lang::Cs {
-                            "šipka vpravo"
-                        } else {
-                            "Right arrow"
-                        };
-                        let step = egui::Button::new(tr(lang, T::Step)).shortcut_text(arrow);
-                        if ui.add_enabled(!self.project.running, step).clicked() {
-                            self.project.step();
-                        }
-                        ui.separator();
-                        let reset =
-                            egui::Button::new(tr(lang, T::ResetSim)).shortcut_text("Ctrl+R");
-                        if ui.add(reset).clicked() {
-                            self.project.reset_simulation();
-                        }
+                        self.menu_commands(
+                            ui,
+                            &[
+                                Some(Command::RunPause),
+                                Some(Command::Step),
+                                None,
+                                Some(Command::ResetSim),
+                            ],
+                        );
                     });
                     ui.menu_button(tr(lang, T::MenuHelp), |ui| {
-                        if ui
-                            .add(egui::Button::new(tr(lang, T::Manual)).shortcut_text("F1"))
-                            .clicked()
-                        {
-                            self.help.show_section(0);
-                        }
+                        self.menu_commands(ui, &[Some(Command::Help)]);
                         if ui.button(tr(lang, T::Shortcuts)).clicked() {
                             self.help.show_section(help::SECTION_SHORTCUTS);
                         }

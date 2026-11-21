@@ -6,7 +6,7 @@ Okno je stejně jako v Blenderu rozdělené na oblasti. Každá oblast má naho�
 
 ## Horní lišta
 
-- **Nabídky** Soubor, Úpravy, Zobrazit, Simulace a Nápověda.
+- **Nabídky** Soubor, Úpravy, Zobrazit, Simulace a Nápověda. U každé položky je vpravo její klávesová zkratka; položky, které teď nejdou použít (například Zpět bez předchozí úpravy), jsou zašedlé. V nabídce Úpravy je kromě Zpět a Znovu i výběr, otočení, mazání a otevření podobvodu – totéž, co dělají klávesy nad schématem.
 - **Pracovní plochy** Návrh, Simulace, Analýza a Paměť uprostřed.
 - **Přepínač jazyka** CS / EN vpravo.
 

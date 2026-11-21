@@ -52,7 +52,7 @@
 
   <rect x="60" y="195" width="770" height="80" rx="10" class="app"/>
   <text x="76" y="218" class="h">LogicFlowApp <tspan class="s m">(app.rs)</tspan> – hlavní smyčka update() volaná každý snímek</text>
-  <text x="76" y="240" class="s">nabídky a klávesové zkratky · dialogy (filedialog.rs) · měření času (Instant) · nastavení</text>
+  <text x="76" y="240" class="s">nabídky a klávesy přes seznam příkazů (commands.rs) · dialogy (filedialog.rs) · čas (web_time) · nastavení</text>
   <text x="76" y="261" class="s">pomocné moduly: i18n.rs (texty cs/en) · theme.rs (barvy) · examples.rs (příklady)</text>
 
   <!-- Oblasti -->

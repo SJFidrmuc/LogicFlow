@@ -588,6 +588,71 @@ impl Project {
         self.revision += 1;
     }
 
+    /// Smaže vybrané součástky a vodiče (s uložením pro „Zpět“).
+    ///
+    /// [en] Deletes the selected components and wires (saving for “Undo”).
+    pub fn delete_selection(&mut self) {
+        if self.selection.is_empty() {
+            return;
+        }
+        self.checkpoint();
+        for id in self.selection.comp_vec() {
+            self.circuit.remove_component(id);
+        }
+        for id in self.selection.wire_vec() {
+            self.circuit.remove_wire(id);
+        }
+        self.selection.clear();
+        self.after_structure_change();
+    }
+
+    /// Otočí vybrané součástky o 90° (s uložením pro „Zpět“).
+    ///
+    /// [en] Rotates the selected components by 90° (saving for “Undo”).
+    pub fn rotate_selection(&mut self) {
+        if self.selection.comps.is_empty() {
+            return;
+        }
+        self.checkpoint();
+        for id in self.selection.comp_vec() {
+            if let Some(c) = self.circuit.component_mut(id) {
+                c.rotation = c.rotation.next();
+            }
+        }
+        self.after_structure_change();
+    }
+
+    /// Vybere všechny součástky a vodiče otevřeného listu.
+    ///
+    /// [en] Selects all components and wires of the open sheet.
+    pub fn select_all(&mut self) {
+        self.selection.comps = self.circuit.components.iter().map(|c| c.id).collect();
+        self.selection.wires = self.circuit.wires.iter().map(|w| w.id).collect();
+    }
+
+    /// Id definice podobvodu, je-li vybraná právě jedna instance podobvodu.
+    ///
+    /// [en] Id of the subcircuit definition if exactly one subcircuit instance is selected.
+    pub fn selected_subcircuit(&self) -> Option<u32> {
+        let id = self.selection.single_comp()?;
+        match self.circuit.component(id)?.kind {
+            ComponentKind::Subcircuit { id, .. } => Some(id),
+            _ => None,
+        }
+    }
+
+    /// Tab: otevře vybraný podobvod, jinak se vrátí o úroveň výš.
+    ///
+    /// [en] Tab: opens the selected subcircuit, otherwise goes one level up.
+    pub fn toggle_subcircuit(&mut self) {
+        match self.selected_subcircuit() {
+            Some(id) => self.enter_subcircuit(id),
+            None => {
+                self.leave_subcircuit();
+            }
+        }
+    }
+
     /// Přepne přepínač (bez záznamu do historie úprav – jde o „hraní“ s obvodem).
     ///
     /// [en] Toggles a switch (without recording it in the edit history – it is “playing” with the circuit).

@@ -3,6 +3,7 @@
 //! [en] Smaller editors: properties, hierarchy, library, truth table, memory.
 
 use crate::catalog::{self, ff_name, kind_name};
+use crate::commands::{self, Command};
 use crate::i18n::{Lang, T, tr};
 use crate::project::{Project, natural_cmp};
 use crate::theme::colors;
@@ -38,21 +39,6 @@ fn value_text(v: LogicValue) -> RichText {
         .monospace()
         .strong()
         .color(crate::theme::signal_color(v))
-}
-
-/// Smaže vybrané součástky a vodiče (s uložením pro „Zpět“).
-///
-/// [en] Deletes the selected components and wires (saving for “Undo”).
-fn delete_selection(project: &mut Project) {
-    project.checkpoint();
-    for id in project.selection.comp_vec() {
-        project.circuit.remove_component(id);
-    }
-    for id in project.selection.wire_vec() {
-        project.circuit.remove_wire(id);
-    }
-    project.selection.clear();
-    project.after_structure_change();
 }
 
 /// Panel Vlastnosti: vlastnosti vybrané součástky, nebo souhrn výběru.
@@ -94,8 +80,11 @@ pub fn properties(ui: &mut Ui, project: &mut Project, lang: Lang) {
             ));
         }
         ui.add_space(8.0);
-        if ui.button(tr(lang, T::Delete)).clicked() {
-            delete_selection(project);
+        if ui
+            .button(Command::Delete.button_text(lang, project))
+            .clicked()
+        {
+            project.delete_selection();
         }
     });
 }
@@ -121,6 +110,7 @@ fn component_properties(
     ui.add_space(4.0);
 
     let mut structure_changed = false;
+    let mut rotate = false;
     let mut open_sub = None;
     egui::Grid::new("props")
         .num_columns(2)
@@ -398,7 +388,10 @@ fn component_properties(
                     ));
                     ui.end_row();
                     ui.label("");
-                    if ui.button(tr(lang, T::OpenSubcircuit)).clicked() {
+                    if ui
+                        .button(Command::Subcircuit.button_text(lang, project))
+                        .clicked()
+                    {
                         open_sub = Some(def_id);
                     }
                     ui.end_row();
@@ -492,12 +485,11 @@ fn component_properties(
                     logicflow_core::Rotation::R270 => 270,
                 };
                 ui.label(format!("{deg}°"));
-                if ui.button(tr(lang, T::RotateBtn)).clicked() {
-                    project.checkpoint();
-                    if let Some(c) = project.circuit.component_mut(id) {
-                        c.rotation = c.rotation.next();
-                    }
-                    structure_changed = true;
+                if ui
+                    .button(Command::Rotate.button_text(lang, project))
+                    .clicked()
+                {
+                    rotate = true;
                 }
             });
             ui.end_row();
@@ -509,13 +501,19 @@ fn component_properties(
     if structure_changed {
         project.after_structure_change();
     }
+    if rotate {
+        project.rotate_selection();
+    }
     if let Some(def_id) = open_sub {
         project.enter_subcircuit(def_id);
         return;
     }
     ui.add_space(8.0);
-    if ui.button(tr(lang, T::Delete)).clicked() {
-        delete_selection(project);
+    if ui
+        .button(Command::Delete.button_text(lang, project))
+        .clicked()
+    {
+        project.delete_selection();
     }
 }
 
@@ -580,7 +578,14 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
                         .color(colors::TEXT_WEAK),
                 );
                 ui.horizontal_wrapped(|ui| {
-                    if ui.button(tr(lang, T::BackToParent)).clicked() {
+                    if ui
+                        .button(commands::with_shortcut(
+                            tr(lang, T::CmdBackToParent),
+                            Command::Subcircuit,
+                            lang,
+                        ))
+                        .clicked()
+                    {
                         project.leave_subcircuit();
                     }
                     let used = project.is_subcircuit_used(id);
@@ -920,7 +925,7 @@ const SEVEN_SEG: [u8; 16] = [
 pub fn memory(ui: &mut Ui, lang: Lang) {
     padded(ui, |ui| {
         ui.label(RichText::new("ROM 16 × 8 – dekodér pro sedmisegmentovku").strong());
-        ui.label(weak(&format!("{} 0.4", tr(lang, T::ComingIn))));
+        ui.label(weak(&format!("{} 0.5", tr(lang, T::ComingIn))));
         ui.add_space(6.0);
         egui::Grid::new("mem")
             .striped(true)
