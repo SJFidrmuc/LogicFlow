@@ -130,7 +130,7 @@ Diagram [`docs/architektura.svg`](docs/architektura.svg) ukazuje moduly aplikace
 | `docs/napoveda` | nápověda v Markdownu (cs, en), obrázky a obvody pro snímky |
 | `docs/architektura.svg` | diagram struktury aplikace a toku dat |
 | `docs/screenshots` | snímky obrazovky pro README |
-| `scripts` | pomocné skripty (snímky obrazovky pro nápovědu) |
+| `scripts` | pomocné skripty (snímky obrazovky pro nápovědu, kontrola a export dvojjazyčných komentářů) |
 | `.github/workflows` | automatické sestavení a testy pro 6 platforem, nápověda, vydání |
 
 ## Licence

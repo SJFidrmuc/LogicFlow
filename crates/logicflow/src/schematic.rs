@@ -1,5 +1,8 @@
 //! Editor schématu: nekonečné plátno s mřížkou, přidávání a úpravy součástek,
 //! kreslení vodičů. Ovládání vychází z Blenderu (Shift+A, G, R, X, Shift+D, A).
+//!
+//! [en] Schematic editor: an endless canvas with a grid, adding and editing components,
+//! drawing wires. The controls follow Blender (Shift+A, G, R, X, Shift+D, A).
 
 use crate::catalog;
 use crate::i18n::{Lang, T, tr};
@@ -12,51 +15,125 @@ use egui::{
 };
 use logicflow_core::{Circuit, CompId, Component, ComponentKind, Point, Rotation, WireId};
 
+/// Nejmenší zvětšení.
+///
+/// [en] Smallest zoom.
 const MIN_ZOOM: f32 = 0.15;
+/// Největší zvětšení.
+///
+/// [en] Largest zoom.
 const MAX_ZOOM: f32 = 6.0;
 
+/// Právě používaný nástroj editoru – stavový automat ovládání myší a klávesnicí.
+///
+/// [en] Editor tool currently in use – the state machine of mouse and keyboard control.
 #[derive(Clone, Debug)]
 enum Tool {
+    /// Žádná rozdělaná akce.
+    ///
+    /// [en] No action in progress.
     Idle,
     /// Umisťování nové součástky (náhled sleduje myš).
+    ///
+    /// [en] Placing a new component (the preview follows the mouse).
     Place {
+        /// Druh vkládané součástky.
+        ///
+        /// [en] Kind of the component being placed.
         kind: ComponentKind,
+        /// Otočení náhledu (R).
+        ///
+        /// [en] Rotation of the preview (R).
         rotation: Rotation,
     },
     /// Přesun výběru. `origin` je stav před přesunem.
+    ///
+    /// [en] Moving the selection. `origin` is the state before the move.
     Grab {
         origin: Box<Circuit>,
+        /// Bod mřížky, odkud přesun začal.
+        ///
+        /// [en] Grid point where the move started.
         start: Point,
+        /// Aktuální posun v bodech mřížky.
+        ///
+        /// [en] Current offset in grid points.
         delta: (i32, i32),
+        /// Přesouvané součástky.
+        ///
+        /// [en] Components being moved.
         comps: Vec<CompId>,
+        /// Přesouvané vodiče.
+        ///
+        /// [en] Wires being moved.
         wires: Vec<WireId>,
+        /// Přesun začal klávesou G (končí kliknutím), ne tažením myší.
+        ///
+        /// [en] The move started with the G key (ends with a click), not by dragging.
         by_key: bool,
+        /// Stav pro „Zpět“ už je uložený (např. u Shift+D).
+        ///
+        /// [en] The “Undo” state has already been saved (e.g. for Shift+D).
         undo_pushed: bool,
+        /// Byl projekt změněný už před přesunem (pro zrušení přesunu).
+        ///
+        /// [en] Was the project modified before the move (for cancelling the move)?
         was_modified: bool,
     },
     /// Kreslení vodiče z bodu `start`.
+    ///
+    /// [en] Drawing a wire from point `start`.
     Wire {
         start: Point,
+        /// Směr prvního úseku (None = podle pohybu myši).
+        ///
+        /// [en] Direction of the first segment (None = according to the mouse movement).
         horizontal_first: Option<bool>,
     },
     /// Výběr obdélníkem (ve světových souřadnicích).
+    ///
+    /// [en] Box selection (in world coordinates).
     BoxSelect {
         start: Pos2,
+        /// Se Shift se přidává k dosavadnímu výběru.
+        ///
+        /// [en] With Shift the box adds to the existing selection.
         additive: bool,
     },
     /// Držené tlačítko.
+    ///
+    /// [en] Button held down.
     Press(CompId),
 }
 
 /// Kamera a stav nástroje jednoho editoru schématu (každá oblast má vlastní).
+///
+/// [en] Camera and tool state of one schematic editor (each area has its own).
 #[derive(Clone, Debug)]
 pub struct SchematicView {
+    /// Posun pohledu v pixelech.
+    ///
+    /// [en] View offset in pixels.
     pub offset: Vec2,
+    /// Zvětšení (1 = 100 %).
+    ///
+    /// [en] Zoom (1 = 100 %).
     pub zoom: f32,
+    /// Při příštím snímku přizpůsobit pohled celému schématu.
+    ///
+    /// [en] Fit the view to the whole schematic in the next frame.
     pub needs_fit: bool,
+    /// Aktuální nástroj.
+    ///
+    /// [en] Current tool.
     tool: Tool,
+    /// Poloha otevřené nabídky Přidat (Shift+A), jinak None.
+    ///
+    /// [en] Position of the open Add menu (Shift+A), otherwise None.
     add_menu: Option<Pos2>,
     /// List, který byl zobrazený naposledy (při změně se pohled přizpůsobí).
+    ///
+    /// [en] Sheet shown last time (the view adapts when it changes).
     shown_sheet: Option<Option<u32>>,
 }
 
@@ -74,6 +151,9 @@ impl Default for SchematicView {
 }
 
 impl SchematicView {
+    /// Kamera pro oblast `rect` podle posunu a zvětšení.
+    ///
+    /// [en] Camera for area `rect` according to the offset and zoom.
     fn camera(&self, rect: Rect) -> Camera {
         Camera {
             origin: rect.center() + self.offset,
@@ -81,6 +161,9 @@ impl SchematicView {
         }
     }
 
+    /// Přizpůsobí posun a zvětšení tak, aby bylo vidět celé schéma.
+    ///
+    /// [en] Adjusts the offset and zoom so that the whole schematic is visible.
     fn fit(&mut self, rect: Rect, circuit: &Circuit) {
         let (x0, y0, x1, y1) = circuit.bounds().unwrap_or((-20.0, -12.0, 20.0, 12.0));
         let size = vec2((x1 - x0).max(10.0), (y1 - y0).max(8.0)) * UNIT;
@@ -93,6 +176,9 @@ impl SchematicView {
         self.needs_fit = false;
     }
 
+    /// Vykreslí editor a zpracuje vstupy myši a klávesnice.
+    ///
+    /// [en] Draws the editor and handles mouse and keyboard input.
     pub fn ui(&mut self, ui: &mut Ui, project: &mut Project, lang: Lang) {
         let rect = ui.available_rect_before_wrap();
         let response = ui.allocate_rect(rect, Sense::click_and_drag());
@@ -111,6 +197,7 @@ impl SchematicView {
         }
 
         // Posun prostředním tlačítkem (nebo tažením pravým).
+        // [en] Panning with the middle button (or by dragging with the right one).
         if response.dragged_by(PointerButton::Middle)
             || response.dragged_by(PointerButton::Secondary)
         {
@@ -136,6 +223,7 @@ impl SchematicView {
         let mouse_pt = mouse.map(snap);
 
         // Součástka vybraná v knihovně se umístí do editoru, nad kterým je myš.
+        // [en] A component chosen in the library is placed in the editor the mouse is over.
         if response.hovered()
             && let Some(kind) = project.pending_place.take()
         {
@@ -151,6 +239,9 @@ impl SchematicView {
         self.pointer(ui, &response, cam, project, mouse, mouse_pt);
 
         // --- Kreslení ---
+        // [en]
+        //
+        // --- Drawing ---
         painter.rect_filled(rect, 0.0, colors::CANVAS);
         draw_grid(&painter, rect, cam);
         self.draw_circuit(&painter, cam, project, mouse);
@@ -191,6 +282,9 @@ impl SchematicView {
         self.add_menu_ui(ui, lang, catalog::subcircuit_items(project));
     }
 
+    /// Klávesové zkratky editoru (Shift+A, G, R, X, Shift+D, A, Tab, Esc, Home).
+    ///
+    /// [en] Editor keyboard shortcuts (Shift+A, G, R, X, Shift+D, A, Tab, Esc, Home).
     fn keyboard(
         &mut self,
         ui: &mut Ui,
@@ -199,6 +293,7 @@ impl SchematicView {
         mouse_pt: Option<Point>,
     ) {
         // Konkrétnější zkratky (se Shift/Alt) se musí zkontrolovat dřív.
+        // [en] More specific shortcuts (with Shift/Alt) must be checked first.
         let (add, dup, deselect, all, grab, rotate, delete, esc, home) = ui.input_mut(|i| {
             (
                 i.consume_key(Modifiers::SHIFT, Key::A),
@@ -215,6 +310,7 @@ impl SchematicView {
         });
         let tab = take_tab(ui.ctx());
         // Tab: do vybraného podobvodu a zpět (jako skupiny uzlů v Blenderu).
+        // [en] Tab: into the selected subcircuit and back (like node groups in Blender).
         if tab && matches!(self.tool, Tool::Idle) {
             let target = project.selection.single_comp().and_then(|id| {
                 match project.circuit.component(id).map(|c| c.kind) {
@@ -234,6 +330,7 @@ impl SchematicView {
         if esc {
             if self.add_menu.take().is_some() {
                 // jen zavřít nabídku
+                // [en] just close the menu
             } else if busy {
                 self.cancel(project);
             } else {
@@ -299,6 +396,9 @@ impl SchematicView {
         }
     }
 
+    /// Zahájí přesun vybraných součástek a vodičů.
+    ///
+    /// [en] Starts moving the selected components and wires.
     fn start_grab(&mut self, project: &Project, start: Point, by_key: bool, undo_pushed: bool) {
         self.tool = Tool::Grab {
             origin: Box::new(project.circuit.clone()),
@@ -312,6 +412,9 @@ impl SchematicView {
         };
     }
 
+    /// Zruší rozdělanou akci (přesun vrátí do původního stavu, uvolní tlačítko).
+    ///
+    /// [en] Cancels the action in progress (a move returns to the original state, a button is released).
     fn cancel(&mut self, project: &mut Project) {
         match std::mem::replace(&mut self.tool, Tool::Idle) {
             Tool::Grab {
@@ -328,6 +431,9 @@ impl SchematicView {
         }
     }
 
+    /// Dokončí přesun a uloží stav pro „Zpět“.
+    ///
+    /// [en] Finishes the move and saves the state for “Undo”.
     fn finish_grab(&mut self, project: &mut Project) {
         if let Tool::Grab {
             origin,
@@ -347,6 +453,9 @@ impl SchematicView {
         }
     }
 
+    /// Ovládání myší podle aktuálního nástroje.
+    ///
+    /// [en] Mouse control according to the current tool.
     fn pointer(
         &mut self,
         ui: &Ui,
@@ -368,6 +477,7 @@ impl SchematicView {
         match &mut self.tool {
             Tool::Idle => {
                 // Stisk tlačítka v obvodu.
+                // [en] Pressing a button in the circuit.
                 if response.is_pointer_button_down_on()
                     && primary_down
                     && let Some(m) = mouse
@@ -410,6 +520,7 @@ impl SchematicView {
                     project.selection.comps.insert(id);
                     project.after_structure_change();
                     // Se Shift zůstane nástroj aktivní pro další kus.
+                    // [en] With Shift the tool stays active for another piece.
                     if !shift {
                         self.tool = Tool::Idle;
                     }
@@ -499,6 +610,9 @@ impl SchematicView {
         }
     }
 
+    /// Začátek tažení: z vývodu nebo vodiče kreslí vodič, ze součástky přesouvá, jinde vybírá obdélníkem.
+    ///
+    /// [en] Start of a drag: from a pin or wire it draws a wire, from a component it moves, elsewhere it box-selects.
     fn begin_drag(&mut self, project: &mut Project, p0: Pos2, shift: bool, ctrl: bool) {
         let circuit = &project.circuit;
         if let Some(pin) = pin_at(circuit, p0) {
@@ -516,6 +630,7 @@ impl SchematicView {
             self.start_grab(project, snap(p0), false, false);
         } else if ctrl || wire_at(circuit, p0).is_some() {
             // Vodič jde začít i z libovolného bodu vodiče, nebo s Ctrl kdekoli.
+            // [en] A wire can also start from any point of a wire, or anywhere with Ctrl.
             self.tool = Tool::Wire {
                 start: snap(p0),
                 horizontal_first: None,
@@ -528,6 +643,9 @@ impl SchematicView {
         }
     }
 
+    /// Nakreslí vodiče, spojovací tečky a součástky s hodnotami ze simulace.
+    ///
+    /// [en] Draws wires, junction dots and components with values from the simulation.
     fn draw_circuit(&self, painter: &Painter, cam: Camera, project: &Project, mouse: Option<Pos2>) {
         let c = &project.circuit;
         let lw = cam.len(0.16).clamp(1.5, 4.0);
@@ -577,6 +695,7 @@ impl SchematicView {
             symbols::draw(painter, cam, comp, &values, look);
         }
         // Zvýraznění vývodu pod myší – odtud jde táhnout vodič.
+        // [en] Highlighting the pin under the mouse – a wire can be dragged from it.
         if matches!(self.tool, Tool::Idle)
             && let Some(m) = mouse
             && let Some(pin) = pin_at(c, m)
@@ -589,6 +708,9 @@ impl SchematicView {
         }
     }
 
+    /// Nakreslí náhled nástroje (umisťovaná součástka, nový vodič, obdélník výběru).
+    ///
+    /// [en] Draws the tool preview (component being placed, new wire, selection box).
     fn draw_tool(
         &self,
         painter: &Painter,
@@ -638,6 +760,7 @@ impl SchematicView {
                     }
                     painter.circle_filled(cam.to_screen(point(end)), 3.5, Color32::WHITE);
                     // Místa, kde by se vodič napojil i jinde než na začátku a konci.
+                    // [en] Places where the wire would connect other than at its start and end.
                     for p in warn {
                         painter.circle_stroke(
                             cam.to_screen(point(p)),
@@ -663,6 +786,9 @@ impl SchematicView {
         }
     }
 
+    /// Nabídka Přidat (Shift+A) u ukazatele myši.
+    ///
+    /// [en] The Add menu (Shift+A) at the mouse pointer.
     fn add_menu_ui(&mut self, ui: &Ui, lang: Lang, subs: Vec<(String, ComponentKind)>) {
         let Some(pos) = self.add_menu else { return };
         let mut chosen = None;
@@ -675,6 +801,7 @@ impl SchematicView {
                     ui.label(egui::RichText::new(tr(lang, T::Add)).strong());
                     ui.separator();
                     // Kategorie jako podnabídky (jako Shift+A v Blenderu).
+                    // [en] Categories as submenus (like Shift+A in Blender).
                     for cat in catalog::catalog(lang) {
                         ui.menu_button(tr(lang, cat.title), |ui| {
                             for (name, kind) in cat.items {
@@ -709,20 +836,31 @@ impl SchematicView {
     }
 }
 
+/// Klíč pro předání stisku Tab mezi snímky.
+///
+/// [en] Key for passing a Tab press between frames.
 fn tab_id() -> egui::Id {
     egui::Id::unique("logicflow-tab")
 }
 
 /// Zaznamená stisk klávesy Tab (zachycený dřív, než ho zpracuje egui).
+///
+/// [en] Records a Tab key press (captured before egui handles it).
 pub fn request_tab(ctx: &egui::Context) {
     ctx.data_mut(|d| d.insert_temp(tab_id(), true));
 }
 
+/// Vrátí a smaže zaznamenaný stisk Tab.
+///
+/// [en] Returns and clears the recorded Tab press.
 pub fn take_tab(ctx: &egui::Context) -> bool {
     ctx.data_mut(|d| d.remove_temp::<bool>(tab_id()))
         .unwrap_or(false)
 }
 
+/// Kliknutí: vybere součástku nebo vodič (se Shift přidá/odebere), přepne přepínač.
+///
+/// [en] Click: selects a component or wire (with Shift adds/removes), toggles a switch.
 fn click(project: &mut Project, m: Pos2, shift: bool) {
     if let Some(id) = component_at(&project.circuit, m) {
         if shift {
@@ -750,10 +888,16 @@ fn click(project: &mut Project, m: Pos2, shift: bool) {
 }
 
 /// Barva varování: vodič by se napojil i mimo své konce.
+///
+/// [en] Warning colour: the wire would also connect outside its ends.
 const WARN: Color32 = Color32::from_rgb(0xff, 0x8c, 0x1a);
 
 /// Cesta nového vodiče a místa, kde by se nechtěně napojil (mimo začátek a konec).
 /// Má-li zvolené lomení taková místa a opačné ne (nebo méně), použije se opačné.
+///
+/// [en] Route of a new wire and the places where it would connect unintentionally
+/// (outside its start and end). If the chosen bend has such places and the
+/// opposite one does not (or fewer), the opposite one is used.
 fn wire_route(
     c: &Circuit,
     start: Point,
@@ -782,6 +926,8 @@ fn wire_route(
 }
 
 /// Lomená cesta vodiče ze `start` do `end` (nejvýše dvě úsečky).
+///
+/// [en] Bent wire route from `start` to `end` (at most two segments).
 fn wire_path(start: Point, end: Point, horizontal_first: bool) -> Vec<(Point, Point)> {
     let corner = if horizontal_first {
         Point::new(end.x, start.y)
@@ -795,6 +941,8 @@ fn wire_path(start: Point, end: Point, horizontal_first: bool) -> Vec<(Point, Po
 }
 
 /// Součástka pod bodem (nejvyšší = poslední v seznamu).
+///
+/// [en] Component under the point (the topmost = last in the list).
 fn component_at(c: &Circuit, p: Pos2) -> Option<CompId> {
     c.components
         .iter()
@@ -803,6 +951,9 @@ fn component_at(c: &Circuit, p: Pos2) -> Option<CompId> {
         .map(|k| k.id)
 }
 
+/// Vývod pod bodem (nejbližší, do vzdálenosti půl bodu mřížky).
+///
+/// [en] Pin under the point (the nearest one, within half a grid point).
 fn pin_at(c: &Circuit, p: Pos2) -> Option<Point> {
     c.components
         .iter()
@@ -811,6 +962,9 @@ fn pin_at(c: &Circuit, p: Pos2) -> Option<Point> {
         .min_by(|a, b| point(*a).distance(p).total_cmp(&point(*b).distance(p)))
 }
 
+/// Vodič pod bodem.
+///
+/// [en] Wire under the point.
 fn wire_at(c: &Circuit, p: Pos2) -> Option<WireId> {
     c.wires
         .iter()
@@ -818,6 +972,9 @@ fn wire_at(c: &Circuit, p: Pos2) -> Option<WireId> {
         .map(|w| w.id)
 }
 
+/// Mřížka plátna (jemná a hrubá, při malém zvětšení jen hrubá).
+///
+/// [en] Canvas grid (fine and coarse, only coarse when zoomed out).
 fn draw_grid(painter: &Painter, rect: Rect, cam: Camera) {
     let min = cam.to_world(rect.min);
     let max = cam.to_world(rect.max);
@@ -866,6 +1023,7 @@ mod tests {
     fn wire_route_avoids_accidental_contacts() {
         let mut c = Circuit::default();
         // Cizí vodič končí v (5,0) – přímo na cestě „nejdřív vodorovně“.
+        // [en] A foreign wire ends at (5,0) – right on the “horizontal first” route.
         c.add_wire(Point::new(5, 0), Point::new(5, -3));
         let (segs, warn) = wire_route(&c, Point::new(0, 0), Point::new(10, 4), true);
         assert!(warn.is_empty());
@@ -875,6 +1033,7 @@ mod tests {
             "lomí se opačně"
         );
         // Když se dotknou obě varianty, varování zůstane vidět.
+        // [en] When both variants touch something, the warning stays visible.
         c.add_wire(Point::new(0, 2), Point::new(-3, 2));
         let (_, warn) = wire_route(&c, Point::new(0, 0), Point::new(10, 4), true);
         assert_eq!(warn, [Point::new(5, 0)]);
@@ -901,6 +1060,7 @@ mod tests {
     fn picking() {
         let c = crate::examples::and_or();
         // Výstup přepínače A je na (2, 0).
+        // [en] The output of switch A is at (2, 0).
         assert_eq!(pin_at(&c, pos2(2.2, 0.1)), Some(Point::new(2, 0)));
         assert!(component_at(&c, pos2(0.0, 0.0)).is_some());
         assert!(wire_at(&c, pos2(4.0, 0.1)).is_some());

@@ -2,6 +2,11 @@
 //!
 //! Každá oblast má záhlaví s volbou typu editoru. Oblasti jde přetahovat
 //! za záhlaví, měnit jejich velikost a skládat do záložek.
+//!
+//! [en] Areas in the style of Blender.
+//!
+//! Each area has a header with a choice of editor type. Areas can be dragged
+//! by their header, resized and stacked into tabs.
 
 use crate::i18n::{Lang, T, tr};
 use crate::panels::{self, TruthCache};
@@ -13,19 +18,48 @@ use egui::{RichText, Sense, Ui};
 use egui_tiles::{Behavior, SimplificationOptions, TileId, Tiles, Tree, UiResponse};
 
 /// Typ editoru zobrazeného v oblasti.
+///
+/// [en] Type of editor shown in an area.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EditorKind {
+    /// Editor schématu.
+    ///
+    /// [en] Schematic editor.
     Schematic,
+    /// Časový diagram.
+    ///
+    /// [en] Timing diagram.
     Timing,
+    /// Vlastnosti vybrané součástky.
+    ///
+    /// [en] Properties of the selected component.
     Properties,
+    /// Hierarchie: listy projektu a součástky.
+    ///
+    /// [en] Hierarchy: project sheets and components.
     Hierarchy,
+    /// Knihovna součástek.
+    ///
+    /// [en] Component library.
     Library,
+    /// Pravdivostní tabulka.
+    ///
+    /// [en] Truth table.
     TruthTable,
+    /// Paměti (připravuje se).
+    ///
+    /// [en] Memories (coming later).
     Memory,
+    /// Nápověda.
+    ///
+    /// [en] Help.
     Help,
 }
 
 impl EditorKind {
+    /// Všechny typy editorů v pořadí nabídky.
+    ///
+    /// [en] All editor types in menu order.
     pub const ALL: [Self; 8] = [
         Self::Schematic,
         Self::Timing,
@@ -37,6 +71,9 @@ impl EditorKind {
         Self::Help,
     ];
 
+    /// Název typu editoru.
+    ///
+    /// [en] Name of the editor type.
     pub fn title(self, lang: Lang) -> &'static str {
         tr(
             lang,
@@ -54,15 +91,32 @@ impl EditorKind {
     }
 }
 
+/// Obsah jedné oblasti: typ editoru a jeho vlastní stav.
+///
+/// [en] Content of one area: the editor type and its own state.
 pub struct Pane {
+    /// Zobrazený typ editoru.
+    ///
+    /// [en] Editor type shown.
     pub kind: EditorKind,
+    /// Pohled editoru schématu (každá oblast má vlastní).
+    ///
+    /// [en] Schematic editor view (each area has its own).
     pub view: SchematicView,
+    /// Text hledání v knihovně součástek.
+    ///
+    /// [en] Search text in the component library.
     pub search: String,
     /// Kapitola nápovědy zobrazená v oblasti typu Nápověda.
+    ///
+    /// [en] Help chapter shown in an area of type Help.
     pub help_section: usize,
 }
 
 impl Pane {
+    /// Oblast s daným typem editoru.
+    ///
+    /// [en] Area with the given editor type.
     pub fn new(kind: EditorKind) -> Self {
         Self {
             kind,
@@ -74,22 +128,49 @@ impl Pane {
 }
 
 /// Požadavek na změnu rozložení oblastí (provede se po vykreslení stromu).
+///
+/// [en] Request to change the area layout (carried out after the tree is drawn).
 #[derive(Clone, Copy, Debug)]
 pub enum AreaRequest {
+    /// Rozdělit oblast v daném směru.
+    ///
+    /// [en] Split the area in the given direction.
     Split(TileId, egui_tiles::LinearDir),
+    /// Zavřít oblast.
+    ///
+    /// [en] Close the area.
     Close(TileId),
 }
 
 /// Sdílený kontext pro vykreslení oblastí v jednom snímku.
+///
+/// [en] Shared context for drawing the areas in one frame.
 pub struct AreaBehavior<'a> {
+    /// Otevřený projekt.
+    ///
+    /// [en] The open project.
     pub project: &'a mut Project,
+    /// Mezivýsledek pravdivostní tabulky (přepočítá se při změně obvodu).
+    ///
+    /// [en] Cached truth table (recomputed when the circuit changes).
     pub truth_cache: &'a mut TruthCache,
+    /// Jazyk rozhraní.
+    ///
+    /// [en] Interface language.
     pub lang: Lang,
+    /// Požadavky na rozdělení a zavření oblastí z tohoto snímku.
+    ///
+    /// [en] Requests to split and close areas from this frame.
     pub requests: Vec<AreaRequest>,
     /// Lze oblast zavřít (není poslední)?
+    ///
+    /// [en] Can the area be closed (is it not the last one)?
     pub can_close: bool,
 }
 
+/// Výška záhlaví oblasti.
+///
+/// [en] Height of an area header.
 const HEADER_H: f32 = 26.0;
 
 impl Behavior<Pane> for AreaBehavior<'_> {
@@ -97,11 +178,15 @@ impl Behavior<Pane> for AreaBehavior<'_> {
         pane.kind.title(self.lang).into()
     }
 
+    /// Záhlaví oblasti (typ editoru, list, nabídka Oblast) a obsah editoru.
+    ///
+    /// [en] Area header (editor type, sheet, Area menu) and the editor content.
     fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut Pane) -> UiResponse {
         let lang = self.lang;
         let mut drag_started = false;
 
         // Záhlaví oblasti.
+        // [en] Area header.
         egui::Frame::new()
             .fill(colors::HEADER)
             .inner_margin(egui::Margin::symmetric(6, 2))
@@ -132,6 +217,7 @@ impl Behavior<Pane> for AreaBehavior<'_> {
                                 .color(colors::TEXT_WEAK),
                         );
                         // Kde právě jsme: Hlavní obvod / podobvod.
+                        // [en] Where we are now: Main circuit / subcircuit.
                         if let Some(name) = self.project.sheet_name() {
                             ui.separator();
                             if ui
@@ -146,6 +232,7 @@ impl Behavior<Pane> for AreaBehavior<'_> {
                     }
 
                     // Nabídka oblasti vpravo, zbytek záhlaví je úchyt pro přetažení.
+                    // [en] Area menu on the right, the rest of the header is a handle for dragging.
                     let mut menu = |ui: &mut Ui| self.area_menu(ui, tile_id);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.menu_button(tr(lang, T::AreaMenu), &mut menu)
@@ -163,6 +250,7 @@ impl Behavior<Pane> for AreaBehavior<'_> {
             });
 
         // Obsah oblasti.
+        // [en] Area content.
         let p = &mut *self.project;
         match pane.kind {
             EditorKind::Schematic => pane.view.ui(ui, p, lang),
@@ -199,6 +287,9 @@ impl Behavior<Pane> for AreaBehavior<'_> {
 }
 
 impl AreaBehavior<'_> {
+    /// Nabídka Oblast: rozdělit vodorovně / svisle, zavřít.
+    ///
+    /// [en] The Area menu: split horizontally / vertically, close.
     fn area_menu(&mut self, ui: &mut Ui, tile: TileId) {
         use egui_tiles::LinearDir::{Horizontal, Vertical};
         let lang = self.lang;
@@ -222,6 +313,8 @@ impl AreaBehavior<'_> {
 }
 
 /// Provede požadavky na rozdělení a zavření oblastí.
+///
+/// [en] Carries out the requests to split and close areas.
 pub fn apply_requests(tree: &mut Tree<Pane>, requests: Vec<AreaRequest>) {
     for r in requests {
         match r {
@@ -235,6 +328,9 @@ pub fn apply_requests(tree: &mut Tree<Pane>, requests: Vec<AreaRequest>) {
     }
 }
 
+/// Počet oblastí ve stromu.
+///
+/// [en] Number of areas in the tree.
 pub fn count_panes(tree: &Tree<Pane>) -> usize {
     tree.tiles
         .tiles()
@@ -243,6 +339,8 @@ pub fn count_panes(tree: &Tree<Pane>) -> usize {
 }
 
 /// Rozdělí oblast na dvě; nová oblast zobrazí stejný typ editoru (jako v Blenderu).
+///
+/// [en] Splits an area in two; the new area shows the same editor type (as in Blender).
 fn split(tree: &mut Tree<Pane>, tile: TileId, dir: egui_tiles::LinearDir) {
     let Some(egui_tiles::Tile::Pane(p)) = tree.tiles.get(tile) else {
         return;
@@ -251,6 +349,7 @@ fn split(tree: &mut Tree<Pane>, tile: TileId, dir: egui_tiles::LinearDir) {
     let parent = tree.tiles.parent_of(tile);
 
     // Rodič je řada ve stejném směru: stačí vložit vedle.
+    // [en] The parent is a row in the same direction: inserting alongside is enough.
     if let Some(pid) = parent
         && let Some(egui_tiles::Tile::Container(egui_tiles::Container::Linear(lin))) =
             tree.tiles.get_mut(pid)
@@ -269,6 +368,7 @@ fn split(tree: &mut Tree<Pane>, tile: TileId, dir: egui_tiles::LinearDir) {
     }
 
     // Jinak se oblast nahradí novou řadou [oblast, nová].
+    // [en] Otherwise the area is replaced by a new row [area, new].
     let pair = tree
         .tiles
         .insert_container(egui_tiles::Linear::new_binary(dir, [tile, new], 0.5));
@@ -293,6 +393,7 @@ fn split(tree: &mut Tree<Pane>, tile: TileId, dir: egui_tiles::LinearDir) {
                     }
                     egui_tiles::Container::Grid(_) => {
                         // V mřížce jen přidáme novou oblast jako další buňku.
+                        // [en] In a grid we just add the new area as another cell.
                         tree.tiles.remove(pair);
                         if let Some(egui_tiles::Tile::Container(c)) = tree.tiles.get_mut(pid) {
                             c.add_child(new);
@@ -305,17 +406,37 @@ fn split(tree: &mut Tree<Pane>, tile: TileId, dir: egui_tiles::LinearDir) {
 }
 
 /// Pracovní plocha = pojmenované rozložení oblastí (jako v Blenderu).
+///
+/// [en] Workspace = a named layout of areas (as in Blender).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Workspace {
+    /// Návrh: schéma, knihovna, vlastnosti.
+    ///
+    /// [en] Design: schematic, library, properties.
     Design,
+    /// Simulace: schéma a časový diagram.
+    ///
+    /// [en] Simulation: schematic and timing diagram.
     Simulation,
+    /// Analýza: pravdivostní tabulka.
+    ///
+    /// [en] Analysis: truth table.
     Analysis,
+    /// Paměť (připravuje se).
+    ///
+    /// [en] Memory (coming later).
     Memory,
 }
 
 impl Workspace {
+    /// Všechny pracovní plochy v pořadí záložek.
+    ///
+    /// [en] All workspaces in tab order.
     pub const ALL: [Self; 4] = [Self::Design, Self::Simulation, Self::Analysis, Self::Memory];
 
+    /// Název pracovní plochy.
+    ///
+    /// [en] Workspace name.
     pub fn title(self, lang: Lang) -> &'static str {
         tr(
             lang,
@@ -329,6 +450,8 @@ impl Workspace {
     }
 
     /// Výchozí rozložení oblastí pracovní plochy.
+    ///
+    /// [en] Default area layout of the workspace.
     pub fn default_tree(self) -> Tree<Pane> {
         use EditorKind as E;
         use egui_tiles::LinearDir::{Horizontal, Vertical};
@@ -373,6 +496,9 @@ impl Workspace {
     }
 }
 
+/// Řada oblastí v daném směru s poměry velikostí.
+///
+/// [en] Row of areas in the given direction with size shares.
 fn linear(
     tiles: &mut Tiles<Pane>,
     dir: egui_tiles::LinearDir,
@@ -386,6 +512,8 @@ fn linear(
 }
 
 /// Po otevření jiného obvodu: všechny editory schématu se přizpůsobí novému obsahu.
+///
+/// [en] After opening another circuit: all schematic editors adapt to the new content.
 pub fn reset_views(tree: &mut Tree<Pane>) {
     for tile in tree.tiles.tiles_mut() {
         if let egui_tiles::Tile::Pane(p) = tile {
@@ -414,12 +542,14 @@ mod tests {
         assert_eq!(count_panes(&tree), 2);
         let schem = first_pane(&tree, EditorKind::Schematic);
         // Ve stejném směru jako rodič.
+        // [en] In the same direction as the parent.
         apply_requests(
             &mut tree,
             vec![AreaRequest::Split(schem, egui_tiles::LinearDir::Horizontal)],
         );
         assert_eq!(count_panes(&tree), 3);
         // Kolmo na rodiče – vznikne nová řada.
+        // [en] Perpendicular to the parent – a new row appears.
         apply_requests(
             &mut tree,
             vec![AreaRequest::Split(schem, egui_tiles::LinearDir::Vertical)],
@@ -438,6 +568,7 @@ mod tests {
         apply_requests(&mut tree, vec![AreaRequest::Close(only)]);
         assert_eq!(count_panes(&tree), 1);
         // Rozdělení jediné (kořenové) oblasti.
+        // [en] Splitting the only (root) area.
         apply_requests(
             &mut tree,
             vec![AreaRequest::Split(only, egui_tiles::LinearDir::Vertical)],

@@ -1,6 +1,9 @@
 //! LogicFlow – simulátor logických obvodů.
+//!
+//! [en] LogicFlow – logic circuit simulator.
 
 // V release verzi na Windows neotevírat okno konzole.
+// [en] In the release build on Windows, do not open a console window.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
@@ -17,8 +20,12 @@ mod symbols;
 mod theme;
 mod timing;
 
+/// Spuštění aplikace: okno, ikona, uložené nastavení a soubor z příkazové řádky.
+///
+/// [en] Application start: window, icon, saved settings and the file from the command line.
 fn main() -> eframe::Result {
     // Soubor předaný na příkazové řádce (nebo dvojklikem) se rovnou otevře.
+    // [en] A file given on the command line (or by double-click) is opened right away.
     let open = std::env::args_os().nth(1).map(std::path::PathBuf::from);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -37,7 +44,12 @@ fn main() -> eframe::Result {
 }
 
 /// Ikona aplikace kreslená v kódu: zelený obdélníkový průběh na tmavém pozadí.
+///
+/// [en] Application icon drawn in code: a green square wave on a dark background.
 fn icon() -> egui::IconData {
+    /// Velikost ikony v pixelech.
+    ///
+    /// [en] Icon size in pixels.
     const N: usize = 64;
     let mut rgba = vec![0u8; N * N * 4];
     let wave = |x: usize| if (x / 16).is_multiple_of(2) { 40 } else { 22 };
@@ -45,6 +57,7 @@ fn icon() -> egui::IconData {
         for x in 0..N {
             let i = (y * N + x) * 4;
             // Zaoblený čtverec.
+            // [en] Rounded square.
             let (dx, dy) = (x.min(N - 1 - x), y.min(N - 1 - y));
             let corner = dx < 10 && dy < 10 && (10 - dx).pow(2) + (10 - dy).pow(2) > 100;
             if corner {

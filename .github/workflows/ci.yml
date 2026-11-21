@@ -26,6 +26,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # Komentáře v kódu česky i anglicky (CONTRIBUTING.md → Komentáře v kódu).
+      - run: python3 scripts/komentare.py kontrola
 
   napoveda:
     # Nápověda v Markdownu (docs/napoveda): sestavení obou jazyků mdBookem.

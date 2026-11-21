@@ -1,13 +1,27 @@
 //! Nabídka součástek pro Shift+A a knihovnu.
+//!
+//! [en] Component menu for Shift+A and the library.
 
 use crate::i18n::{Lang, T, tr};
 use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, PinSide};
 
+/// Kategorie součástek v nabídce (Vstupy, Hradla, …).
+///
+/// [en] Component category in the menu (Inputs, Gates, …).
 pub struct Category {
+    /// Název kategorie.
+    ///
+    /// [en] Category title.
     pub title: T,
+    /// Položky: zobrazený název a druh součástky.
+    ///
+    /// [en] Items: displayed name and kind of component.
     pub items: Vec<(String, ComponentKind)>,
 }
 
+/// Všechny kategorie vestavěných součástek v daném jazyce.
+///
+/// [en] All categories of built-in components in the given language.
 pub fn catalog(lang: Lang) -> Vec<Category> {
     vec![
         Category {
@@ -77,6 +91,8 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
 }
 
 /// Podobvody projektu, které lze vložit do právě upravovaného listu.
+///
+/// [en] Project subcircuits that can be inserted into the sheet being edited.
 pub fn subcircuit_items(project: &crate::project::Project) -> Vec<(String, ComponentKind)> {
     project
         .subcircuits
@@ -87,6 +103,8 @@ pub fn subcircuit_items(project: &crate::project::Project) -> Vec<(String, Compo
 }
 
 /// Součástky, které přibudou v dalších verzích (jen pro zobrazení v knihovně).
+///
+/// [en] Components coming in later versions (only shown in the library).
 pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 2] {
     [
         (T::CatMemory, &["ROM", "RAM", "EEPROM"], "0.4"),
@@ -99,6 +117,8 @@ pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 2] {
 }
 
 /// Název druhu součástky pro panel vlastností a hierarchii.
+///
+/// [en] Name of the kind of component for the properties panel and the hierarchy.
 pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
     match kind {
         ComponentKind::Gate { gate, .. } => format!("{} ({})", tr(lang, T::Gate), gate.name()),
@@ -120,6 +140,8 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
 }
 
 /// Název funkčního bloku i s velikostí („Multiplexor 4:1“, „Čítač 4bitový“).
+///
+/// [en] Name of a function block including its size (“Multiplexer 4:1”, “4-bit counter”).
 pub fn block_name(block: BlockKind, lang: Lang) -> String {
     let bit = |n: u8| match lang {
         Lang::Cs => format!("{n}bitový"),
@@ -149,6 +171,8 @@ pub fn block_name(block: BlockKind, lang: Lang) -> String {
 }
 
 /// Název druhu klopného obvodu.
+///
+/// [en] Name of the kind of flip-flop.
 pub fn ff_name(ff: FlipFlopKind, lang: Lang) -> String {
     match ff {
         FlipFlopKind::DLatch => format!("D ({})", tr(lang, T::LevelShort)),

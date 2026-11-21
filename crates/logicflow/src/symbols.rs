@@ -1,4 +1,6 @@
 //! Kreslení značek součástek (ČSN EN 60617, obdélníkové značky).
+//!
+//! [en] Drawing of component symbols (EN 60617, rectangular symbols).
 
 use crate::theme::{colors, signal_color};
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Vec2, pos2, vec2};
@@ -8,22 +10,38 @@ use logicflow_core::{
 };
 
 /// Styl značek: evropský (ČSN EN 60617-12) nebo americký (ANSI/IEEE Std 91).
+///
+/// [en] Symbol style: European (EN 60617-12) or American (ANSI/IEEE Std 91).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SymbolStyle {
+    /// Evropské obdélníkové značky.
+    ///
+    /// [en] European rectangular symbols.
     #[default]
     Iec,
+    /// Americké tvarové značky.
+    ///
+    /// [en] American distinctive-shape symbols.
     Ansi,
 }
 
+/// Klíč, pod kterým je styl uložený v datech egui.
+///
+/// [en] Key under which the style is stored in egui data.
 fn style_id() -> egui::Id {
     egui::Id::unique("logicflow-symbol-style")
 }
 
 /// Nastaví styl značek pro kreslení v tomto snímku.
+///
+/// [en] Sets the symbol style for drawing in this frame.
 pub fn set_style(ctx: &egui::Context, style: SymbolStyle) {
     ctx.data_mut(|d| d.insert_temp(style_id(), style));
 }
 
+/// Styl značek platný pro tento snímek.
+///
+/// [en] Symbol style valid for this frame.
 fn style(painter: &Painter) -> SymbolStyle {
     painter
         .ctx()
@@ -32,63 +50,122 @@ fn style(painter: &Painter) -> SymbolStyle {
 }
 
 /// Velikost jedné jednotky mřížky v pixelech při zoomu 100 %.
+///
+/// [en] Size of one grid unit in pixels at 100 % zoom.
 pub const UNIT: f32 = 16.0;
 
 /// Převod mezi světovými (mřížka) a obrazovkovými souřadnicemi.
+///
+/// [en] Conversion between world (grid) and screen coordinates.
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {
+    /// Poloha bodu mřížky (0, 0) na obrazovce.
+    ///
+    /// [en] Screen position of grid point (0, 0).
     pub origin: Pos2,
+    /// Počet pixelů na jednotku mřížky.
+    ///
+    /// [en] Pixels per grid unit.
     pub scale: f32,
 }
 
 impl Camera {
+    /// Světový bod na obrazovce.
+    ///
+    /// [en] World point on screen.
     pub fn to_screen(self, p: Pos2) -> Pos2 {
         self.origin + p.to_vec2() * self.scale
     }
 
+    /// Bod obrazovky ve světových souřadnicích.
+    ///
+    /// [en] Screen point in world coordinates.
     pub fn to_world(self, p: Pos2) -> Pos2 {
         ((p - self.origin) / self.scale).to_pos2()
     }
 
+    /// Délka ve světových jednotkách převedená na pixely.
+    ///
+    /// [en] Length in world units converted to pixels.
     pub fn len(self, l: f32) -> f32 {
         l * self.scale
     }
 
+    /// Obdélník ve světových souřadnicích převedený na obrazovku.
+    ///
+    /// [en] Rectangle in world coordinates converted to the screen.
     pub fn rect(self, (x0, y0, x1, y1): (f32, f32, f32, f32)) -> Rect {
         Rect::from_min_max(self.to_screen(pos2(x0, y0)), self.to_screen(pos2(x1, y1)))
     }
 
+    /// Tloušťka čáry podle zvětšení (1–3 px).
+    ///
+    /// [en] Line width according to the zoom (1–3 px).
     pub fn line_width(self) -> f32 {
         self.len(0.12).clamp(1.0, 3.0)
     }
 }
 
 /// Stav, ve kterém se součástka kreslí.
+///
+/// [en] State in which the component is drawn.
 #[derive(Clone, Copy, Default)]
 pub struct Look {
+    /// Součástka je vybraná.
+    ///
+    /// [en] The component is selected.
     pub selected: bool,
+    /// Ukazatel myši je nad součástkou.
+    ///
+    /// [en] The mouse pointer is over the component.
     pub hovered: bool,
     /// Poloprůhledný náhled při umisťování.
+    ///
+    /// [en] Semi-transparent preview while placing.
     pub ghost: bool,
 }
 
 /// Hodnoty potřebné ke kreslení (ze simulátoru).
+///
+/// [en] Values needed for drawing (from the simulator).
 #[derive(Default)]
 pub struct Values {
+    /// Hodnoty na vstupech.
+    ///
+    /// [en] Values at the inputs.
     pub inputs: Vec<LogicValue>,
+    /// Hodnoty výstupů.
+    ///
+    /// [en] Output values.
     pub outputs: Vec<LogicValue>,
     /// Název a názvy vývodů podobvodu (jen u instancí podobvodů).
+    ///
+    /// [en] Name and pin names of a subcircuit (only for subcircuit instances).
     pub sub: Option<SubInfo>,
 }
 
 /// Popis podobvodu pro kreslení jeho značky.
+///
+/// [en] Description of a subcircuit for drawing its symbol.
 pub struct SubInfo {
+    /// Název podobvodu.
+    ///
+    /// [en] Subcircuit name.
     pub name: String,
+    /// Názvy vstupů shora dolů.
+    ///
+    /// [en] Input names from top to bottom.
     pub inputs: Vec<String>,
+    /// Názvy výstupů shora dolů.
+    ///
+    /// [en] Output names from top to bottom.
     pub outputs: Vec<String>,
 }
 
 impl SubInfo {
+    /// Popis podobvodu pro instanci druhu `kind` (None, pokud to není podobvod).
+    ///
+    /// [en] Subcircuit description for an instance of kind `kind` (None if it is not a subcircuit).
     pub fn of(project: &crate::project::Project, kind: ComponentKind) -> Option<Self> {
         let ComponentKind::Subcircuit { id, .. } = kind else {
             return None;
@@ -103,8 +180,14 @@ impl SubInfo {
     }
 }
 
+/// Barva obrysu vybrané součástky.
+///
+/// [en] Outline colour of a selected component.
 pub const SELECTED: Color32 = Color32::from_rgb(0xff, 0xa0, 0x30);
 
+/// Zeslabí barvu u poloprůhledného náhledu.
+///
+/// [en] Dims the colour for a semi-transparent preview.
 fn fade(c: Color32, look: Look) -> Color32 {
     if look.ghost {
         c.gamma_multiply(0.45)
@@ -113,17 +196,24 @@ fn fade(c: Color32, look: Look) -> Color32 {
     }
 }
 
+/// Místní bod značky ve světových souřadnicích (s otočením).
+///
+/// [en] Local point of a symbol in world coordinates (with rotation).
 fn local(comp: &Component, x: f32, y: f32) -> Pos2 {
     let (rx, ry) = comp.rotation.apply_f(x, y);
     pos2(comp.pos.x as f32 + rx, comp.pos.y as f32 + ry)
 }
 
 /// Zarovnání popisku podle směru, kterým od součástky míří.
+///
+/// [en] Label alignment according to the direction in which it points away from the component.
 fn align_for(rot: Rotation, dx: f32) -> Align2 {
     align_dir(rot, dx, 0.0)
 }
 
 /// Zarovnání textu, který od bodu pokračuje směrem (`dx`, `dy`) v místních souřadnicích.
+///
+/// [en] Alignment of text that continues from a point in direction (`dx`, `dy`) in local coordinates.
 fn align_dir(rot: Rotation, dx: f32, dy: f32) -> Align2 {
     let (x, y) = rot.apply_f(dx, dy);
     if x < -0.5 {
@@ -137,6 +227,9 @@ fn align_dir(rot: Rotation, dx: f32, dy: f32) -> Align2 {
     }
 }
 
+/// Text ve světových souřadnicích; při malém zvětšení se nekreslí.
+///
+/// [en] Text in world coordinates; not drawn when zoomed out too far.
 fn text(
     painter: &Painter,
     cam: Camera,
@@ -158,6 +251,9 @@ fn text(
     );
 }
 
+/// Nakreslí součástku včetně vývodů, obarvených podle hodnot ze simulátoru.
+///
+/// [en] Draws a component including its pins, coloured by the values from the simulator.
 pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, look: Look) {
     let lw = cam.line_width();
     let outline = if look.selected {
@@ -170,11 +266,13 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
     let (x0, y0, x1, y1) = comp.kind.body_local();
     let (ins, outs) = comp.kind.pins_local();
     // Vývod vede od nejbližšího bodu obrysu těla.
+    // [en] A pin starts at the nearest point of the body's outline.
     let edge = |px: i32, py: i32| local(comp, (px as f32).clamp(x0, x1), (py as f32).clamp(y0, y1));
     let inverted = matches!(comp.kind, ComponentKind::Gate { gate, .. } if gate.is_inverted());
     let lead = Stroke::new(lw, fade(colors::SYMBOL, look));
 
     // Vývody: krátká čára od těla k bodu mřížky a tečka obarvená hodnotou.
+    // [en] Pins: a short line from the body to the grid point and a dot coloured by the value.
     let pin_color = |v: LogicValue| fade(signal_color(v), look);
     for (i, (px, py)) in ins.iter().enumerate() {
         let v = values.inputs.get(i).copied().unwrap_or(LogicValue::Z);
@@ -204,6 +302,7 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
                 negation(painter, cam, comp, x1, 0.0, 1.0, outline);
             }
             // Značka v horní části těla (u otočených hradel uprostřed).
+            // [en] Symbol in the upper part of the body (in the middle for rotated gates).
             let label_pos = if gate.is_unary() || inputs <= 1 || comp.rotation.is_vertical() {
                 local(comp, 0.0, 0.0)
             } else {
@@ -236,6 +335,7 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
             painter.rect_filled(body, cam.len(0.3), fill);
             painter.rect_stroke(body, cam.len(0.3), outline, egui::StrokeKind::Middle);
             // Jezdec: vpravo (ve směru výstupu) = 1.
+            // [en] Slider: to the right (towards the output) = 1.
             let dir = if on { 0.55 } else { -0.55 };
             let c = local(comp, dir, 0.0);
             let size = if comp.rotation.is_vertical() {
@@ -295,6 +395,7 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
             painter.rect_filled(body, cam.len(0.3), fill);
             painter.rect_stroke(body, cam.len(0.3), outline, egui::StrokeKind::Middle);
             // Obdélníkový průběh obarvený aktuální hodnotou.
+            // [en] Square wave coloured by the current value.
             let v = values.outputs.first().copied().unwrap_or(LogicValue::Z);
             let wave = [
                 (-1.0, 0.45),
@@ -401,9 +502,14 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
     }
 }
 
+/// Názvy vstupů sedmisegmentovky.
+///
+/// [en] Input names of the seven-segment display.
 const SEG_NAMES: [&str; 8] = ["a", "b", "c", "d", "e", "f", "g", "dp"];
 
 /// Barva segmentu zobrazovače podle hodnoty.
+///
+/// [en] Display segment colour according to the value.
 fn segment_color(v: LogicValue) -> Color32 {
     match v {
         LogicValue::One => Color32::from_rgb(0xff, 0x45, 0x30),
@@ -414,6 +520,8 @@ fn segment_color(v: LogicValue) -> Color32 {
 }
 
 /// Tmavé tělo zobrazovače s názvy vstupů a popiskem nad ním.
+///
+/// [en] Dark display body with input names and a label above it.
 fn draw_display_body(
     painter: &Painter,
     cam: Camera,
@@ -434,6 +542,7 @@ fn draw_display_body(
     let (ins, _) = comp.kind.pins_local();
     for ((px, py), name) in ins.iter().zip(names) {
         // Název vstupu uvnitř těla u jeho vývodu, text míří dovnitř.
+        // [en] Input name inside the body at its pin, the text points inwards.
         let (x, y, dx, dy) = match side {
             PinSide::Left => (x0 + 0.3, *py as f32, 1.0, 0.0),
             PinSide::Right => (x1 - 0.3, *py as f32, -1.0, 0.0),
@@ -452,6 +561,7 @@ fn draw_display_body(
     }
     if side == PinSide::Top && !comp.label.is_empty() {
         // Nahoře jsou vývody – popisek patří pod tělo.
+        // [en] The pins are on top – the label goes below the body.
         let (_, _, _, by1) = comp.body();
         text(
             painter,
@@ -469,6 +579,9 @@ fn draw_display_body(
 
 /// Sedmisegmentová číslice. `geom` = (střed x, poloviční šířka, poloviční výška),
 /// `segs` = hodnoty segmentů a, b, c, d, e, f, g, dp.
+///
+/// [en] Seven-segment digit. `geom` = (centre x, half width, half height),
+/// `segs` = values of segments a, b, c, d, e, f, g, dp.
 fn draw_digit(
     painter: &Painter,
     cam: Camera,
@@ -478,7 +591,9 @@ fn draw_digit(
     look: Look,
 ) {
     let t = 0.45;
-    let g = 0.06; // mezera mezi segmenty
+    // mezera mezi segmenty
+    // [en] gap between segments
+    let g = 0.06;
     let (l, r) = (cx - hw, cx + hw);
     let rects = [
         (l + t + g, -hh, r - t - g, -hh + t),      // a
@@ -509,6 +624,8 @@ fn draw_digit(
 }
 
 /// Popisek součástky nad tělem.
+///
+/// [en] Component label above the body.
 fn top_label(painter: &Painter, cam: Camera, comp: &Component, look: Look) {
     if comp.label.is_empty() {
         return;
@@ -526,6 +643,8 @@ fn top_label(painter: &Painter, cam: Camera, comp: &Component, look: Look) {
 }
 
 /// Dynamický vstup (trojúhelník u okraje těla) pro hodinový vstup na výšce `y`.
+///
+/// [en] Dynamic input (triangle at the body edge) for the clock input at height `y`.
 fn clock_triangle(painter: &Painter, cam: Camera, comp: &Component, x0: f32, y: f32, ink: Color32) {
     let tri = [
         local(comp, x0, y - 0.45),
@@ -541,6 +660,9 @@ fn clock_triangle(painter: &Painter, cam: Camera, comp: &Component, x0: f32, y: 
 
 /// Značka podobvodu: obdélník s jeho názvem a popisky vývodů. Dvojitá horní
 /// čára odlišuje podobvod od vestavěných bloků.
+///
+/// [en] Subcircuit symbol: a rectangle with its name and pin labels. A double top
+/// line distinguishes a subcircuit from built-in blocks.
 fn draw_subcircuit(
     painter: &Painter,
     cam: Camera,
@@ -612,6 +734,9 @@ fn draw_subcircuit(
 
 /// Rozdělí název do nejvýše dvou řádků po `max` znacích (zalomí u mezery,
 /// příliš dlouhá slova zkrátí).
+///
+/// [en] Splits a name into at most two lines of `max` characters (breaks at a space,
+/// shortens words that are too long).
 fn name_lines(name: &str, max: usize) -> Vec<String> {
     let cut = |s: &str| -> String {
         if s.chars().count() > max {
@@ -624,6 +749,7 @@ fn name_lines(name: &str, max: usize) -> Vec<String> {
         return vec![name.to_owned()];
     }
     // Mezera nejblíž polovině názvu.
+    // [en] The space nearest to the middle of the name.
     let half = name.len() / 2;
     let split = name
         .match_indices(' ')
@@ -636,6 +762,8 @@ fn name_lines(name: &str, max: usize) -> Vec<String> {
 }
 
 /// Obdélníková značka funkčního bloku s kvalifikátorem a názvy vývodů.
+///
+/// [en] Rectangular symbol of a function block with a qualifier and pin names.
 fn draw_block(
     painter: &Painter,
     cam: Camera,
@@ -696,6 +824,9 @@ fn draw_block(
     top_label(painter, cam, comp, look);
 }
 
+/// Popisek vedle značky (přepínač, LED…), posunutý o `dx` od středu.
+///
+/// [en] Label next to the symbol (switch, LED…), shifted by `dx` from the centre.
 fn draw_label(painter: &Painter, cam: Camera, comp: &Component, dx: f32, look: Look) {
     if comp.label.is_empty() {
         return;
@@ -714,6 +845,11 @@ fn draw_label(painter: &Painter, cam: Camera, comp: &Component, dx: f32, look: L
 /// Indikátor negace podle ČSN EN 60617-12: pravoúhlý trojúhelník na vývodu.
 /// Pravý úhel leží na obrysu těla (`edge`), přepona klesá k vodiči směrem od těla
 /// (`dir` = +1 pro výstup vpravo, −1 pro vstup vlevo).
+///
+/// [en] Negation indicator according to EN 60617-12: a right triangle at the pin.
+/// The right angle lies on the body outline (`edge`), the hypotenuse falls
+/// towards the wire away from the body (`dir` = +1 for an output on the
+/// right, −1 for an input on the left).
 fn negation(
     painter: &Painter,
     cam: Camera,
@@ -733,6 +869,8 @@ fn negation(
 }
 
 /// Kroužek negace (americké značky) se středem v `(x, y)`.
+///
+/// [en] Negation circle (American symbols) centred at `(x, y)`.
 fn bubble(
     painter: &Painter,
     cam: Camera,
@@ -748,6 +886,8 @@ fn bubble(
 }
 
 /// Body kvadratické Bézierovy křivky (bez počátečního bodu).
+///
+/// [en] Points of a quadratic Bézier curve (without the start point).
 fn bezier(a: (f32, f32), c: (f32, f32), b: (f32, f32), n: usize) -> Vec<(f32, f32)> {
     (1..=n)
         .map(|i| {
@@ -762,6 +902,8 @@ fn bezier(a: (f32, f32), c: (f32, f32), b: (f32, f32), n: usize) -> Vec<(f32, f3
 }
 
 /// Vyplněný obrys (hvězdicovitý vzhledem k bodu `center`) s okrajem.
+///
+/// [en] Filled outline (star-shaped with respect to point `center`) with a border.
 fn filled_outline(
     painter: &Painter,
     cam: Camera,
@@ -789,6 +931,8 @@ fn filled_outline(
 }
 
 /// Americká tvarová značka hradla (ANSI/IEEE Std 91).
+///
+/// [en] American distinctive-shape gate symbol (ANSI/IEEE Std 91).
 fn draw_ansi_gate(
     painter: &Painter,
     cam: Camera,
@@ -802,6 +946,7 @@ fn draw_ansi_gate(
     let fill = fade(colors::SYMBOL_FILL, look);
     let inverted = gate.is_inverted();
     // U negovaných hradel zůstane vpravo místo na kroužek.
+    // [en] Negated gates keep room for the circle on the right.
     let right = if inverted { x1 - 0.7 } else { x1 };
     let h = if gate.is_unary() {
         1.3
@@ -811,6 +956,7 @@ fn draw_ansi_gate(
     let (ins, _) = comp.kind.pins_local();
     let lead = Stroke::new(cam.line_width(), fade(colors::SYMBOL, look));
     // Zadní oblouk OR/XOR: x podle y.
+    // [en] Back arc of OR/XOR: x as a function of y.
     let depth = 0.55;
     let back = |x: f32, y: f32| x + depth * (1.0 - (y / h).powi(2)).max(0.0);
     match gate {
@@ -837,6 +983,7 @@ fn draw_ansi_gate(
             pts.extend(bezier((bx, -h), (bx + w * 0.6, -h), (right, 0.0), 16));
             pts.extend(bezier((right, 0.0), (bx + w * 0.6, h), (bx, h), 16));
             // zadní oblouk zdola nahoru
+            // [en] back arc from bottom to top
             pts.extend((1..16).map(|i| {
                 let y = h - 2.0 * h * i as f32 / 16.0;
                 (back(bx, y), y)
@@ -860,6 +1007,7 @@ fn draw_ansi_gate(
                 painter.add(egui::Shape::line(arc, outline));
             }
             // Vstupy prodloužené až k zadnímu oblouku.
+            // [en] Inputs extended up to the back arc.
             for (_, py) in &ins {
                 let y = *py as f32;
                 let a = cam.to_screen(local(comp, x0, y));
@@ -875,6 +1023,8 @@ fn draw_ansi_gate(
 }
 
 /// Frekvence hodin pro popisek („0,5 Hz“).
+///
+/// [en] Clock frequency for a label (“0.5 Hz”).
 pub fn format_hz(hz: f32) -> String {
     if (hz - hz.round()).abs() < 0.01 {
         format!("{} Hz", hz.round())
@@ -883,6 +1033,9 @@ pub fn format_hz(hz: f32) -> String {
     }
 }
 
+/// Obdélníková značka klopného obvodu s Q a Q̄ a dynamickým vstupem.
+///
+/// [en] Rectangular flip-flop symbol with Q and Q̄ and a dynamic input.
 fn draw_flip_flop(
     painter: &Painter,
     cam: Camera,
@@ -905,6 +1058,7 @@ fn draw_flip_flop(
         let mut x = x0 + 0.4;
         if ff.is_edge_triggered() && ff.clock_input() == Some(i) {
             // Dynamický vstup: trojúhelník u okraje těla.
+            // [en] Dynamic input: a triangle at the body edge.
             let tri = [
                 local(comp, x0, y - 0.45),
                 local(comp, x0 + 0.6, y),
@@ -947,6 +1101,7 @@ fn draw_flip_flop(
         );
         if k == 1 && cam.len(size) >= 5.0 {
             // Negovaný výstup: čára nad Q.
+            // [en] Negated output: a bar over Q.
             let (lx0, lx1, ly) = (x1 - 1.05, x1 - 0.45, *py as f32 - 0.55);
             painter.line_segment(
                 [
@@ -962,6 +1117,7 @@ fn draw_flip_flop(
         other => other.name(),
     };
     // U JK je uprostřed hodinový vstup, název typu proto o řádek výš.
+    // [en] JK has the clock input in the middle, so the type name goes one line higher.
     let center = if ff == FlipFlopKind::Jk {
         local(comp, 0.3, -1.0)
     } else {
@@ -991,20 +1147,30 @@ fn draw_flip_flop(
 }
 
 /// Obdélník, na který jde kliknout (tělo s malou rezervou), ve světových souřadnicích.
+///
+/// [en] Clickable rectangle (the body with a small margin) in world coordinates.
 pub fn hit_rect(comp: &Component) -> Rect {
     let (x0, y0, x1, y1) = comp.body();
     Rect::from_min_max(pos2(x0, y0), pos2(x1, y1)).expand(0.25)
 }
 
+/// Zaokrouhlí světový bod na nejbližší bod mřížky.
+///
+/// [en] Rounds a world point to the nearest grid point.
 pub fn snap(p: Pos2) -> logicflow_core::Point {
     logicflow_core::Point::new(p.x.round() as i32, p.y.round() as i32)
 }
 
+/// Bod mřížky jako světový bod.
+///
+/// [en] Grid point as a world point.
 pub fn point(p: logicflow_core::Point) -> Pos2 {
     pos2(p.x as f32, p.y as f32)
 }
 
 /// Vzdálenost bodu od úsečky.
+///
+/// [en] Distance of a point from a segment.
 pub fn dist_to_segment(p: Pos2, a: Pos2, b: Pos2) -> f32 {
     let ab: Vec2 = b - a;
     let t = if ab.length_sq() < 1e-6 {

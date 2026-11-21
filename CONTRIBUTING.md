@@ -13,11 +13,44 @@ Pro orientaci v kódu slouží diagram [docs/architektura.svg](docs/architektura
 
 Když změna přidá nový modul nebo změní tok dat (například soubor s nastavením, knihovny, sběrnice), upravte i diagram. Je to ručně psané SVG; náhled jako PNG: `rsvg-convert docs/architektura.svg -o /tmp/architektura.png`.
 
+## Komentáře v kódu
+
+Kód je komentovaný **česky i anglicky**, aby šla jednoduše vytvořit verze s komentáři jen v jednom jazyce – podobně jako jazykové mutace programu.
+
+- Každá funkce, struktura, výčet a konstanta má dokumentační komentář (`///`), každý soubor popis modulu (`//!`). Složitější místa uvnitř funkcí mají běžný komentář (`//`), který vysvětluje **proč**, ne jen co.
+- V každém komentáři je nejdřív česká část, pak anglická uvozená značkou `[en]`. U dokumentačních komentářů je mezi nimi prázdný řádek, aby je rustdoc zobrazil jako dva odstavce:
+
+  ```rust
+  /// Přepojí vodič k posunutému vývodu.
+  ///
+  /// [en] Reroutes the wire to the moved pin.
+  fn reroute(/* … */) {
+      // Pevný konec je roh lomeného vodiče.
+      // [en] The fixed end is the corner of a bent wire.
+  }
+  ```
+
+- Začíná-li anglická část nadpisem, tabulkou nebo seznamem, stojí `[en]` na samostatném řádku.
+- Komentář za kódem na stejném řádku smí obsahovat jen jazykově neutrální popisek (`// a`, `// 0–7`); delší komentář patří na samostatný řádek nad kód.
+- Při změně komentáře se upravují **obě** jazykové části.
+- Jádro (`logicflow-core`) má zapnuté lints `missing_docs` a `clippy::missing_docs_in_private_items` – clippy v CI selže, když nějaké položce komentář chybí.
+
+Nástroj `scripts/komentare.py` (Python 3, bez dalších knihoven):
+
+```sh
+python3 scripts/komentare.py kontrola   # má každý komentář obě části? (spouští i CI)
+python3 scripts/komentare.py en         # kopie zdrojů jen s anglickými komentáři → target/zdroj-en
+python3 scripts/komentare.py cs         # kopie zdrojů jen s českými komentáři → target/zdroj-cs
+```
+
+Exportovaná kopie je samostatný projekt, který jde přeložit (`cargo build`); slouží ke čtení nebo předání, vyvíjí se vždy ve dvojjazyčném zdroji.
+
 ## Kdy je změna hotová
 
 Změna je hotová, když jsou hotové **všechny** tyto části – ve stejném pull requestu:
 
 - **kód** a k němu **testy** (jádro v `logicflow-core` má testy na simulaci a formát souboru),
+- **komentáře** česky i anglicky u nových funkcí a struktur (viz Komentáře v kódu),
 - **texty rozhraní** česky i anglicky (`crates/logicflow/src/i18n.rs`),
 - **nápověda v Markdownu** v `docs/napoveda/cs` i `docs/napoveda/en` – nová funkce má svůj popis, změněné chování opravený text, nové klávesy jsou v kapitole Klávesové zkratky,
 - **snímky obrazovky** v nápovědě, pokud se změnil vzhled (`scripts/snimky-napovedy.sh`),
@@ -34,6 +67,7 @@ cargo run                              # spuštění
 cargo test --workspace                 # testy (včetně kontroly nápovědy)
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt
+python3 scripts/komentare.py kontrola  # komentáře česky i anglicky
 mdbook serve docs/napoveda/cs --open   # náhled nápovědy (cargo install mdbook --locked)
 scripts/snimky-napovedy.sh             # snímky obrazovky pro nápovědu (Linux)
 ```

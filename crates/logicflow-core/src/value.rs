@@ -9,27 +9,57 @@
 //! | `1`     | logická jednička |
 //! | `X`     | neurčitá hodnota (neinicializováno, kolize dvou budičů) |
 //! | `Z`     | vysoká impedance (odpojený třístavový výstup) |
+//!
+//! [en] Logic values of a signal.
+//!
+//! The simulator works with four values so that it can also show undefined
+//! states and bus conflicts:
+//!
+//! | Value | Meaning |
+//! |-------|---------|
+//! | `0`   | logic zero |
+//! | `1`   | logic one |
+//! | `X`   | undefined value (uninitialised, conflict of two drivers) |
+//! | `Z`   | high impedance (disconnected tri-state output) |
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Hodnota jednoho vodiče.
+///
+/// [en] Value of a single wire.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LogicValue {
+    /// Logická nula.
+    ///
+    /// [en] Logic zero.
     Zero,
+    /// Logická jednička.
+    ///
+    /// [en] Logic one.
     One,
+    /// Neurčitá hodnota (neinicializováno, kolize).
+    ///
+    /// [en] Undefined value (uninitialised, conflict).
     #[default]
     X,
+    /// Vysoká impedance (nepřipojeno).
+    ///
+    /// [en] High impedance (not connected).
     Z,
 }
 
 impl LogicValue {
     /// Převede `bool` na `0` nebo `1`.
+    ///
+    /// [en] Converts a `bool` to `0` or `1`.
     pub const fn from_bool(b: bool) -> Self {
         if b { Self::One } else { Self::Zero }
     }
 
     /// Vrací `Some(bool)` pro `0` a `1`, jinak `None`.
+    ///
+    /// [en] Returns `Some(bool)` for `0` and `1`, otherwise `None`.
     pub const fn to_bool(self) -> Option<bool> {
         match self {
             Self::Zero => Some(false),
@@ -39,6 +69,8 @@ impl LogicValue {
     }
 
     /// Hodnota tak, jak ji vidí vstup hradla: `Z` na vstupu se chová jako `X`.
+    ///
+    /// [en] The value as a gate input sees it: `Z` on an input behaves like `X`.
     pub const fn as_input(self) -> Self {
         match self {
             Self::Z => Self::X,
@@ -47,6 +79,8 @@ impl LogicValue {
     }
 
     /// Negace (NOT).
+    ///
+    /// [en] Negation (NOT).
     #[allow(clippy::should_implement_trait)]
     pub const fn not(self) -> Self {
         match self.as_input() {
@@ -57,6 +91,8 @@ impl LogicValue {
     }
 
     /// Logický součin dvou hodnot. `0` vyhrává i nad `X`.
+    ///
+    /// [en] Logical AND of two values. `0` wins even over `X`.
     pub const fn and(self, other: Self) -> Self {
         match (self.as_input(), other.as_input()) {
             (Self::Zero, _) | (_, Self::Zero) => Self::Zero,
@@ -66,6 +102,8 @@ impl LogicValue {
     }
 
     /// Logický součet dvou hodnot. `1` vyhrává i nad `X`.
+    ///
+    /// [en] Logical OR of two values. `1` wins even over `X`.
     pub const fn or(self, other: Self) -> Self {
         match (self.as_input(), other.as_input()) {
             (Self::One, _) | (_, Self::One) => Self::One,
@@ -75,6 +113,8 @@ impl LogicValue {
     }
 
     /// Nonekvivalence (XOR).
+    ///
+    /// [en] Exclusive OR (XOR).
     pub const fn xor(self, other: Self) -> Self {
         match (self.to_bool(), other.to_bool()) {
             (Some(a), Some(b)) => Self::from_bool(a ^ b),
@@ -85,6 +125,10 @@ impl LogicValue {
     /// Výsledná hodnota vodiče, na který je připojeno více budičů.
     ///
     /// `Z` ustoupí jakékoli jiné hodnotě, dvě různé hodnoty `0`/`1` dají `X` (kolize).
+    ///
+    /// [en] Resulting value of a wire driven by several drivers.
+    ///
+    /// `Z` yields to any other value, two different values `0`/`1` give `X` (conflict).
     pub const fn resolve(self, other: Self) -> Self {
         match (self, other) {
             (Self::Z, v) | (v, Self::Z) => v,
@@ -95,6 +139,8 @@ impl LogicValue {
     }
 
     /// Znak pro zobrazení v pravdivostní tabulce a časovém diagramu.
+    ///
+    /// [en] Character shown in the truth table and the timing diagram.
     pub const fn symbol(self) -> char {
         match self {
             Self::Zero => '0',
@@ -130,6 +176,7 @@ mod tests {
         assert_eq!(One.and(Zero), Zero);
         assert_eq!(One.and(One), One);
         // Nula je dominantní i nad neurčitou hodnotou.
+        // [en] Zero dominates even over an undefined value.
         assert_eq!(Zero.and(X), Zero);
         assert_eq!(One.and(X), X);
         assert_eq!(One.and(Z), X);

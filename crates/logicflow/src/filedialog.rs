@@ -2,6 +2,11 @@
 //!
 //! Funguje stejně na všech systémech včetně Raspberry Pi a nepotřebuje
 //! systémové dialogy (GTK, portály…).
+//!
+//! [en] Own file browser in the style of Blender.
+//!
+//! It works the same on all systems including Raspberry Pi and needs no
+//! system dialogs (GTK, portals…).
 
 use crate::i18n::{Lang, T, tr};
 use crate::theme::colors;
@@ -9,23 +14,56 @@ use egui::RichText;
 use logicflow_core::ProjectFile;
 use std::path::{Path, PathBuf};
 
+/// Účel okna.
+///
+/// [en] Purpose of the dialog.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
+    /// Otevření souboru.
+    ///
+    /// [en] Opening a file.
     Open,
+    /// Uložení souboru.
+    ///
+    /// [en] Saving a file.
     Save,
 }
 
+/// Výsledek jednoho snímku okna.
+///
+/// [en] Result of one frame of the dialog.
 pub enum Outcome {
+    /// Okno zůstává otevřené.
+    ///
+    /// [en] The dialog stays open.
     None,
+    /// Uživatel okno zavřel bez výběru.
+    ///
+    /// [en] The user closed the dialog without choosing.
     Cancel,
+    /// Vybraný soubor.
+    ///
+    /// [en] The chosen file.
     Chosen(PathBuf),
 }
 
+/// Položka ve výpisu složky.
+///
+/// [en] Entry in the folder listing.
 struct Entry {
+    /// Název souboru nebo složky.
+    ///
+    /// [en] File or folder name.
     name: String,
+    /// Je to složka?
+    ///
+    /// [en] Is it a folder?
     is_dir: bool,
 }
 
+/// Stav okna pro otevření a uložení souboru.
+///
+/// [en] State of the open/save dialog.
 pub struct FileDialog {
     pub mode: Mode,
     dir: PathBuf,
@@ -34,9 +72,14 @@ pub struct FileDialog {
     entries: Vec<Entry>,
     error: Option<String>,
     /// Název rozepsané nové složky (`None` = pole není otevřené).
+    ///
+    /// [en] Name of the new folder being typed (`None` = the field is not open).
     new_folder: Option<String>,
 }
 
+/// Domovská složka uživatele (záložně aktuální složka).
+///
+/// [en] The user's home folder (falling back to the current folder).
 pub fn home_dir() -> PathBuf {
     std::env::home_dir()
         .or_else(|| std::env::current_dir().ok())
@@ -44,6 +87,9 @@ pub fn home_dir() -> PathBuf {
 }
 
 impl FileDialog {
+    /// Otevře okno ve složce `dir` (jinak v domovské) s předvyplněným názvem souboru.
+    ///
+    /// [en] Opens the dialog in folder `dir` (otherwise the home folder) with a prefilled file name.
     pub fn new(mode: Mode, dir: Option<PathBuf>, file_name: &str) -> Self {
         let mut d = Self {
             mode,
@@ -59,6 +105,9 @@ impl FileDialog {
         d
     }
 
+    /// Přejde do složky a načte její obsah (složky a soubory .logicflow).
+    ///
+    /// [en] Goes to a folder and reads its content (folders and .logicflow files).
     fn navigate(&mut self, dir: &Path) {
         match std::fs::read_dir(dir) {
             Ok(rd) => {
@@ -91,6 +140,8 @@ impl FileDialog {
     }
 
     /// Vytvoří v aktuální složce podsložku a přejde do ní.
+    ///
+    /// [en] Creates a subfolder in the current folder and goes into it.
     fn create_folder(&mut self, name: &str, lang: Lang) -> Result<(), String> {
         let name = name.trim();
         if name.is_empty() || name.contains(['/', '\\']) || name == "." || name == ".." {
@@ -105,6 +156,9 @@ impl FileDialog {
         Ok(())
     }
 
+    /// Cesta vybraného souboru; při ukládání doplní příponu .logicflow.
+    ///
+    /// [en] Path of the chosen file; when saving, adds the .logicflow extension.
     fn target(&self) -> Option<PathBuf> {
         let name = self.file_name.trim();
         if name.is_empty() {
@@ -121,6 +175,9 @@ impl FileDialog {
         Some(p)
     }
 
+    /// Vykreslí okno a vrátí, co uživatel udělal.
+    ///
+    /// [en] Draws the dialog and returns what the user did.
     pub fn show(&mut self, ctx: &egui::Context, lang: Lang) -> Outcome {
         let mut outcome = Outcome::None;
         let title = tr(
@@ -137,6 +194,7 @@ impl FileDialog {
             ui.add_space(4.0);
 
             // Rychlé složky.
+            // [en] Quick folders.
             ui.horizontal(|ui| {
                 let home = home_dir();
                 if ui.button(tr(lang, T::Home)).clicked() {
@@ -173,6 +231,7 @@ impl FileDialog {
             });
 
             // Nová složka: tlačítko otevře pole pro název, Enter nebo Vytvořit ji založí.
+            // [en] New folder: the button opens a name field, Enter or Create makes the folder.
             ui.horizontal(|ui| match self.new_folder.take() {
                 None => {
                     if ui.button(format!("+ {}", tr(lang, T::NewFolder))).clicked() {
@@ -296,6 +355,9 @@ impl FileDialog {
         outcome
     }
 
+    /// Aktuální složka.
+    ///
+    /// [en] Current folder.
     pub fn dir(&self) -> &Path {
         &self.dir
     }

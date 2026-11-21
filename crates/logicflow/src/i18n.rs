@@ -2,18 +2,36 @@
 //!
 //! Čeština je výchozí jazyk. Zatím jednoduchá tabulka; později ji nahradí
 //! samostatné soubory s překlady, aby šlo přidávat jazyky bez zásahu do kódu.
+//!
+//! [en] Interface translations.
+//!
+//! Czech is the default language. For now a simple table; later it will be
+//! replaced by separate translation files so that languages can be added
+//! without touching the code.
 
+/// Jazyk rozhraní.
+///
+/// [en] Interface language.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Lang {
+    /// Čeština.
+    ///
+    /// [en] Czech.
     #[default]
     Cs,
+    /// Angličtina.
+    ///
+    /// [en] English.
     En,
 }
 
 /// Klíče textů v rozhraní.
+///
+/// [en] Keys of interface texts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum T {
     // Nabídky
+    // [en] Menus
     MenuFile,
     MenuEdit,
     MenuView,
@@ -41,6 +59,7 @@ pub enum T {
     SourceCode,
     License,
     // Pracovní plochy a editory
+    // [en] Workspaces and editors
     WsDesign,
     WsSimulation,
     WsAnalysis,
@@ -64,6 +83,7 @@ pub enum T {
     SplitBelow,
     CloseArea,
     // Schéma
+    // [en] Schematic
     Add,
     EmptySchematic,
     Oscillating,
@@ -72,6 +92,7 @@ pub enum T {
     HintGrab,
     HintWire,
     // Součástky
+    // [en] Components
     CatInputs,
     CatOutputs,
     CatGates,
@@ -133,6 +154,7 @@ pub enum T {
     StateQ,
     ResetSim,
     // Panely
+    // [en] Panels
     NothingSelected,
     Wire,
     Wires,
@@ -162,6 +184,7 @@ pub enum T {
     TimingEmpty,
     TimeAxis,
     // Soubory
+    // [en] Files
     OpenFile,
     SaveFile,
     Home,
@@ -180,12 +203,16 @@ pub enum T {
     ErrorTitle,
     Close,
     // Stavový řádek
+    // [en] Status bar
     Running,
     Paused,
     Unsaved,
     Tick,
 }
 
+/// Text pro klíč `key` v jazyce `lang`.
+///
+/// [en] Text for key `key` in language `lang`.
 pub fn tr(lang: Lang, key: T) -> &'static str {
     use T::*;
     match lang {
