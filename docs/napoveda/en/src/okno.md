@@ -36,7 +36,7 @@ At the bottom, the **status bar** shows the mode (editing or simulation), whethe
 The Design, Simulation, Analysis and Memory tabs are workspaces. Each has its own area layout, but all work with the same circuit:
 
 - **Design** – schematic, hierarchy, component library and properties,
-- **Simulation** – schematic with the timing diagram below,
+- **Simulation** – schematic with the timing diagram below; switching to this workspace starts the simulation and locks the schematic, switching elsewhere (or Esc) stops it,
 - **Analysis** – schematic with the truth table,
 - **Memory** – prepared for memories in a later version.
 

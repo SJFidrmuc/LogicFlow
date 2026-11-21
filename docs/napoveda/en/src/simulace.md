@@ -7,9 +7,9 @@ Each gate has a delay of one tick, so a signal travels through the circuit step 
 The program works in two modes, similar to DigitalWorks:
 
 - **Edit mode** – you draw and edit the schematic. Logic is recomputed at once (LEDs react), but time stands still: clocks do not tick and the timing diagram does not move. A switch is toggled by a **double-click**, a push button is pressed by the second press of a double-click – a single click only selects the component, so you do not toggle it by accident while moving it.
-- **Simulation mode** – started with **F5** (or Simulation → Run simulation, or Space). The schematic is locked: you cannot add, delete, move, rotate or draw wires. Only the controls work – a switch and a button with a single click, panning and zooming, Tab into subcircuits, the timing diagram and the truth table. The clock frequency can be changed in Properties.
+- **Simulation mode** – started with **F5** (or Simulation → Run simulation, or Space) and also by switching to the **Simulation workspace**. The schematic is locked: you cannot add, delete, move, rotate or draw wires. Only the controls work – a switch and a button with a single click, panning and zooming, Tab into subcircuits, the timing diagram and the truth table. The clock frequency can be changed in Properties.
 - In simulation mode the schematic has an **amber frame** with a **SIMULATION** badge; the status bar shows Edit mode / Simulation running / Simulation paused.
-- **Esc** or **Shift+F5** stops the simulation and returns to edit mode. **The circuit state stays** (flip-flops, counters, LEDs and the timing diagram); only Restart simulation (Ctrl+R) clears it.
+- **Esc** or **Shift+F5** stops the simulation and returns to edit mode (on the Simulation workspace also to the workspace you came from). **The circuit state stays** (flip-flops, counters, LEDs and the timing diagram); only Restart simulation (Ctrl+R) clears it.
 - If you try to edit in simulation mode, the message "Stop the simulation to edit (Esc)" appears at the top.
 - If you want to edit while it runs, switch on **Simulation → Allow editing while simulating** (off by default).
 

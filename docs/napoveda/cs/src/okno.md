@@ -38,7 +38,7 @@ Dole je **stavový řádek**: ukazuje režim (úpravy nebo simulace), zda simula
 Záložky Návrh, Simulace, Analýza a Paměť jsou pracovní plochy. Každá má vlastní rozložení oblastí, ale všechny pracují se stejným obvodem:
 
 - **Návrh** – schéma, hierarchie, knihovna součástek a vlastnosti,
-- **Simulace** – schéma s časovým diagramem pod ním,
+- **Simulace** – schéma s časovým diagramem pod ním; přepnutím na tuto plochu se simulace spustí a schéma se zamkne, přepnutím jinam (nebo Esc) se zastaví,
 - **Analýza** – schéma s pravdivostní tabulkou,
 - **Paměť** – připraveno pro paměti v další verzi.
 
