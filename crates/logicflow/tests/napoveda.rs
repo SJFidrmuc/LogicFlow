@@ -3,21 +3,38 @@
 //! Hlídá, aby česká a anglická nápověda měly stejné kapitoly ve stejném
 //! pořadí, aby každá kapitola existovala a začínala nadpisem a aby všechny
 //! obrázky, na které text odkazuje, byly v repozitáři.
+//!
+//! [en] Check of the Markdown help (docs/napoveda).
+//!
+//! Makes sure the Czech and English help have the same chapters in the same
+//! order, that every chapter exists and starts with a heading and that all
+//! images referenced by the text are in the repository.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Jazyky nápovědy.
+///
+/// [en] Help languages.
 const LANGS: [&str; 2] = ["cs", "en"];
 
+/// Složka docs/napoveda.
+///
+/// [en] The docs/napoveda folder.
 fn napoveda() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/napoveda")
 }
 
+/// Složka se zdroji nápovědy v daném jazyce.
+///
+/// [en] Folder with the help sources in the given language.
 fn src(lang: &str) -> PathBuf {
     napoveda().join(lang).join("src")
 }
 
 /// Soubory kapitol v pořadí podle SUMMARY.md.
+///
+/// [en] Chapter files in the order of SUMMARY.md.
 fn chapters(lang: &str) -> Vec<String> {
     let summary = fs::read_to_string(src(lang).join("SUMMARY.md"))
         .unwrap_or_else(|e| panic!("{lang}: chybí SUMMARY.md: {e}"));
@@ -32,6 +49,8 @@ fn chapters(lang: &str) -> Vec<String> {
 }
 
 /// Cesty obrázků z Markdownu: `![popis](cesta)`.
+///
+/// [en] Image paths from Markdown: `![caption](path)`.
 fn images(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut rest = text;
@@ -46,6 +65,9 @@ fn images(text: &str) -> Vec<String> {
     out
 }
 
+/// Česká a anglická nápověda mají stejné kapitoly ve stejném pořadí.
+///
+/// [en] The Czech and English help have the same chapters in the same order.
 #[test]
 fn jazyky_maji_stejne_kapitoly() {
     let cs = chapters("cs");
@@ -59,6 +81,9 @@ fn jazyky_maji_stejne_kapitoly() {
     }
 }
 
+/// Každá kapitola existuje, začíná nadpisem a je v obsahu.
+///
+/// [en] Every chapter exists, starts with a heading and is in the table of contents.
 #[test]
 fn kapitoly_existuji_a_zacinaji_nadpisem() {
     for lang in LANGS {
@@ -73,6 +98,7 @@ fn kapitoly_existuji_a_zacinaji_nadpisem() {
             );
         }
         // Každý soubor .md ve složce src musí být v obsahu.
+        // [en] Every .md file in the src folder must be in the table of contents.
         for entry in fs::read_dir(src(lang)).unwrap() {
             let name = entry.unwrap().file_name().into_string().unwrap();
             if name.ends_with(".md") && name != "SUMMARY.md" {
@@ -85,6 +111,9 @@ fn kapitoly_existuji_a_zacinaji_nadpisem() {
     }
 }
 
+/// Všechny obrázky, na které nápověda odkazuje, existují.
+///
+/// [en] All images referenced by the help exist.
 #[test]
 fn obrazky_existuji() {
     for lang in LANGS {
@@ -103,6 +132,9 @@ fn obrazky_existuji() {
     }
 }
 
+/// Hledání obrázků v textu funguje.
+///
+/// [en] Finding images in the text works.
 #[test]
 fn hledani_obrazku() {
     assert_eq!(

@@ -1,4 +1,6 @@
 //! Časový diagram (logický analyzátor) vstupů a výstupů obvodu.
+//!
+//! [en] Timing diagram (logic analyser) of the circuit's inputs and outputs.
 
 use crate::i18n::{Lang, T, tr};
 use crate::project::Project;
@@ -7,10 +9,21 @@ use egui::{Align2, FontId, Rect, Sense, Stroke, Ui, pos2};
 use logicflow_core::LogicValue;
 
 /// Kolik sekund historie je vidět.
+///
+/// [en] How many seconds of history are visible.
 const WINDOW: f64 = 20.0;
+/// Šířka sloupce s názvy signálů.
+///
+/// [en] Width of the column with signal names.
 const NAME_W: f32 = 70.0;
+/// Výška řádku jednoho signálu.
+///
+/// [en] Height of one signal row.
 const ROW_H: f32 = 30.0;
 
+/// Vykreslí časový diagram zaznamenaných signálů projektu.
+///
+/// [en] Draws the timing diagram of the project's recorded signals.
 pub fn ui(ui: &mut Ui, project: &Project, lang: Lang) {
     let rect = ui.available_rect_before_wrap();
     ui.allocate_rect(rect, Sense::hover());
@@ -41,6 +54,7 @@ pub fn ui(ui: &mut Ui, project: &Project, lang: Lang) {
     let x_of = |t: f64| plot.left() + ((t - t0) / WINDOW) as f32 * plot.width();
 
     // Svislé čáry po sekundách, popisky po pěti.
+    // [en] Vertical lines every second, labels every five.
     for s in t0.ceil() as i64..=t1.floor() as i64 {
         let x = x_of(s as f64);
         let major = s % 5 == 0;
@@ -130,6 +144,7 @@ pub fn ui(ui: &mut Ui, project: &Project, lang: Lang) {
     }
 
     // Kurzor „teď“.
+    // [en] The “now” cursor.
     let x = x_of(now);
     painter.line_segment(
         [pos2(x, plot.top()), pos2(x, plot.bottom())],

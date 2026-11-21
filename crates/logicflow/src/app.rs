@@ -1,5 +1,8 @@
 //! Hlavní okno: horní lišta s nabídkami a pracovními plochami, oblasti, stavový řádek,
 //! práce se soubory.
+//!
+//! [en] Main window: top bar with menus and workspaces, areas, status bar,
+//! working with files.
 
 use crate::examples;
 use crate::filedialog::{self, FileDialog};
@@ -14,31 +17,65 @@ use egui::{Key, KeyboardShortcut, Modifiers, RichText};
 use egui_tiles::Tree;
 use logicflow_core::Circuit;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+// Instant z web-time: v nativním programu je to std::time::Instant, ve webové verzi
+// (WebAssembly) čas prohlížeče – std::time::Instant::now() tam spadne.
+// [en] Instant from web-time: in the native program it is std::time::Instant, in the web
+// version (WebAssembly) the browser clock – std::time::Instant::now() panics there.
+use web_time::Instant;
 
 /// Akce, která čeká na rozhodnutí o neuložených změnách.
+///
+/// [en] Action waiting for a decision about unsaved changes.
 #[derive(Clone, Copy, Debug)]
 enum Pending {
+    /// Nový prázdný obvod.
+    ///
+    /// [en] New empty circuit.
     New,
+    /// Otevřít soubor.
+    ///
+    /// [en] Open a file.
     Open,
+    /// Otevřít vestavěný příklad.
+    ///
+    /// [en] Open a built-in example.
     Example(usize),
+    /// Ukončit aplikaci.
+    ///
+    /// [en] Quit the application.
     Quit,
 }
 
 /// Osobní nastavení uživatele (ukládá se mezi spuštěními, ne do souboru obvodu).
+///
+/// [en] The user's personal settings (kept between runs, not in the circuit file).
 #[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 struct Settings {
+    /// Jazyk rozhraní.
+    ///
+    /// [en] Interface language.
     lang: Lang,
+    /// Styl značek.
+    ///
+    /// [en] Symbol style.
     symbols: SymbolStyle,
 }
 
+/// Klíč nastavení v úložišti eframe.
+///
+/// [en] Settings key in the eframe storage.
 const SETTINGS_KEY: &str = "settings";
 
 impl Settings {
     /// Výchozí nastavení podle jazyka systému (např. „cs-CZ“, „en_US.UTF-8“):
     /// čeština (i pro slovenštinu), jinak angličtina; v americkém prostředí
     /// americké značky. Uživatel může obojí kdykoli změnit v nabídce Zobrazit.
+    ///
+    /// [en] Default settings according to the system language (e.g. “cs-CZ”, “en_US.UTF-8”):
+    /// Czech (also for Slovak), otherwise English; American symbols in an American
+    /// environment. The user can change both at any time in the View menu.
     fn for_locale(locale: Option<&str>) -> Self {
         let tag = locale
             .unwrap_or("")
@@ -66,44 +103,107 @@ impl Settings {
 }
 
 /// Webová stránka projektu.
+///
+/// [en] Project website.
 pub const WEBSITE: &str = "https://www.logicflow-sim.cz";
 /// Zdrojový kód a stažení.
+///
+/// [en] Source code and downloads.
 pub const REPOSITORY: &str = "https://github.com/SJFidrmuc/LogicFlow";
 
 /// Nejdelší úsek času simulace za jeden snímek (s).
+///
+/// [en] Longest stretch of simulation time per frame (s).
 const MAX_FRAME_DT: f64 = 0.5;
 /// Nejdelší prodleva mezi snímky při běžící simulaci (s).
+///
+/// [en] Longest pause between frames while the simulation runs (s).
 const REPAINT_INTERVAL: f64 = 0.05;
 
+/// Hlavní okno aplikace a jeho stav.
+///
+/// [en] Main application window and its state.
 pub struct LogicFlowApp {
+    /// Jazyk rozhraní.
+    ///
+    /// [en] Interface language.
     lang: Lang,
+    /// Styl značek.
+    ///
+    /// [en] Symbol style.
     symbols: SymbolStyle,
+    /// Vybraná pracovní plocha.
+    ///
+    /// [en] Selected workspace.
     workspace: usize,
+    /// Rozložení oblastí každé pracovní plochy.
+    ///
+    /// [en] Area layout of each workspace.
     trees: Vec<Tree<Pane>>,
+    /// Otevřený projekt.
+    ///
+    /// [en] The open project.
     project: Project,
+    /// Mezivýsledek pravdivostní tabulky.
+    ///
+    /// [en] Cached truth table.
     truth_cache: TruthCache,
+    /// Je otevřené okno O aplikaci?
+    ///
+    /// [en] Is the About window open?
     about_open: bool,
+    /// Okno nápovědy (F1).
+    ///
+    /// [en] Help window (F1).
     help: HelpWindow,
+    /// Otevřené okno pro soubory.
+    ///
+    /// [en] Open file dialog.
     file_dialog: Option<FileDialog>,
     /// Akce, která se provede po úspěšném uložení přes dialog.
+    ///
+    /// [en] Action carried out after a successful save through the dialog.
     after_save: Option<Pending>,
+    /// Akce čekající na potvrzení (neuložené změny).
+    ///
+    /// [en] Action waiting for confirmation (unsaved changes).
     confirm: Option<Pending>,
+    /// Chybová zpráva k zobrazení.
+    ///
+    /// [en] Error message to show.
     error: Option<String>,
+    /// Poslední složka v okně pro soubory.
+    ///
+    /// [en] Last folder in the file dialog.
     last_dir: Option<PathBuf>,
+    /// Naposledy nastavený titulek okna.
+    ///
+    /// [en] Window title set last time.
     last_title: String,
+    /// Zavření okna je potvrzené.
+    ///
+    /// [en] Closing the window has been confirmed.
     allow_close: bool,
     /// Okamžik předchozího snímku – čas simulace se měří skutečnými hodinami,
     /// ne odhadem egui (`stable_dt` při překreslování „za chvíli“ vrací jen 1/60 s).
+    ///
+    /// [en] Moment of the previous frame – simulation time is measured by the real
+    /// clock, not by the egui estimate (`stable_dt` returns only 1/60 s when
+    /// repainting “in a moment”).
     last_frame: Option<Instant>,
 }
 
 impl LogicFlowApp {
+    /// Vytvoří okno: načte nastavení (při prvním spuštění podle systému) a otevře soubor nebo první příklad.
+    ///
+    /// [en] Creates the window: loads the settings (from the system on the first run) and opens a file or the first example.
     pub fn new(cc: &eframe::CreationContext<'_>, open: Option<PathBuf>) -> Self {
         theme::apply(&cc.egui_ctx);
         let settings: Settings = cc
             .storage
             .and_then(|s| eframe::get_value(s, SETTINGS_KEY))
             // První spuštění: jazyk a značky podle nastavení systému.
+            // [en] First run: language and symbols according to the system settings.
             .unwrap_or_else(|| Settings::for_locale(sys_locale::get_locale().as_deref()));
         let mut error = None;
         let project = match open.as_deref().map(Project::load) {
@@ -137,6 +237,9 @@ impl LogicFlowApp {
         }
     }
 
+    /// Nahradí otevřený projekt a přizpůsobí pohledy.
+    ///
+    /// [en] Replaces the open project and adapts the views.
     fn replace_project(&mut self, project: Project) {
         self.project = project;
         self.truth_cache = None;
@@ -146,6 +249,8 @@ impl LogicFlowApp {
     }
 
     /// Spustí akci; při neuložených změnách se nejdřív zeptá.
+    ///
+    /// [en] Runs an action; asks first if there are unsaved changes.
     fn request(&mut self, action: Pending) {
         if self.project.modified {
             self.confirm = Some(action);
@@ -154,6 +259,9 @@ impl LogicFlowApp {
         }
     }
 
+    /// Provede akci (nový, otevřít, příklad, konec) bez dalšího ptaní.
+    ///
+    /// [en] Carries out an action (new, open, example, quit) without asking again.
     fn perform(&mut self, action: Pending) {
         match action {
             Pending::New => {
@@ -172,10 +280,14 @@ impl LogicFlowApp {
             Pending::Quit => {
                 self.allow_close = true;
                 // Zavření se dokončí v příštím snímku (viz `ui`).
+                // [en] Closing completes in the next frame (see `ui`).
             }
         }
     }
 
+    /// Uloží projekt; bez cesty (nebo s `save_as`) otevře okno pro soubory.
+    ///
+    /// [en] Saves the project; without a path (or with `save_as`) opens the file dialog.
     fn save_file(&mut self, save_as: bool) {
         match self.project.path.clone() {
             Some(path) if !save_as => {
@@ -197,6 +309,9 @@ impl LogicFlowApp {
         }
     }
 
+    /// Globální klávesové zkratky (Ctrl+N/O/S, Ctrl+Z/Y, mezerník, F1…).
+    ///
+    /// [en] Global keyboard shortcuts (Ctrl+N/O/S, Ctrl+Z/Y, space, F1…).
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         let typing = ctx.egui_wants_keyboard_input();
         let sc = |m, k| KeyboardShortcut::new(m, k);
@@ -263,6 +378,9 @@ impl LogicFlowApp {
         }
     }
 
+    /// Horní lišta: nabídky, pracovní plochy, ovládání simulace, jazyk.
+    ///
+    /// [en] Top bar: menus, workspaces, simulation controls, language.
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         egui::Panel::top("top_bar")
@@ -418,6 +536,7 @@ impl LogicFlowApp {
 
                     ui.add_space(16.0);
                     // Pracovní plochy jako záložky, jako v Blenderu.
+                    // [en] Workspaces as tabs, as in Blender.
                     for (i, ws) in Workspace::ALL.iter().enumerate() {
                         if ui
                             .add(egui::Button::selectable(
@@ -444,6 +563,9 @@ impl LogicFlowApp {
             });
     }
 
+    /// Stavový řádek: stav simulace, nápověda ke zkratkám, soubor, verze.
+    ///
+    /// [en] Status bar: simulation state, shortcut hints, file, version.
     fn status_bar(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         egui::Panel::bottom("status_bar")
@@ -493,6 +615,9 @@ impl LogicFlowApp {
             });
     }
 
+    /// Okna a dialogy: soubory, potvrzení neuložených změn, chyby, O aplikaci, nápověda.
+    ///
+    /// [en] Windows and dialogs: files, confirming unsaved changes, errors, About, help.
     fn dialogs(&mut self, ctx: &egui::Context) {
         let lang = self.lang;
         self.help.ui(ctx, lang);
@@ -609,6 +734,9 @@ impl LogicFlowApp {
         self.about_open = open;
     }
 
+    /// Nastaví titulek okna podle souboru a neuložených změn.
+    ///
+    /// [en] Sets the window title according to the file and unsaved changes.
     fn update_title(&mut self, ctx: &egui::Context) {
         let title = format!(
             "LogicFlow – {}{}",
@@ -622,6 +750,9 @@ impl LogicFlowApp {
     }
 }
 
+/// Projekt z vestavěného příkladu.
+///
+/// [en] Project from a built-in example.
 fn example_project(i: usize) -> Project {
     let ex = &examples::ALL[i.min(examples::ALL.len() - 1)];
     let mut p = Project::with_subcircuits((ex.build)(), (ex.subcircuits)());
@@ -630,6 +761,9 @@ fn example_project(i: usize) -> Project {
 }
 
 impl eframe::App for LogicFlowApp {
+    /// Uloží nastavení (jazyk, značky) do úložiště eframe.
+    ///
+    /// [en] Saves the settings (language, symbols) to the eframe storage.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         let settings = Settings {
             lang: self.lang,
@@ -640,8 +774,13 @@ impl eframe::App for LogicFlowApp {
 
     /// Tab slouží ke vstupu do podobvodu a zpět (jako v Blenderu). Mimo textová pole
     /// ho proto egui nedostane – jinak by jím přesouvalo fokus mezi tlačítky.
+    ///
+    /// [en] Tab is used to enter a subcircuit and go back (as in Blender). Outside text
+    /// fields egui therefore does not get it – otherwise it would move the focus
+    /// between buttons.
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
         // Nevyužitý stisk z minulého snímku (myš nebyla nad schématem) se zahodí.
+        // [en] An unused press from the previous frame (the mouse was not over the schematic) is dropped.
         crate::schematic::take_tab(ctx);
         if ctx.text_edit_focused() {
             return;
@@ -665,15 +804,21 @@ impl eframe::App for LogicFlowApp {
     }
 
     /// Paměť egui (rozbalené skupiny apod.) se neukládá – jen naše nastavení a okno.
+    ///
+    /// [en] egui memory (expanded groups etc.) is not saved – only our settings and the window.
     fn persist_egui_memory(&self) -> bool {
         false
     }
 
+    /// Jeden snímek: čas simulace, zkratky, lišty, oblasti a dialogy.
+    ///
+    /// [en] One frame: simulation time, shortcuts, bars, areas and dialogs.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         crate::symbols::set_style(ui.ctx(), self.symbols);
         let ctx = ui.ctx().clone();
 
         // Zavírání okna s neuloženými změnami.
+        // [en] Closing the window with unsaved changes.
         if ctx.input(|i| i.viewport().close_requested())
             && self.project.modified
             && !self.allow_close
@@ -694,12 +839,15 @@ impl eframe::App for LogicFlowApp {
             .last_frame
             .map_or(0.0, |t| now.duration_since(t).as_secs_f64())
             // Po uspání nebo minimalizaci okna simulace nepřeskakuje dlouhý úsek.
+            // [en] After sleep or minimising the window, the simulation does not skip a long stretch.
             .min(MAX_FRAME_DT);
         self.last_frame = Some(now);
         self.project.update(dt);
         if self.project.running {
             // Časový diagram se posouvá, proto překreslujeme průběžně – a nejpozději
             // v okamžiku příští hrany hodin, aby LED blikaly přesně v rytmu.
+            // [en] The timing diagram scrolls, so we repaint continuously – and at the latest
+            // at the moment of the next clock edge, so that LEDs blink exactly in rhythm.
             let wait = self
                 .project
                 .time_to_next_clock_edge()
@@ -748,6 +896,7 @@ mod tests {
         let s = Settings::for_locale(Some("zh-Hans-US"));
         assert_eq!(s.symbols, SymbolStyle::Ansi);
         // Neznámé prostředí: čeština a evropské značky.
+        // [en] Unknown environment: Czech and European symbols.
         let s = Settings::for_locale(None);
         assert_eq!((s.lang, s.symbols), (Lang::Cs, SymbolStyle::Iec));
     }

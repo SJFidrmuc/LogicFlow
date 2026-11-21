@@ -1,4 +1,6 @@
 //! Otevřený projekt: obvod, simulátor, výběr, historie úprav a záznam signálů.
+//!
+//! [en] Open project: circuit, simulator, selection, edit history and signal recording.
 
 use logicflow_core::circuit::sync_instances;
 use logicflow_core::{
@@ -8,89 +10,194 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 /// Nejvýše tolik událostí se zpracuje za jeden snímek.
+///
+/// [en] At most this many events are processed per frame.
 const EVENT_BUDGET: usize = 20_000;
+/// Nejvyšší počet kroků „Zpět“.
+///
+/// [en] Maximum number of “Undo” steps.
 const UNDO_LIMIT: usize = 200;
 
+/// Vybrané součástky a vodiče ve schématu.
+///
+/// [en] Selected components and wires in the schematic.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Selection {
+    /// Vybrané součástky.
+    ///
+    /// [en] Selected components.
     pub comps: BTreeSet<CompId>,
+    /// Vybrané vodiče.
+    ///
+    /// [en] Selected wires.
     pub wires: BTreeSet<WireId>,
 }
 
 impl Selection {
+    /// Není nic vybráno?
+    ///
+    /// [en] Is nothing selected?
     pub fn is_empty(&self) -> bool {
         self.comps.is_empty() && self.wires.is_empty()
     }
 
+    /// Zruší výběr.
+    ///
+    /// [en] Clears the selection.
     pub fn clear(&mut self) {
         self.comps.clear();
         self.wires.clear();
     }
 
+    /// Id součástky, pokud je vybraná právě jedna (a žádný vodič).
+    ///
+    /// [en] Component id if exactly one is selected (and no wire).
     pub fn single_comp(&self) -> Option<CompId> {
         (self.comps.len() == 1 && self.wires.is_empty())
             .then(|| *self.comps.first().expect("jeden prvek"))
     }
 
+    /// Vybrané součástky jako seznam.
+    ///
+    /// [en] Selected components as a list.
     pub fn comp_vec(&self) -> Vec<CompId> {
         self.comps.iter().copied().collect()
     }
 
+    /// Vybrané vodiče jako seznam.
+    ///
+    /// [en] Selected wires as a list.
     pub fn wire_vec(&self) -> Vec<WireId> {
         self.wires.iter().copied().collect()
     }
 }
 
 /// Signál zobrazený v časovém diagramu.
+///
+/// [en] Signal shown in the timing diagram.
 #[derive(Clone, Debug)]
 pub struct Signal {
+    /// Součástka, ke které signál patří.
+    ///
+    /// [en] Component the signal belongs to.
     pub id: CompId,
+    /// Název řádku (popisek součástky).
+    ///
+    /// [en] Row name (component label).
     pub label: String,
     /// Změny hodnoty: (čas v sekundách, hodnota).
+    ///
+    /// [en] Value changes: (time in seconds, value).
     pub changes: Vec<(f64, LogicValue)>,
 }
 
 /// Uložený stav hlavního obvodu po dobu úprav podobvodu.
+///
+/// [en] Saved state of the main circuit while a subcircuit is being edited.
 struct MainStash {
+    /// Hlavní obvod.
+    ///
+    /// [en] Main circuit.
     circuit: Circuit,
+    /// Simulátor hlavního obvodu.
+    ///
+    /// [en] Simulator of the main circuit.
     sim: Simulator,
+    /// Čas časového diagramu.
+    ///
+    /// [en] Time of the timing diagram.
     time: f64,
+    /// Záznam signálů.
+    ///
+    /// [en] Signal recording.
     signals: Vec<Signal>,
 }
 
+/// Otevřený projekt – vše, co editory čtou a mění.
+///
+/// [en] Open project – everything the editors read and change.
 pub struct Project {
     /// Právě upravovaný list: hlavní obvod, nebo podobvod `sheet`.
+    ///
+    /// [en] Sheet being edited: the main circuit, or subcircuit `sheet`.
     pub circuit: Circuit,
     /// Definice podobvodů. Upravovaný podobvod má aktuální obsah v `circuit`.
+    ///
+    /// [en] Subcircuit definitions. The subcircuit being edited has its current content in `circuit`.
     pub subcircuits: Vec<SubcircuitDef>,
     /// Upravovaný podobvod (`None` = hlavní obvod).
+    ///
+    /// [en] Subcircuit being edited (`None` = main circuit).
     pub sheet: Option<u32>,
     /// Cesta zpět při procházení do vnořených podobvodů.
+    ///
+    /// [en] Way back when descending into nested subcircuits.
     sheet_stack: Vec<Option<u32>>,
+    /// Hlavní obvod odložený během úprav podobvodu.
+    ///
+    /// [en] Main circuit put aside while a subcircuit is edited.
     main_stash: Option<MainStash>,
+    /// Simulátor právě zobrazeného listu.
+    ///
+    /// [en] Simulator of the sheet currently shown.
     pub sim: Simulator,
+    /// Soubor projektu (`None` = zatím neuloženo).
+    ///
+    /// [en] Project file (`None` = not saved yet).
     pub path: Option<PathBuf>,
     /// Název příkladu, pokud projekt vznikl z příkladu a ještě nebyl uložen.
+    ///
+    /// [en] Name of the example if the project was created from an example and has not been saved yet.
     pub title: Option<String>,
+    /// Jsou v projektu neuložené změny?
+    ///
+    /// [en] Does the project have unsaved changes?
     pub modified: bool,
+    /// Výběr ve schématu.
+    ///
+    /// [en] Selection in the schematic.
     pub selection: Selection,
+    /// Historie pro „Zpět“ (kopie obvodu před úpravou).
+    ///
+    /// [en] History for “Undo” (copies of the circuit before an edit).
     undo: Vec<Circuit>,
+    /// Historie pro „Znovu“.
+    ///
+    /// [en] History for “Redo”.
     redo: Vec<Circuit>,
     /// Zvyšuje se při každé změně obvodu (pro přepočet pravdivostní tabulky apod.).
+    ///
+    /// [en] Increased on every change of the circuit (to recompute the truth table etc.).
     pub revision: u64,
+    /// Běží simulace (není pozastavená)?
+    ///
+    /// [en] Is the simulation running (not paused)?
     pub running: bool,
     /// Čas časového diagramu v sekundách; běží jen při spuštěné simulaci.
+    ///
+    /// [en] Time of the timing diagram in seconds; runs only while the simulation runs.
     pub time: f64,
+    /// Zaznamenané signály pro časový diagram.
+    ///
+    /// [en] Recorded signals for the timing diagram.
     pub signals: Vec<Signal>,
     /// Součástka vybraná v knihovně, která se má umístit do schématu.
+    ///
+    /// [en] Component chosen in the library that is to be placed in the schematic.
     pub pending_place: Option<ComponentKind>,
 }
 
 impl Project {
+    /// Projekt s jedním obvodem bez podobvodů.
+    ///
+    /// [en] Project with one circuit and no subcircuits.
     pub fn new(circuit: Circuit) -> Self {
         Self::with_subcircuits(circuit, Vec::new())
     }
 
+    /// Projekt s hlavním obvodem a definicemi podobvodů.
+    ///
+    /// [en] Project with a main circuit and subcircuit definitions.
     pub fn with_subcircuits(circuit: Circuit, subcircuits: Vec<SubcircuitDef>) -> Self {
         let mut sim = Simulator::with_subcircuits(&circuit, &subcircuits, None);
         sim.run(EVENT_BUDGET);
@@ -117,30 +224,57 @@ impl Project {
         p
     }
 
+    /// Načte projekt ze souboru .logicflow.
+    ///
+    /// [en] Loads a project from a .logicflow file.
     pub fn load(path: &Path) -> Result<Self, String> {
         let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-        let (mut circuit, mut subs) = ProjectFile::from_json(&text)?;
+        let mut p = Self::from_text(&text)?;
+        p.path = Some(path.to_path_buf());
+        Ok(p)
+    }
+
+    /// Vytvoří projekt z textu souboru .logicflow (bez práce se soubory – použije
+    /// i budoucí webová verze, která dostane obsah souboru z prohlížeče).
+    ///
+    /// [en] Creates a project from the text of a .logicflow file (no file access – also
+    /// used by the future web version, which gets the file content from the browser).
+    pub fn from_text(text: &str) -> Result<Self, String> {
+        let (mut circuit, mut subs) = ProjectFile::from_json(text)?;
         // Počty vývodů instancí podle aktuálních definic.
+        // [en] Pin counts of instances according to the current definitions.
         let defs = subs.clone();
         sync_instances(&mut circuit, &defs);
         for d in &mut subs {
             sync_instances(&mut d.circuit, &defs);
         }
-        let mut p = Self::with_subcircuits(circuit, subs);
-        p.path = Some(path.to_path_buf());
-        Ok(p)
+        Ok(Self::with_subcircuits(circuit, subs))
     }
 
+    /// Uloží projekt (hlavní obvod i všechny podobvody) do souboru.
+    ///
+    /// [en] Saves the project (main circuit and all subcircuits) to a file.
     pub fn save(&mut self, path: &Path) -> Result<(), String> {
-        let (main, subs) = self.snapshot();
-        std::fs::write(path, ProjectFile::to_json(&main, &subs)).map_err(|e| e.to_string())?;
+        std::fs::write(path, self.to_text()).map_err(|e| e.to_string())?;
         self.path = Some(path.to_path_buf());
         self.title = None;
         self.modified = false;
         Ok(())
     }
 
+    /// Text souboru .logicflow s hlavním obvodem i všemi podobvody (bez práce se
+    /// soubory – webová verze ho nabídne ke stažení).
+    ///
+    /// [en] Text of the .logicflow file with the main circuit and all subcircuits (no file
+    /// access – the web version offers it as a download).
+    pub fn to_text(&self) -> String {
+        let (main, subs) = self.snapshot();
+        ProjectFile::to_json(&main, &subs)
+    }
+
     /// Název do titulku okna.
+    ///
+    /// [en] Name for the window title.
     pub fn display_name(&self) -> String {
         if let Some(p) = &self.path {
             p.file_name().map_or_else(
@@ -155,6 +289,8 @@ impl Project {
     }
 
     /// Hlavní obvod a definice podobvodů včetně právě upravovaného listu.
+    ///
+    /// [en] Main circuit and subcircuit definitions including the sheet being edited.
     pub fn snapshot(&self) -> (Circuit, Vec<SubcircuitDef>) {
         let mut subs = self.subcircuits.clone();
         match self.sheet {
@@ -174,11 +310,15 @@ impl Project {
     }
 
     /// Definice podobvodu.
+    ///
+    /// [en] Subcircuit definition.
     pub fn subcircuit(&self, id: u32) -> Option<&SubcircuitDef> {
         self.subcircuits.iter().find(|d| d.id == id)
     }
 
     /// Název právě upravovaného listu (`None` = hlavní obvod).
+    ///
+    /// [en] Name of the sheet being edited (`None` = main circuit).
     pub fn sheet_name(&self) -> Option<String> {
         self.sheet
             .and_then(|id| self.subcircuit(id))
@@ -187,6 +327,9 @@ impl Project {
 
     /// Lze do právě upravovaného listu vložit instanci podobvodu `id`?
     /// (Podobvod nesmí obsahovat sám sebe, ani nepřímo.)
+    ///
+    /// [en] Can an instance of subcircuit `id` be placed in the sheet being edited?
+    /// (A subcircuit must not contain itself, not even indirectly.)
     pub fn can_place_subcircuit(&self, id: u32) -> bool {
         match self.sheet {
             None => true,
@@ -200,6 +343,8 @@ impl Project {
     }
 
     /// Zapíše právě upravovaný podobvod zpět do definic.
+    ///
+    /// [en] Writes the subcircuit being edited back into the definitions.
     fn store_sheet(&mut self) {
         if let Some(id) = self.sheet
             && let Some(d) = self.subcircuits.iter_mut().find(|d| d.id == id)
@@ -209,12 +354,16 @@ impl Project {
     }
 
     /// Otevře list k úpravám: hlavní obvod (`None`) nebo podobvod.
+    ///
+    /// [en] Opens a sheet for editing: the main circuit (`None`) or a subcircuit.
     pub fn open_sheet(&mut self, target: Option<u32>) {
         self.open_sheet_inner(target);
         self.sheet_stack.clear();
     }
 
     /// Otevře podobvod a zapamatuje si, odkud se přišlo (Tab zpět).
+    ///
+    /// [en] Opens a subcircuit and remembers where it came from (Tab back).
     pub fn enter_subcircuit(&mut self, id: u32) {
         let from = self.sheet;
         if from != Some(id) && self.subcircuit(id).is_some() {
@@ -224,6 +373,8 @@ impl Project {
     }
 
     /// Vrátí se o úroveň výš (do nadřazeného listu). Vrací `false`, pokud není kam.
+    ///
+    /// [en] Goes one level up (to the parent sheet). Returns `false` if there is nowhere to go.
     pub fn leave_subcircuit(&mut self) -> bool {
         if self.sheet.is_none() {
             return false;
@@ -233,12 +384,16 @@ impl Project {
         true
     }
 
+    /// Přepne list: uloží rozpracovaný, odloží nebo obnoví hlavní obvod a postaví simulátor.
+    ///
+    /// [en] Switches the sheet: stores the one being edited, puts aside or restores the main circuit and builds the simulator.
     fn open_sheet_inner(&mut self, target: Option<u32>) {
         if target == self.sheet || target.is_some_and(|id| self.subcircuit(id).is_none()) {
             return;
         }
         self.store_sheet();
         // Rozhraní upravených podobvodů se promítne do instancí.
+        // [en] The interface of edited subcircuits is reflected in the instances.
         let defs = self.subcircuits.clone();
         for d in &mut self.subcircuits {
             sync_instances(&mut d.circuit, &defs);
@@ -283,6 +438,8 @@ impl Project {
     }
 
     /// Vytvoří nový prázdný podobvod a otevře ho. Vrací jeho id.
+    ///
+    /// [en] Creates a new empty subcircuit and opens it. Returns its id.
     pub fn new_subcircuit(&mut self, name_prefix: &str) -> u32 {
         let id = self.subcircuits.iter().map(|d| d.id + 1).max().unwrap_or(1);
         let name = (1..)
@@ -299,6 +456,9 @@ impl Project {
         id
     }
 
+    /// Přejmenuje podobvod.
+    ///
+    /// [en] Renames a subcircuit.
     pub fn rename_subcircuit(&mut self, id: u32, name: String) {
         if let Some(d) = self.subcircuits.iter_mut().find(|d| d.id == id) {
             d.name = name;
@@ -307,6 +467,8 @@ impl Project {
     }
 
     /// Je podobvod někde použitý (v hlavním obvodu nebo jiném podobvodu)?
+    ///
+    /// [en] Is the subcircuit used anywhere (in the main circuit or another subcircuit)?
     pub fn is_subcircuit_used(&self, id: u32) -> bool {
         let (main, subs) = self.snapshot();
         let used_in = |c: &Circuit| {
@@ -318,6 +480,8 @@ impl Project {
     }
 
     /// Smaže nepoužitý podobvod. Pokud je právě otevřený, vrátí se do hlavního obvodu.
+    ///
+    /// [en] Deletes an unused subcircuit. If it is open, goes back to the main circuit.
     pub fn delete_subcircuit(&mut self, id: u32) -> bool {
         if self.is_subcircuit_used(id) {
             return false;
@@ -332,10 +496,15 @@ impl Project {
     }
 
     /// Uloží stav pro „Zpět“. Volá se před každou úpravou.
+    ///
+    /// [en] Saves the state for “Undo”. Called before every edit.
     pub fn checkpoint(&mut self) {
         self.push_undo(self.circuit.clone());
     }
 
+    /// Přidá stav do historie „Zpět“ (nejvýš UNDO_LIMIT kroků) a vymaže „Znovu“.
+    ///
+    /// [en] Adds a state to the “Undo” history (at most UNDO_LIMIT steps) and clears “Redo”.
     pub fn push_undo(&mut self, state: Circuit) {
         self.undo.push(state);
         if self.undo.len() > UNDO_LIMIT {
@@ -344,14 +513,23 @@ impl Project {
         self.redo.clear();
     }
 
+    /// Je co vracet?
+    ///
+    /// [en] Is there anything to undo?
     pub fn can_undo(&self) -> bool {
         !self.undo.is_empty()
     }
 
+    /// Je co opakovat?
+    ///
+    /// [en] Is there anything to redo?
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
     }
 
+    /// Vrátí poslední úpravu.
+    ///
+    /// [en] Undoes the last edit.
     pub fn undo(&mut self) {
         if let Some(prev) = self.undo.pop() {
             let current = std::mem::replace(&mut self.circuit, prev);
@@ -361,6 +539,9 @@ impl Project {
         }
     }
 
+    /// Znovu provede vrácenou úpravu.
+    ///
+    /// [en] Redoes the undone edit.
     pub fn redo(&mut self) {
         if let Some(next) = self.redo.pop() {
             let current = std::mem::replace(&mut self.circuit, next);
@@ -371,6 +552,8 @@ impl Project {
     }
 
     /// Přepnutí přepínače není úprava schématu – „Zpět“ ho nemá vracet.
+    ///
+    /// [en] Flipping a switch is not a schematic edit – “Undo” should not revert it.
     fn keep_switch_states(&mut self, from: &Circuit) {
         for c in &from.components {
             if let ComponentKind::Switch { on } = c.kind
@@ -383,6 +566,8 @@ impl Project {
     }
 
     /// Po změně zapojení: přestaví simulátor (se zachováním stavu) a vyčistí výběr.
+    ///
+    /// [en] After a wiring change: rebuilds the simulator (keeping the state) and cleans up the selection.
     pub fn after_structure_change(&mut self) {
         self.sim = Simulator::with_subcircuits(&self.circuit, &self.subcircuits, Some(&self.sim));
         self.sim.run(EVENT_BUDGET);
@@ -396,12 +581,16 @@ impl Project {
     }
 
     /// Změna, která nemění zapojení (popisek…).
+    ///
+    /// [en] A change that does not alter the wiring (label…).
     pub fn touch(&mut self) {
         self.modified = true;
         self.revision += 1;
     }
 
     /// Přepne přepínač (bez záznamu do historie úprav – jde o „hraní“ s obvodem).
+    ///
+    /// [en] Toggles a switch (without recording it in the edit history – it is “playing” with the circuit).
     pub fn toggle_switch(&mut self, id: CompId) {
         let Some(c) = self.circuit.component_mut(id) else {
             return;
@@ -413,11 +602,15 @@ impl Project {
             self.modified = true;
             if !self.running {
                 // I při pozastavené simulaci se změna vstupu projeví, ale dál se nešíří.
+                // [en] Even with a paused simulation the input change shows, but does not propagate further.
                 self.sim.step();
             }
         }
     }
 
+    /// Stiskne nebo uvolní tlačítko v obvodu.
+    ///
+    /// [en] Presses or releases a push button in the circuit.
     pub fn set_button(&mut self, id: CompId, pressed: bool) {
         let Some(c) = self.circuit.component_mut(id) else {
             return;
@@ -432,6 +625,8 @@ impl Project {
     }
 
     /// Volá se každý snímek.
+    ///
+    /// [en] Called every frame.
     pub fn update(&mut self, dt: f64) {
         if self.running {
             let prev = self.time;
@@ -444,6 +639,9 @@ impl Project {
 
     /// Jeden takt simulace (při pozastavení). Časový diagram se posune o čtvrt sekundy,
     /// aby byl každý krok vidět.
+    ///
+    /// [en] One simulation tick (while paused). The timing diagram moves by a quarter
+    /// of a second so that every step is visible.
     pub fn step(&mut self) {
         self.time += 0.25;
         self.drive_clocks();
@@ -451,6 +649,9 @@ impl Project {
         self.record_signals();
     }
 
+    /// Generátory hodin a délka jejich půlperiody v sekundách.
+    ///
+    /// [en] Clock generators and the length of their half period in seconds.
     fn clocks(&self) -> Vec<(CompId, f64)> {
         self.circuit
             .components
@@ -465,6 +666,8 @@ impl Project {
     }
 
     /// Za jak dlouho (s) nastane příští hrana některého generátoru hodin.
+    ///
+    /// [en] In how long (s) the next edge of any clock generator occurs.
     pub fn time_to_next_clock_edge(&self) -> Option<f64> {
         self.clocks()
             .into_iter()
@@ -473,6 +676,8 @@ impl Project {
     }
 
     /// Nastaví výstupy generátorů hodin podle aktuálního času projektu.
+    ///
+    /// [en] Sets the outputs of the clock generators according to the current project time.
     fn drive_clocks(&mut self) {
         for (id, half) in self.clocks() {
             let v = LogicValue::from_bool((self.time / half).floor() as u64 % 2 == 1);
@@ -484,12 +689,16 @@ impl Project {
 
     /// Projde všechny hrany hodin mezi `from` a `to` v časovém pořadí a po každé
     /// nechá obvod ustálit – žádná hrana se neztratí ani při pomalém snímku.
+    ///
+    /// [en] Goes through all clock edges between `from` and `to` in time order and lets
+    /// the circuit settle after each – no edge is lost even with a slow frame.
     fn advance_clocks(&mut self, from: f64, to: f64) {
         let mut edges: Vec<(f64, CompId, LogicValue)> = Vec::new();
         for (id, half) in self.clocks() {
             let first = (from / half).floor() as u64 + 1;
             let last = (to / half).floor() as u64;
             // Při extrémně dlouhém snímku stačí posledních pár hran.
+            // [en] With an extremely long frame the last few edges are enough.
             for k in first.max(last.saturating_sub(64))..=last {
                 edges.push((k as f64 * half, id, LogicValue::from_bool(k % 2 == 1)));
             }
@@ -505,6 +714,8 @@ impl Project {
     }
 
     /// Restart simulace: klopné obvody se vrátí do počátečního stavu, hodiny na 0.
+    ///
+    /// [en] Simulation restart: flip-flops return to their initial state, clocks to 0.
     pub fn reset_simulation(&mut self) {
         self.sim = Simulator::with_subcircuits(&self.circuit, &self.subcircuits, None);
         self.time = 0.0;
@@ -514,6 +725,8 @@ impl Project {
     }
 
     /// Hodnota zobrazovaná u součástky v časovém diagramu.
+    ///
+    /// [en] Value shown for a component in the timing diagram.
     pub fn signal_value(&self, id: CompId) -> LogicValue {
         match self.circuit.component(id).map(|c| c.kind) {
             Some(ComponentKind::Led) => self
@@ -527,6 +740,8 @@ impl Project {
     }
 
     /// Vstupy a výstupy obvodu seřazené podle popisku.
+    ///
+    /// [en] Circuit inputs and outputs sorted by label.
     pub fn io_components(&self) -> (Vec<CompId>, Vec<CompId>) {
         let (ins, outs) = self.circuit.io();
         (
@@ -535,6 +750,9 @@ impl Project {
         )
     }
 
+    /// Zapíše změny hodnot hodin, vstupů a výstupů do záznamu signálů.
+    ///
+    /// [en] Records value changes of clocks, inputs and outputs into the signal recording.
     fn record_signals(&mut self) {
         let (ins, outs) = self.io_components();
         let mut clocks: Vec<&logicflow_core::Component> = self
@@ -594,6 +812,7 @@ mod tests {
         assert_eq!(p.sheet, Some(id));
         assert_eq!(p.sheet_name().as_deref(), Some("Podobvod 1"));
         // Uvnitř: přepínač → LED (rozhraní 1 vstup, 1 výstup).
+        // [en] Inside: switch → LED (interface 1 input, 1 output).
         p.circuit
             .add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
         p.circuit
@@ -624,6 +843,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("podobvod.logicflow");
         // Uložení z podobvodu musí zapsat i hlavní obvod.
+        // [en] Saving from a subcircuit must write the main circuit too.
         p.enter_subcircuit(id);
         p.save(&path).unwrap();
         let q = Project::load(&path).unwrap();
@@ -679,6 +899,7 @@ mod tests {
     #[test]
     fn clock_drives_flip_flop_counter() {
         // Hodiny 1 Hz → klopný obvod T (T = 1) → LED: LED mění stav každou sekundu.
+        // [en] Clock 1 Hz → T flip-flop (T = 1) → LED: the LED changes every second.
         let mut c = Circuit::default();
         c.add_component(ComponentKind::Clock { period_ms: 1000 }, Point::new(0, 1));
         c.add_component(ComponentKind::Constant { value: true }, Point::new(0, -1));
@@ -687,6 +908,7 @@ mod tests {
             Point::new(10, 0),
         );
         // výstup hodin (3,1) → vstup C (7,1); konstanta (2,-1) → vstup T (7,-1)
+        // [en] clock output (3,1) → input C (7,1); constant (2,-1) → input T (7,-1)
         c.add_wire(Point::new(3, 1), Point::new(7, 1));
         c.add_wire(Point::new(2, -1), Point::new(7, -1));
         let mut p = Project::new(c);
@@ -697,6 +919,7 @@ mod tests {
         }
         use LogicValue::*;
         // Náběžná hrana hodin každou sekundu (v čase 0,5; 1,5; …) překlopí T.
+        // [en] The rising clock edge every second (at 0.5; 1.5; …) toggles T.
         assert_eq!(states, [One, One, Zero, Zero, One, One, Zero, Zero]);
         p.reset_simulation();
         assert_eq!(p.sim.flip_flop_state(ff), Some(Zero));
@@ -710,9 +933,11 @@ mod tests {
         c.add_component(ComponentKind::Clock { period_ms: 300 }, Point::new(0, 5));
         let mut p = Project::new(c);
         // Půlperiody 0,5 s a 0,15 s → nejbližší hrana v čase 0,15 s.
+        // [en] Half periods 0.5 s and 0.15 s → the nearest edge at 0.15 s.
         assert!((p.time_to_next_clock_edge().unwrap() - 0.15).abs() < 1e-9);
         p.update(0.4);
         // Další hrany v 0,45 s (rychlé hodiny) a 0,5 s → za 0,05 s.
+        // [en] Next edges at 0.45 s (fast clock) and 0.5 s → in 0.05 s.
         assert!((p.time_to_next_clock_edge().unwrap() - 0.05).abs() < 1e-9);
         assert_eq!(
             Project::new(Circuit::default()).time_to_next_clock_edge(),

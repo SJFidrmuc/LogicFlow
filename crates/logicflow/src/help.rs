@@ -1,31 +1,60 @@
 //! Vestavěná nápověda (F1 nebo oblast typu „Nápověda“).
+//!
+//! [en] Built-in help (F1 or an area of type “Help”).
 
 use crate::i18n::{Lang, T, tr};
 use crate::theme::colors;
 use egui::{RichText, Ui};
 
+/// Stavební prvek kapitoly nápovědy.
+///
+/// [en] Building block of a help chapter.
 enum Block {
     /// Podnadpis.
+    ///
+    /// [en] Subheading.
     H(&'static str),
     /// Odstavec.
+    ///
+    /// [en] Paragraph.
     P(&'static str),
     /// Odrážky.
+    ///
+    /// [en] Bullet points.
     List(&'static [&'static str]),
     /// Číslovaný postup.
+    ///
+    /// [en] Numbered steps.
     Steps(&'static [&'static str]),
     /// Tabulka klávesa > akce.
+    ///
+    /// [en] Table key > action.
     Keys(&'static [(&'static str, &'static str)]),
     /// Zvýrazněný tip.
+    ///
+    /// [en] Highlighted tip.
     Tip(&'static str),
 }
 
+/// Kapitola nápovědy.
+///
+/// [en] Help chapter.
 struct Section {
+    /// Název kapitoly.
+    ///
+    /// [en] Chapter title.
     title: &'static str,
+    /// Obsah kapitoly.
+    ///
+    /// [en] Chapter content.
     blocks: &'static [Block],
 }
 
 use Block::*;
 
+/// Kapitoly české nápovědy.
+///
+/// [en] Chapters of the Czech help.
 const CS: &[Section] = &[
     Section {
         title: "Začínáme",
@@ -356,6 +385,9 @@ const CS: &[Section] = &[
     },
 ];
 
+/// Kapitoly anglické nápovědy (stejná struktura jako česká – hlídá test).
+///
+/// [en] Chapters of the English help (same structure as the Czech one – checked by a test).
 const EN: &[Section] = &[
     Section {
         title: "Getting started",
@@ -671,6 +703,9 @@ const EN: &[Section] = &[
     },
 ];
 
+/// Kapitoly v daném jazyce.
+///
+/// [en] Chapters in the given language.
 fn sections(lang: Lang) -> &'static [Section] {
     match lang {
         Lang::Cs => CS,
@@ -678,6 +713,9 @@ fn sections(lang: Lang) -> &'static [Section] {
     }
 }
 
+/// Vykreslí jednu kapitolu.
+///
+/// [en] Draws one chapter.
 fn render(ui: &mut Ui, section: &Section) {
     ui.heading(section.title);
     ui.add_space(4.0);
@@ -744,12 +782,23 @@ fn render(ui: &mut Ui, section: &Section) {
 }
 
 /// Okno nápovědy (F1).
+///
+/// [en] Help window (F1).
 pub struct HelpWindow {
+    /// Je okno otevřené?
+    ///
+    /// [en] Is the window open?
     pub open: bool,
+    /// Pořadí zobrazené kapitoly.
+    ///
+    /// [en] Index of the chapter shown.
     pub section: usize,
 }
 
 impl HelpWindow {
+    /// Zavřené okno na první kapitole.
+    ///
+    /// [en] Closed window at the first chapter.
     pub fn new() -> Self {
         Self {
             open: false,
@@ -758,11 +807,16 @@ impl HelpWindow {
     }
 
     /// Otevře nápovědu na kapitole podle jejího pořadí.
+    ///
+    /// [en] Opens the help at a chapter by its index.
     pub fn show_section(&mut self, section: usize) {
         self.open = true;
         self.section = section;
     }
 
+    /// Vykreslí okno: seznam kapitol vlevo, obsah vpravo.
+    ///
+    /// [en] Draws the window: list of chapters on the left, content on the right.
     pub fn ui(&mut self, ctx: &egui::Context, lang: Lang) {
         if !self.open {
             return;
@@ -811,6 +865,8 @@ impl HelpWindow {
 }
 
 /// Nápověda zobrazená v oblasti (typ editoru „Nápověda“).
+///
+/// [en] Help shown in an area (editor type “Help”).
 pub fn area(ui: &mut Ui, section: &mut usize, lang: Lang) {
     let secs = sections(lang);
     egui::Frame::new().inner_margin(8).show(ui, |ui| {
@@ -835,7 +891,12 @@ pub fn area(ui: &mut Ui, section: &mut usize, lang: Lang) {
 }
 
 /// Pořadí kapitoly s klávesovými zkratkami a s upozorněním Windows (pro nabídku Nápověda).
+///
+/// [en] Index of the chapter with keyboard shortcuts and with the Windows warning (for the Help menu).
 pub const SECTION_SHORTCUTS: usize = 10;
+/// Pořadí kapitoly s upozorněním Windows (SmartScreen).
+///
+/// [en] Index of the chapter with the Windows (SmartScreen) warning.
 pub const SECTION_WINDOWS: usize = 11;
 
 #[cfg(test)]

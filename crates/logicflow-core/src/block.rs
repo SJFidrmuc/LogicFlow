@@ -6,39 +6,117 @@
 //!
 //! Řídicí vstupy R (nulování) a EN (povolení) lze nechat nepřipojené:
 //! nepřipojený R se chová jako 0, nepřipojený EN jako 1.
+//!
+//! [en] Function blocks: multiplexer, decoder, encoder, adder, comparator,
+//! BCD to seven-segment converter, counter, register and shift register.
+//!
+//! All blocks have a rectangular symbol according to EN 60617-12 with inputs
+//! on the left and outputs on the right. Bits are ordered from the top starting
+//! with the lowest one (D0, Q0, …).
+//!
+//! The control inputs R (reset) and EN (enable) may stay unconnected:
+//! an unconnected R behaves as 0, an unconnected EN as 1.
 
 use crate::LogicValue;
 use serde::{Deserialize, Serialize};
 
 /// Druh funkčního bloku.
+///
+/// [en] Kind of function block.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BlockKind {
     /// Multiplexor 2^select → 1 se vstupem povolení EN.
-    Mux { select: u8 },
+    ///
+    /// [en] Multiplexer 2^select → 1 with an enable input EN.
+    Mux {
+        /// Počet adresových vstupů (1–3).
+        ///
+        /// [en] Number of address inputs (1–3).
+        select: u8,
+    },
     /// Dekodér (demultiplexor) z `bits` adresových bitů na 2^bits výstupů.
-    Decoder { bits: u8 },
+    ///
+    /// [en] Decoder (demultiplexer) from `bits` address bits to 2^bits outputs.
+    Decoder {
+        /// Počet adresových bitů.
+        ///
+        /// [en] Number of address bits.
+        bits: u8,
+    },
     /// Prioritní kodér 2^bits → bits s výstupem platnosti V.
-    Encoder { bits: u8 },
+    ///
+    /// [en] Priority encoder 2^bits → bits with a valid output V.
+    Encoder {
+        /// Počet výstupních bitů.
+        ///
+        /// [en] Number of output bits.
+        bits: u8,
+    },
     /// Sčítačka dvou `bits`bitových čísel s přenosem.
-    Adder { bits: u8 },
+    ///
+    /// [en] Adder of two `bits`-bit numbers with carry.
+    Adder {
+        /// Počet bitů každého sčítance.
+        ///
+        /// [en] Number of bits of each operand.
+        bits: u8,
+    },
     /// Komparátor dvou `bits`bitových čísel.
-    Comparator { bits: u8 },
+    ///
+    /// [en] Comparator of two `bits`-bit numbers.
+    Comparator {
+        /// Počet bitů porovnávaných čísel.
+        ///
+        /// [en] Number of bits of the compared numbers.
+        bits: u8,
+    },
     /// Převodník kódu BCD (a hexadecimálního) na sedmisegmentovku.
+    ///
+    /// [en] Converter from BCD (and hexadecimal) code to a seven-segment display.
     BcdTo7Seg,
     /// Synchronní binární čítač s asynchronním nulováním.
-    Counter { bits: u8, down: bool },
+    ///
+    /// [en] Synchronous binary counter with asynchronous reset.
+    Counter {
+        /// Počet bitů čítače.
+        ///
+        /// [en] Number of counter bits.
+        bits: u8,
+        /// Čítá dolů (jinak nahoru).
+        ///
+        /// [en] Counts down (otherwise up).
+        down: bool,
+    },
     /// Paralelní registr (střádač) s asynchronním nulováním.
-    Register { bits: u8 },
+    ///
+    /// [en] Parallel register (latch) with asynchronous reset.
+    Register {
+        /// Počet bitů registru.
+        ///
+        /// [en] Number of register bits.
+        bits: u8,
+    },
     /// Posuvný registr se sériovým vstupem a paralelními výstupy.
-    ShiftRegister { bits: u8 },
+    ///
+    /// [en] Shift register with a serial input and parallel outputs.
+    ShiftRegister {
+        /// Počet bitů (stupňů) registru.
+        ///
+        /// [en] Number of register bits (stages).
+        bits: u8,
+    },
 }
 
 /// Rozsah parametru bloku (nejmenší, největší hodnota).
+///
+/// [en] Range of a block parameter (smallest, largest value).
 pub type ParamRange = (u8, u8);
 
 impl BlockKind {
     /// Výchozí podoba všech bloků (pro nabídku součástek).
+    ///
+    /// [en] Default form of all blocks (for the component menu).
     pub const ALL: [Self; 9] = [
         Self::Mux { select: 1 },
         Self::Decoder { bits: 2 },
@@ -55,6 +133,8 @@ impl BlockKind {
     ];
 
     /// Hlavní parametr (počet bitů / adresových vstupů), pokud ho blok má.
+    ///
+    /// [en] Main parameter (number of bits / address inputs), if the block has one.
     pub fn param(self) -> Option<u8> {
         match self {
             Self::Mux { select: n }
@@ -70,6 +150,8 @@ impl BlockKind {
     }
 
     /// Povolený rozsah hlavního parametru.
+    ///
+    /// [en] Allowed range of the main parameter.
     pub fn param_range(self) -> ParamRange {
         match self {
             Self::Mux { .. } | Self::Decoder { .. } => (1, 3),
@@ -81,6 +163,8 @@ impl BlockKind {
     }
 
     /// Kopie bloku s novým hlavním parametrem (oříznutým do povoleného rozsahu).
+    ///
+    /// [en] Copy of the block with a new main parameter (clamped to the allowed range).
     pub fn with_param(self, n: u8) -> Self {
         let (lo, hi) = self.param_range();
         let n = n.clamp(lo, hi);
@@ -98,6 +182,8 @@ impl BlockKind {
     }
 
     /// Kvalifikační značka uvnitř obdélníku (ČSN EN 60617-12).
+    ///
+    /// [en] Qualifying symbol inside the rectangle (EN 60617-12).
     pub fn qualifier(self) -> String {
         match self {
             Self::Mux { .. } => "MUX".into(),
@@ -113,6 +199,8 @@ impl BlockKind {
     }
 
     /// Obsahuje blok paměť (stav)?
+    ///
+    /// [en] Does the block contain memory (state)?
     pub fn is_sequential(self) -> bool {
         matches!(
             self,
@@ -121,6 +209,8 @@ impl BlockKind {
     }
 
     /// Počet bitů vnitřního stavu.
+    ///
+    /// [en] Number of bits of the internal state.
     pub fn state_bits(self) -> usize {
         match self {
             Self::Counter { bits, .. } | Self::Register { bits } | Self::ShiftRegister { bits } => {
@@ -131,6 +221,8 @@ impl BlockKind {
     }
 
     /// Názvy vstupů shora dolů.
+    ///
+    /// [en] Input names from top to bottom.
     pub fn input_names(self) -> Vec<String> {
         let bus = |p: &str, n: u8| (0..n).map(|i| format!("{p}{i}")).collect::<Vec<_>>();
         match self {
@@ -169,6 +261,8 @@ impl BlockKind {
     }
 
     /// Názvy výstupů shora dolů.
+    ///
+    /// [en] Output names from top to bottom.
     pub fn output_names(self) -> Vec<String> {
         let bus = |p: &str, n: u8| (0..n).map(|i| format!("{p}{i}")).collect::<Vec<_>>();
         match self {
@@ -198,21 +292,29 @@ impl BlockKind {
     }
 
     /// Index hodinového vstupu (kreslí se u něj dynamický vstup – trojúhelník).
+    ///
+    /// [en] Index of the clock input (drawn with a dynamic input – a triangle).
     pub fn clock_input(self) -> Option<usize> {
         self.is_sequential().then(|| self.input_names().len() - 1)
     }
 
     /// Ohraničení těla v místních souřadnicích.
+    ///
+    /// [en] Bounds of the body in local coordinates.
     pub fn body_local(self) -> (f32, f32, f32, f32) {
         rect_body(self.input_names().len(), self.output_names().len())
     }
 
     /// Vývody v místních souřadnicích: (vstupy, výstupy).
+    ///
+    /// [en] Pins in local coordinates: (inputs, outputs).
     pub fn pins_local(self) -> crate::circuit::LocalPins {
         rect_pins(self.input_names().len(), self.output_names().len())
     }
 
     /// Výstupy kombinačního bloku podle vstupů (vstupy jsou hodnoty sítí).
+    ///
+    /// [en] Outputs of a combinational block for the given inputs (inputs are net values).
     pub fn eval(self, ins: &[LogicValue]) -> Vec<LogicValue> {
         use LogicValue::{One, X, Zero};
         let n_out = self.output_names().len();
@@ -229,6 +331,7 @@ impl BlockKind {
                         Some(a) => vec![ins[s + a as usize]],
                         None => {
                             // Neznámá adresa: výsledek je jistý jen při shodě všech dat.
+                            // [en] Unknown address: the result is certain only if all data inputs agree.
                             let data = &ins[s..s + (1 << s)];
                             let same = data.iter().all(|&d| d == data[0]);
                             vec![if same { data[0] } else { X }]
@@ -247,6 +350,7 @@ impl BlockKind {
             }
             Self::Encoder { bits } => {
                 // Nejvyšší aktivní vstup vyhrává; X nad ním znamená nejistý výsledek.
+                // [en] The highest active input wins; an X above it means an uncertain result.
                 for (k, v) in ins.iter().enumerate().rev() {
                     match v {
                         One => {
@@ -286,11 +390,14 @@ impl BlockKind {
                 None => all_x(),
             },
             // Sekvenční bloky se vyhodnocují přes `step`.
+            // [en] Sequential blocks are evaluated through `step`.
             _ => all_x(),
         }
     }
 
     /// Výstupy sekvenčního bloku pro daný stav.
+    ///
+    /// [en] Outputs of a sequential block for the given state.
     pub fn outputs_from_state(self, state: &[LogicValue]) -> Vec<LogicValue> {
         let mut out = state.to_vec();
         if let Self::Counter { down, .. } = self {
@@ -313,6 +420,10 @@ impl BlockKind {
 
     /// Krok sekvenčního bloku: podle vstupů změní stav a vrátí nové výstupy.
     /// `prev_clock` je předchozí hodnota hodinového vstupu (aktualizuje se).
+    ///
+    /// [en] Step of a sequential block: changes the state according to the inputs and
+    /// returns the new outputs. `prev_clock` is the previous value of the clock
+    /// input (it gets updated).
     pub fn step(
         self,
         ins: &[LogicValue],
@@ -338,6 +449,7 @@ impl BlockKind {
             Zero => {}
             _ => {
                 // Neznámé nulování: jistě zůstanou jen bity, které už jsou 0.
+                // [en] Unknown reset: only bits that are already 0 stay certain.
                 for q in state.iter_mut().filter(|q| **q != Zero) {
                     *q = X;
                 }
@@ -375,6 +487,8 @@ impl BlockKind {
 }
 
 /// Tělo obdélníkové značky s `n_in` vstupy a `n_out` výstupy.
+///
+/// [en] Body of a rectangular symbol with `n_in` inputs and `n_out` outputs.
 pub fn rect_body(n_in: usize, n_out: usize) -> (f32, f32, f32, f32) {
     let rows = n_in.max(n_out).max(1) as f32;
     (-3.0, -rows - 1.0, 3.0, rows + 1.0)
@@ -382,6 +496,10 @@ pub fn rect_body(n_in: usize, n_out: usize) -> (f32, f32, f32, f32) {
 
 /// Vývody obdélníkové značky: vstupy vlevo, výstupy vpravo, mezi vývody 2 body
 /// mřížky; nad prvním vývodem je místo na kvalifikační značku.
+///
+/// [en] Pins of a rectangular symbol: inputs on the left, outputs on the right,
+/// 2 grid points between pins; above the first pin there is room for the
+/// qualifying symbol.
 pub fn rect_pins(n_in: usize, n_out: usize) -> crate::circuit::LocalPins {
     let first = 2 - n_in.max(n_out).max(1) as i32;
     let ins = (0..n_in as i32).map(|i| (-4, first + 2 * i)).collect();
@@ -390,6 +508,8 @@ pub fn rect_pins(n_in: usize, n_out: usize) -> crate::circuit::LocalPins {
 }
 
 /// Vstup povolení: nepřipojený (Z) znamená povoleno.
+///
+/// [en] Enable input: unconnected (Z) means enabled.
 fn enable(v: LogicValue) -> LogicValue {
     match v {
         LogicValue::Z => LogicValue::One,
@@ -398,6 +518,8 @@ fn enable(v: LogicValue) -> LogicValue {
 }
 
 /// Vstup nulování: nepřipojený (Z) znamená neaktivní.
+///
+/// [en] Reset input: unconnected (Z) means inactive.
 fn reset_level(v: LogicValue) -> LogicValue {
     match v {
         LogicValue::Z => LogicValue::Zero,
@@ -406,6 +528,8 @@ fn reset_level(v: LogicValue) -> LogicValue {
 }
 
 /// Číslo z bitů (první je nejnižší). `None`, pokud některý bit není 0 ani 1.
+///
+/// [en] Number from bits (the first one is the lowest). `None` if a bit is neither 0 nor 1.
 pub fn number(bits: &[LogicValue]) -> Option<u32> {
     bits.iter().enumerate().try_fold(0u32, |acc, (i, v)| {
         v.as_input().to_bool().map(|b| acc | (b as u32) << i)
@@ -413,11 +537,15 @@ pub fn number(bits: &[LogicValue]) -> Option<u32> {
 }
 
 /// Bity čísla (první je nejnižší).
+///
+/// [en] Bits of a number (the first one is the lowest).
 pub fn bits_of(n: u32, count: usize) -> Vec<LogicValue> {
     (0..count).map(|i| (n >> i & 1 == 1).into()).collect()
 }
 
 /// Rozsvícené segmenty pro číslice 0–F (bit 0 = a … bit 6 = g).
+///
+/// [en] Lit segments for digits 0–F (bit 0 = a … bit 6 = g).
 pub const SEVEN_SEG_HEX: [u8; 16] = [
     0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, // 0–7
     0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71, // 8–F
@@ -437,7 +565,9 @@ mod tests {
         let m = BlockKind::Mux { select: 2 };
         // S0 S1 | D0 D1 D2 D3 | EN
         let mut ins = v(&[0, 1, 0, 0, 1, 0]);
-        ins.push(Z); // EN nepřipojený = povoleno
+        // EN nepřipojený = povoleno
+        // [en] EN unconnected = enabled
+        ins.push(Z);
         assert_eq!(m.eval(&ins), vec![One]);
         ins[6] = Zero;
         assert_eq!(m.eval(&ins), vec![Zero]);
@@ -478,8 +608,10 @@ mod tests {
     fn seven_segment_digits() {
         let b = BlockKind::BcdTo7Seg;
         // 1 = segmenty b, c
+        // [en] 1 = segments b, c
         assert_eq!(b.eval(&bits_of(1, 4)), v(&[0, 1, 1, 0, 0, 0, 0]));
         // 8 = všechny segmenty
+        // [en] 8 = all segments
         assert_eq!(b.eval(&bits_of(8, 4)), vec![One; 7]);
     }
 
@@ -505,15 +637,18 @@ mod tests {
             assert_eq!(number(&st), Some(k % 8));
         }
         // Přenos při stavu 7.
+        // [en] Carry at state 7.
         for _ in 0..7 {
             clock(b, &mut ins, &mut st, &mut pc);
         }
         assert_eq!(b.outputs_from_state(&st)[3], One);
         // EN = 0 zastaví čítání.
+        // [en] EN = 0 stops counting.
         ins[1] = Zero;
         clock(b, &mut ins, &mut st, &mut pc);
         assert_eq!(number(&st), Some(7));
         // Nulování.
+        // [en] Reset.
         ins[0] = One;
         b.step(&ins, &mut st, &mut pc);
         assert_eq!(number(&st), Some(0));

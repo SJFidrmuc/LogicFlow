@@ -1,17 +1,33 @@
 //! Vestavěné příklady.
+//!
+//! [en] Built-in examples.
 
 use logicflow_core::{
     BlockKind, Circuit, CompId, ComponentKind, FlipFlopKind, GateKind, Point, Rotation,
     SubcircuitDef,
 };
 
+/// Vestavěný příklad v nabídce Soubor → Příklady.
+///
+/// [en] Built-in example in the File → Examples menu.
 pub struct Example {
+    /// Název příkladu.
+    ///
+    /// [en] Example name.
     pub name: &'static str,
+    /// Funkce, která sestaví hlavní obvod.
+    ///
+    /// [en] Function that builds the main circuit.
     pub build: fn() -> Circuit,
     /// Podobvody, které příklad používá.
+    ///
+    /// [en] Subcircuits the example uses.
     pub subcircuits: fn() -> Vec<SubcircuitDef>,
 }
 
+/// Všechny příklady v pořadí nabídky.
+///
+/// [en] All examples in menu order.
 pub const ALL: [Example; 9] = [
     Example {
         name: "Hradla AND a OR",
@@ -60,26 +76,41 @@ pub const ALL: [Example; 9] = [
     },
 ];
 
+/// Příklad bez podobvodů.
+///
+/// [en] Example without subcircuits.
 fn no_subs() -> Vec<SubcircuitDef> {
     Vec::new()
 }
 
+/// Zkratka pro bod mřížky.
+///
+/// [en] Shorthand for a grid point.
 fn p(x: i32, y: i32) -> Point {
     Point::new(x, y)
 }
 
+/// Přidá lomený vodič přes zadané body.
+///
+/// [en] Adds a bent wire through the given points.
 fn wire_path(c: &mut Circuit, points: &[(i32, i32)]) {
     for w in points.windows(2) {
         c.add_wire(p(w[0].0, w[0].1), p(w[1].0, w[1].1));
     }
 }
 
+/// Otočí součástku.
+///
+/// [en] Rotates a component.
 fn rotate(c: &mut Circuit, id: CompId, r: Rotation) {
     if let Some(k) = c.component_mut(id) {
         k.rotation = r;
     }
 }
 
+/// Nastaví popisek součástky.
+///
+/// [en] Sets a component's label.
 fn label(c: &mut Circuit, id: CompId, text: &str) {
     if let Some(k) = c.component_mut(id) {
         k.label = text.to_owned();
@@ -87,6 +118,8 @@ fn label(c: &mut Circuit, id: CompId, text: &str) {
 }
 
 /// Dva vstupy do dvou hradel; společné zapojení pro AND/OR a sčítačku.
+///
+/// [en] Two inputs into two gates; shared wiring for AND/OR and the adder.
 fn two_gates(top: GateKind, bottom: GateKind, out_top: &str, out_bottom: &str) -> Circuit {
     let mut c = Circuit::default();
     c.add_component(ComponentKind::Switch { on: true }, p(0, 0));
@@ -98,25 +131,37 @@ fn two_gates(top: GateKind, bottom: GateKind, out_top: &str, out_bottom: &str) -
     label(&mut c, y1, out_top);
     label(&mut c, y2, out_bottom);
     // A → horní vstup obou hradel
+    // [en] A → upper input of both gates
     wire_path(&mut c, &[(2, 0), (11, 0)]);
     wire_path(&mut c, &[(6, 0), (6, 8), (11, 8)]);
     // B → dolní vstup obou hradel
+    // [en] B → lower input of both gates
     wire_path(&mut c, &[(2, 10), (11, 10)]);
     wire_path(&mut c, &[(8, 10), (8, 2), (11, 2)]);
     // výstupy
+    // [en] outputs
     wire_path(&mut c, &[(17, 1), (20, 1)]);
     wire_path(&mut c, &[(17, 9), (20, 9)]);
     c
 }
 
+/// Hradla AND a OR se dvěma vstupy.
+///
+/// [en] AND and OR gates with two inputs.
 pub fn and_or() -> Circuit {
     two_gates(GateKind::And, GateKind::Or, "Y1", "Y2")
 }
 
+/// Poloviční sčítačka z hradel XOR a AND.
+///
+/// [en] Half adder made of XOR and AND gates.
 fn half_adder() -> Circuit {
     two_gates(GateKind::Xor, GateKind::And, "S", "C")
 }
 
+/// Klopný obvod RS ze dvou hradel NOR.
+///
+/// [en] RS flip-flop made of two NOR gates.
 fn sr_latch() -> Circuit {
     let mut c = Circuit::default();
     let s = c.add_component(ComponentKind::Switch { on: false }, p(0, 0));
@@ -132,14 +177,19 @@ fn sr_latch() -> Circuit {
     wire_path(&mut c, &[(2, 0), (4, 0), (4, -1), (7, -1)]);
     wire_path(&mut c, &[(2, 10), (4, 10), (4, 11), (7, 11)]);
     // výstupy do LED
+    // [en] outputs to LEDs
     wire_path(&mut c, &[(13, 0), (19, 0)]);
     wire_path(&mut c, &[(13, 10), (19, 10)]);
     // zpětné vazby (křížem)
+    // [en] feedback (crosswise)
     wire_path(&mut c, &[(15, 0), (15, 5), (6, 5), (6, 9), (7, 9)]);
     wire_path(&mut c, &[(17, 10), (17, 3), (5, 3), (5, 1), (7, 1)]);
     c
 }
 
+/// Klopný obvod D řízený hranou s hodinami a přepínačem D.
+///
+/// [en] Edge-triggered D flip-flop with a clock and a D switch.
 fn d_flip_flop() -> Circuit {
     let mut c = Circuit::default();
     let d = c.add_component(ComponentKind::Switch { on: true }, p(0, -1));
@@ -158,6 +208,8 @@ fn d_flip_flop() -> Circuit {
 }
 
 /// LED nad vodičem: vstup míří dolů na bod (x, y + 2).
+///
+/// [en] LED above a wire: its input points down to point (x, y + 2).
 fn led_above(c: &mut Circuit, x: i32, y: i32, text: &str) {
     let id = c.add_component(ComponentKind::Led, p(x, y));
     rotate(c, id, Rotation::R270);
@@ -165,6 +217,8 @@ fn led_above(c: &mut Circuit, x: i32, y: i32, text: &str) {
 }
 
 /// Asynchronní čítač nahoru: každý další stupeň je hodinován výstupem Q̄ předchozího.
+///
+/// [en] Asynchronous up counter: each next stage is clocked by the Q̄ output of the previous one.
 pub fn counter() -> Circuit {
     let mut c = Circuit::default();
     c.add_component(ComponentKind::Clock { period_ms: 500 }, p(0, 5));
@@ -173,17 +227,21 @@ pub fn counter() -> Circuit {
         c.add_component(ComponentKind::flip_flop(FlipFlopKind::T), p(12 + 12 * k, 0));
     }
     // hodiny → C prvního stupně
+    // [en] clock → C of the first stage
     wire_path(&mut c, &[(3, 5), (6, 5), (6, 1), (9, 1)]);
     // konstanta 1 → všechny vstupy T
+    // [en] constant 1 → all T inputs
     wire_path(&mut c, &[(2, -5), (31, -5)]);
     for k in 0..3 {
         let x = 7 + 12 * k;
         wire_path(&mut c, &[(x, -5), (x, -1), (x + 2, -1)]);
     }
     // Q̄ → C dalšího stupně
+    // [en] Q̄ → C of the next stage
     wire_path(&mut c, &[(15, 1), (21, 1)]);
     wire_path(&mut c, &[(27, 1), (33, 1)]);
     // výstupy Q do LED
+    // [en] Q outputs to LEDs
     for k in 0..3 {
         let x = 15 + 12 * k;
         wire_path(&mut c, &[(x, -1), (x + 1, -1), (x + 1, -10)]);
@@ -192,6 +250,9 @@ pub fn counter() -> Circuit {
     c
 }
 
+/// Čtyřbitový posuvný registr z klopných obvodů D.
+///
+/// [en] Four-bit shift register made of D flip-flops.
 pub fn shift_register() -> Circuit {
     let mut c = Circuit::default();
     let d = c.add_component(ComponentKind::Switch { on: true }, p(0, -1));
@@ -202,12 +263,14 @@ pub fn shift_register() -> Circuit {
     }
     wire_path(&mut c, &[(2, -1), (9, -1)]);
     // hodinová sběrnice a přípojky k vstupům C
+    // [en] clock line and taps to the C inputs
     wire_path(&mut c, &[(3, 6), (43, 6)]);
     for k in 0..4 {
         let x = 7 + 12 * k;
         wire_path(&mut c, &[(x, 6), (x, 1), (x + 2, 1)]);
     }
     // Q → D dalšího stupně, odbočka do LED
+    // [en] Q → D of the next stage, branch to the LED
     for k in 0..4 {
         let x = 15 + 12 * k;
         let end = if k < 3 { x + 6 } else { x + 2 };
@@ -219,6 +282,8 @@ pub fn shift_register() -> Circuit {
 }
 
 /// Multiplexor 4:1 – adresa S1 S0 vybírá jeden ze vstupů D0–D3.
+///
+/// [en] Multiplexer 4:1 – address S1 S0 selects one of the inputs D0–D3.
 pub fn multiplexer() -> Circuit {
     let mut c = Circuit::default();
     let names = ["S0", "S1", "D0", "D1", "D2", "D3"];
@@ -242,6 +307,9 @@ pub fn multiplexer() -> Circuit {
 
 /// Čítač 0–9: 4bitový čítač nulovaný hradlem AND při stavu 10 (Q3 a Q1),
 /// převodník BCD na 7 segmentů a sedmisegmentovka.
+///
+/// [en] Counter 0–9: a 4-bit counter reset by an AND gate at state 10 (Q3 and Q1),
+/// a BCD to 7-segment converter and a seven-segment display.
 pub fn decade_counter() -> Circuit {
     let mut c = Circuit::default();
     c.add_component(ComponentKind::Clock { period_ms: 500 }, p(0, 1));
@@ -255,8 +323,10 @@ pub fn decade_counter() -> Circuit {
         p(12, 0),
     );
     // hodiny → C
+    // [en] clock → C
     wire_path(&mut c, &[(3, 1), (8, 1)]);
     // Q0–Q3 → D0–D3 převodníku
+    // [en] Q0–Q3 → D0–D3 of the converter
     for k in 0..4 {
         let (y, x) = (-3 + 2 * k, 20 + k);
         wire_path(&mut c, &[(16, y), (x, y), (x, y - 2), (26, y - 2)]);
@@ -268,6 +338,7 @@ pub fn decade_counter() -> Circuit {
         p(30, 0),
     );
     // segmenty a–g
+    // [en] segments a–g
     for y in (-5..=7).step_by(2) {
         wire_path(&mut c, &[(34, y), (38, y)]);
     }
@@ -279,6 +350,7 @@ pub fn decade_counter() -> Circuit {
     );
     label(&mut c, disp, "Y1");
     // Nulování při 10 (1010): AND(Q1, Q3) → R
+    // [en] Reset at 10 (1010): AND(Q1, Q3) → R
     c.add_component(ComponentKind::gate(GateKind::And), p(4, -8));
     wire_path(&mut c, &[(7, -8), (7, -3), (8, -3)]);
     wire_path(&mut c, &[(18, -1), (18, -12), (-1, -12), (-1, -9), (1, -9)]);
@@ -287,9 +359,12 @@ pub fn decade_counter() -> Circuit {
 }
 
 /// Podobvod „Poloviční sčítačka“ (id 1): vstupy A, B; výstupy C (přenos), S (součet).
+///
+/// [en] Subcircuit “Half adder” (id 1): inputs A, B; outputs C (carry), S (sum).
 pub fn half_adder_subcircuit() -> Vec<SubcircuitDef> {
     let mut c = half_adder();
     // Výstupy pojmenované podle významu: C = přenos (AND), S = součet (XOR).
+    // [en] Outputs named by meaning: C = carry (AND), S = sum (XOR).
     let names: Vec<CompId> = c
         .components
         .iter()
@@ -306,6 +381,8 @@ pub fn half_adder_subcircuit() -> Vec<SubcircuitDef> {
 }
 
 /// Úplná sčítačka: dvě instance podobvodu „Poloviční sčítačka“ a hradlo OR.
+///
+/// [en] Full adder: two instances of the “Half adder” subcircuit and an OR gate.
 pub fn full_adder() -> Circuit {
     let mut c = Circuit::default();
     let half = ComponentKind::Subcircuit {
@@ -318,10 +395,13 @@ pub fn full_adder() -> Circuit {
         label(&mut c, sw, name);
     }
     // HA1: vstupy (10,0), (10,2); výstupy C1 (18,0), S1 (18,2)
+    // [en] HA1: inputs (10,0), (10,2); outputs C1 (18,0), S1 (18,2)
     c.add_component(half, p(14, 0));
     // HA2: vstupy (24,2), (24,4); výstupy C2 (32,2), S (32,4)
+    // [en] HA2: inputs (24,2), (24,4); outputs C2 (32,2), S (32,4)
     c.add_component(half, p(28, 2));
     // OR: vstupy (37,-6), (37,-4); výstup (43,-5)
+    // [en] OR: inputs (37,-6), (37,-4); output (43,-5)
     c.add_component(ComponentKind::gate(GateKind::Or), p(40, -5));
     wire_path(&mut c, &[(2, 0), (10, 0)]);
     wire_path(&mut c, &[(2, 2), (10, 2)]);
@@ -359,10 +439,13 @@ mod tests {
         assert_eq!(leds(&and_or()), [LogicValue::Zero, LogicValue::One]);
         assert_eq!(leds(&half_adder()), [LogicValue::One, LogicValue::Zero]);
         // RS bez nastavení: neurčitý stav.
+        // [en] RS without set: undefined state.
         assert_eq!(leds(&sr_latch()), [LogicValue::X, LogicValue::X]);
     }
 
     /// Hodnota čítače z LED Q0..Q2.
+    ///
+    /// [en] Counter value from LEDs Q0..Q2.
     fn count(p: &crate::project::Project) -> u32 {
         (0..3)
             .map(|k| {
@@ -382,6 +465,7 @@ mod tests {
     fn counter_counts_up() {
         let mut p = crate::project::Project::new(counter());
         // Hodiny 2 Hz: náběžná hrana v čase 0,25; 0,75; 1,25; …
+        // [en] Clock 2 Hz: rising edges at 0.25; 0.75; 1.25; …
         let mut seen = Vec::new();
         for _ in 0..9 {
             p.update(0.5);
@@ -404,6 +488,7 @@ mod tests {
             p.signal_value(id)
         };
         // Hodiny 1 Hz: náběžné hrany v 0,5 s, 1,5 s, …
+        // [en] Clock 1 Hz: rising edges at 0.5 s, 1.5 s, …
         p.update(0.75);
         assert_eq!(q(&p, 0), LogicValue::One);
         assert_eq!(q(&p, 1), LogicValue::Zero);
@@ -430,6 +515,7 @@ mod tests {
     #[test]
     fn multiplexer_selects_d1() {
         // S1 S0 = 01 → vybraný D1, který je jediný zapnutý.
+        // [en] S1 S0 = 01 → D1 selected, which is the only one switched on.
         let mut c = multiplexer();
         assert_eq!(leds(&c), [LogicValue::Zero]);
         c.components[0].kind = ComponentKind::Switch { on: true };
@@ -461,6 +547,7 @@ mod tests {
         }
         assert_eq!(seen, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2]);
         // Na displeji je „2“: segmenty a, b, d, e, g.
+        // [en] The display shows “2”: segments a, b, d, e, g.
         let segs: Vec<bool> = p.sim.inputs(disp)[..7]
             .iter()
             .map(|v| *v == LogicValue::One)
@@ -485,6 +572,9 @@ mod tests {
 
     /// Rozdělení vývodů do sítí: pro každý vývod (součástka, index) číslo
     /// nejmenšího vývodu ve stejné síti.
+    ///
+    /// [en] Division of pins into nets: for each pin (component, index) the number of
+    /// the smallest pin in the same net.
     fn partition(c: &Circuit) -> std::collections::BTreeMap<(u32, usize), (u32, usize)> {
         let nl = logicflow_core::sim::Netlist::build(c);
         let mut first: std::collections::HashMap<usize, (u32, usize)> = Default::default();
@@ -501,6 +591,8 @@ mod tests {
     }
 
     /// Nespojil posun vývody, které předtím byly v různých sítích?
+    ///
+    /// [en] Did the move connect pins that were in different nets before?
     fn assert_no_new_connections(before: &Circuit, after: &Circuit, what: &str) {
         let (b, a) = (partition(before), partition(after));
         for (pin, rep) in &a {
@@ -545,12 +637,15 @@ mod tests {
         ] {
             let c = build();
             // Jednotlivé součástky i dvojice sousedních (např. převodník + displej).
+            // [en] Single components and pairs of neighbours (e.g. converter + display).
             let mut groups: Vec<Vec<CompId>> = c.components.iter().map(|k| vec![k.id]).collect();
             groups.extend(c.components.windows(2).map(|w| vec![w[0].id, w[1].id]));
             for group in groups {
                 for &(dx, dy) in &offsets {
                     // Součástka položená vývodem přímo na cizí vývod nebo vodič se
                     // spojí záměrně – to není chyba přepojení vodičů.
+                    // [en] A component placed with its pin right on a foreign pin or wire connects
+                    // on purpose – that is not a rerouting error.
                     let lands = c
                         .components
                         .iter()

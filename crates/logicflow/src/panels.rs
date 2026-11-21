@@ -1,4 +1,6 @@
 //! Menší editory: vlastnosti, hierarchie, knihovna, pravdivostní tabulka, paměť.
+//!
+//! [en] Smaller editors: properties, hierarchy, library, truth table, memory.
 
 use crate::catalog::{self, ff_name, kind_name};
 use crate::i18n::{Lang, T, tr};
@@ -7,6 +9,9 @@ use crate::theme::colors;
 use egui::{RichText, Ui};
 use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, LogicValue, PinSide};
 
+/// Obsah panelu s posuvníkem a okraji.
+///
+/// [en] Panel content with a scroll bar and margins.
 fn padded(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     egui::ScrollArea::vertical()
         .auto_shrink(false)
@@ -18,10 +23,16 @@ fn padded(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
         });
 }
 
+/// Méně výrazný text (popisky polí).
+///
+/// [en] Less prominent text (field captions).
 fn weak(text: &str) -> RichText {
     RichText::new(text).color(colors::TEXT_WEAK)
 }
 
+/// Logická hodnota obarvená jako vodič.
+///
+/// [en] Logic value coloured like a wire.
 fn value_text(v: LogicValue) -> RichText {
     RichText::new(v.to_string())
         .monospace()
@@ -29,6 +40,9 @@ fn value_text(v: LogicValue) -> RichText {
         .color(crate::theme::signal_color(v))
 }
 
+/// Smaže vybrané součástky a vodiče (s uložením pro „Zpět“).
+///
+/// [en] Deletes the selected components and wires (saving for “Undo”).
 fn delete_selection(project: &mut Project) {
     project.checkpoint();
     for id in project.selection.comp_vec() {
@@ -41,6 +55,9 @@ fn delete_selection(project: &mut Project) {
     project.after_structure_change();
 }
 
+/// Panel Vlastnosti: vlastnosti vybrané součástky, nebo souhrn výběru.
+///
+/// [en] Properties panel: properties of the selected component, or a summary of the selection.
 pub fn properties(ui: &mut Ui, project: &mut Project, lang: Lang) {
     padded(ui, |ui| {
         if project.selection.is_empty() {
@@ -83,6 +100,9 @@ pub fn properties(ui: &mut Ui, project: &mut Project, lang: Lang) {
     });
 }
 
+/// Vlastnosti jedné součástky podle jejího druhu (popisek, otočení, vstupy, bity, frekvence…).
+///
+/// [en] Properties of one component according to its kind (label, rotation, inputs, bits, frequency…).
 fn component_properties(
     ui: &mut Ui,
     project: &mut Project,
@@ -500,6 +520,8 @@ fn component_properties(
 }
 
 /// Listy projektu: hlavní obvod a podobvody; přepínání, přejmenování a mazání.
+///
+/// [en] Project sheets: main circuit and subcircuits; switching, renaming and deleting.
 fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
     egui::CollapsingHeader::new(tr(lang, T::Sheets))
         .id_salt("sheets")
@@ -539,6 +561,7 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
                 project.open_sheet(target);
             }
             // Nastavení otevřeného podobvodu.
+            // [en] Settings of the open subcircuit.
             if let Some(id) = project.sheet {
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
@@ -573,6 +596,9 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
     ui.add_space(4.0);
 }
 
+/// Panel Hierarchie: listy projektu a součástky právě upravovaného listu.
+///
+/// [en] Hierarchy panel: project sheets and components of the sheet being edited.
 pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
     padded(ui, |ui| {
         sheets(ui, project, lang);
@@ -648,6 +674,9 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
     });
 }
 
+/// Knihovna součástek s vyhledáváním; kliknutí vybere součástku k umístění.
+///
+/// [en] Component library with search; a click chooses a component to place.
 pub fn library(ui: &mut Ui, search: &mut String, project: &mut Project, lang: Lang) {
     padded(ui, |ui| {
         ui.add(
@@ -723,17 +752,37 @@ pub fn library(ui: &mut Ui, search: &mut String, project: &mut Project, lang: La
 }
 
 /// Pravdivostní tabulka spočítaná simulací všech kombinací vstupů.
+///
+/// [en] Truth table computed by simulating all input combinations.
 #[derive(Clone, Debug)]
 pub struct TruthTable {
+    /// Názvy vstupů (sloupce vlevo).
+    ///
+    /// [en] Input names (columns on the left).
     pub inputs: Vec<String>,
+    /// Názvy výstupů (sloupce vpravo).
+    ///
+    /// [en] Output names (columns on the right).
     pub outputs: Vec<String>,
+    /// Řádky: kombinace vstupů a výsledné výstupy.
+    ///
+    /// [en] Rows: input combinations and the resulting outputs.
     pub rows: Vec<(Vec<bool>, Vec<LogicValue>)>,
 }
 
+/// Uložená tabulka s číslem revize obvodu, pro kterou platí (nebo důvod, proč ji nejde spočítat).
+///
+/// [en] Stored table with the circuit revision it belongs to (or the reason why it cannot be computed).
 pub type TruthCache = Option<(u64, Result<TruthTable, T>)>;
 
+/// Nejvyšší počet vstupů pro pravdivostní tabulku (2^8 = 256 řádků).
+///
+/// [en] Maximum number of inputs for the truth table (2^8 = 256 rows).
 const MAX_TABLE_INPUTS: usize = 8;
 
+/// Spočítá tabulku: pro každou kombinaci vstupů nová simulace až do ustálení.
+///
+/// [en] Computes the table: a new simulation until settled for each input combination.
 pub fn compute_truth_table(project: &Project) -> Result<TruthTable, T> {
     let (ins, outs) = project.io_components();
     if ins.is_empty() || outs.is_empty() {
@@ -785,6 +834,9 @@ pub fn compute_truth_table(project: &Project) -> Result<TruthTable, T> {
     })
 }
 
+/// Panel Pravdivostní tabulka (přepočítá se jen při změně obvodu).
+///
+/// [en] Truth table panel (recomputed only when the circuit changes).
 pub fn truth_table(ui: &mut Ui, project: &Project, cache: &mut TruthCache, lang: Lang) {
     if cache
         .as_ref()
@@ -804,6 +856,7 @@ pub fn truth_table(ui: &mut Ui, project: &Project, cache: &mut TruthCache, lang:
             }
         };
         // Aktuální stav vstupů pro zvýraznění řádku.
+        // [en] Current input state for highlighting the row.
         let (ins, _) = project.io_components();
         let current: Vec<bool> = ins
             .iter()
@@ -855,10 +908,15 @@ pub fn truth_table(ui: &mut Ui, project: &Project, cache: &mut TruthCache, lang:
 }
 
 /// Ukázkový obsah ROM: dekodér pro sedmisegmentovku (segmenty g…a), číslice 0–F.
+///
+/// [en] Sample ROM content: decoder for a seven-segment display (segments g…a), digits 0–F.
 const SEVEN_SEG: [u8; 16] = [
     0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71,
 ];
 
+/// Panel Paměť – ukázka budoucího hex editoru.
+///
+/// [en] Memory panel – a preview of the future hex editor.
 pub fn memory(ui: &mut Ui, lang: Lang) {
     padded(ui, |ui| {
         ui.label(RichText::new("ROM 16 × 8 – dekodér pro sedmisegmentovku").strong());

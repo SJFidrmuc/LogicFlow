@@ -4,40 +4,78 @@
 //! úsečka. Vodiče se propojují ve svých koncových bodech; konec vodiče, který
 //! leží uprostřed jiného vodiče, se s ním také propojí (odbočka „T“).
 //! Vodiče, které se jen kříží, propojené nejsou.
+//!
+//! [en] Circuit model: components on a grid and wires between grid points.
+//!
+//! Coordinates are integer grid points. A wire is a horizontal or vertical
+//! segment. Wires connect at their end points; a wire end lying in the middle
+//! of another wire connects to it as well (a “T” junction). Wires that only
+//! cross each other are not connected.
 
 use crate::{BlockKind, GateKind, LogicValue};
 use serde::{Deserialize, Serialize};
 
 /// Bod mřížky.
+///
+/// [en] Grid point.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
 pub struct Point {
+    /// Vodorovná souřadnice (roste doprava).
+    ///
+    /// [en] Horizontal coordinate (grows to the right).
     pub x: i32,
+    /// Svislá souřadnice (roste dolů).
+    ///
+    /// [en] Vertical coordinate (grows downwards).
     pub y: i32,
 }
 
 impl Point {
+    /// Bod se souřadnicemi `x`, `y`.
+    ///
+    /// [en] Point with coordinates `x`, `y`.
     pub const fn new(x: i32, y: i32) -> Self {
         Self { x, y }
     }
 
+    /// Bod posunutý o `dx`, `dy`.
+    ///
+    /// [en] Point moved by `dx`, `dy`.
     pub const fn offset(self, dx: i32, dy: i32) -> Self {
         Self::new(self.x + dx, self.y + dy)
     }
 }
 
 /// Otočení součástky po 90° ve směru hodinových ručiček.
+///
+/// [en] Rotation of a component in 90° steps clockwise.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Rotation {
+    /// Bez otočení.
+    ///
+    /// [en] No rotation.
     #[default]
     R0,
+    /// Otočení o 90°.
+    ///
+    /// [en] Rotated by 90°.
     R90,
+    /// Otočení o 180°.
+    ///
+    /// [en] Rotated by 180°.
     R180,
+    /// Otočení o 270°.
+    ///
+    /// [en] Rotated by 270°.
     R270,
 }
 
 impl Rotation {
+    /// Další otočení o 90° (po R270 následuje R0).
+    ///
+    /// [en] Next rotation by 90° (R0 follows R270).
     pub const fn next(self) -> Self {
         match self {
             Self::R0 => Self::R90,
@@ -48,6 +86,8 @@ impl Rotation {
     }
 
     /// Otočí bod `(x, y)` kolem počátku (osa y míří dolů, jako na obrazovce).
+    ///
+    /// [en] Rotates the point `(x, y)` around the origin (the y axis points down, as on screen).
     pub const fn apply(self, x: i32, y: i32) -> (i32, i32) {
         match self {
             Self::R0 => (x, y),
@@ -58,6 +98,8 @@ impl Rotation {
     }
 
     /// Stejné otočení pro desetinné souřadnice (kreslení).
+    ///
+    /// [en] The same rotation for floating-point coordinates (drawing).
     pub fn apply_f(self, x: f32, y: f32) -> (f32, f32) {
         match self {
             Self::R0 => (x, y),
@@ -67,69 +109,174 @@ impl Rotation {
         }
     }
 
+    /// Je součástka otočená na výšku (o 90° nebo 270°)?
+    ///
+    /// [en] Is the component turned upright (by 90° or 270°)?
     pub const fn is_vertical(self) -> bool {
         matches!(self, Self::R90 | Self::R270)
     }
 }
 
 /// Druh součástky.
+///
+/// [en] Kind of component.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ComponentKind {
     /// Hradlo s daným počtem vstupů (u NOT a BUF vždy 1).
-    Gate { gate: GateKind, inputs: u8 },
+    ///
+    /// [en] Gate with the given number of inputs (always 1 for NOT and BUF).
+    Gate {
+        /// Druh hradla.
+        ///
+        /// [en] Kind of gate.
+        gate: GateKind,
+        /// Počet vstupů.
+        ///
+        /// [en] Number of inputs.
+        inputs: u8,
+    },
     /// Přepínač – drží hodnotu 0 nebo 1.
-    Switch { on: bool },
+    ///
+    /// [en] Switch – holds the value 0 or 1.
+    Switch {
+        /// Zapnuto (výstup 1)?
+        ///
+        /// [en] Switched on (output 1)?
+        on: bool,
+    },
     /// Tlačítko – 1 jen po dobu stisku.
+    ///
+    /// [en] Push button – 1 only while pressed.
     Button,
     /// Konstanta 0 nebo 1.
-    Constant { value: bool },
+    ///
+    /// [en] Constant 0 or 1.
+    Constant {
+        /// Hodnota konstanty (true = 1).
+        ///
+        /// [en] Value of the constant (true = 1).
+        value: bool,
+    },
     /// Svítivá dioda.
+    ///
+    /// [en] Light-emitting diode.
     Led,
     /// Klopný obvod s výstupy Q a Q̄. `initial` je stav Q po spuštění simulace.
+    ///
+    /// [en] Flip-flop with outputs Q and Q̄. `initial` is the state of Q after the simulation starts.
     FlipFlop {
+        /// Druh klopného obvodu.
+        ///
+        /// [en] Kind of flip-flop.
         ff: FlipFlopKind,
         /// Spouštění sestupnou hranou (jinak náběžnou). Jen u obvodů řízených hranou.
+        ///
+        /// [en] Triggered by the falling edge (otherwise the rising one). Only for edge-triggered flip-flops.
         #[serde(default)]
         falling: bool,
+        /// Stav Q po spuštění simulace.
+        ///
+        /// [en] State of Q after the simulation starts.
         #[serde(default)]
         initial: bool,
     },
     /// Generátor hodinového signálu s periodou v milisekundách.
-    Clock { period_ms: u32 },
+    ///
+    /// [en] Clock generator with the period in milliseconds.
+    Clock {
+        /// Perioda v milisekundách.
+        ///
+        /// [en] Period in milliseconds.
+        period_ms: u32,
+    },
     /// Funkční blok (multiplexor, dekodér, čítač, …).
-    Block { block: BlockKind },
+    ///
+    /// [en] Function block (multiplexer, decoder, counter, …).
+    Block {
+        /// Druh a nastavení bloku.
+        ///
+        /// [en] Kind and settings of the block.
+        block: BlockKind,
+    },
     /// Sedmisegmentový zobrazovač se vstupy a–g a desetinnou tečkou.
+    ///
+    /// [en] Seven-segment display with inputs a–g and a decimal point.
     SevenSegment {
+        /// Strana, na které jsou vývody.
+        ///
+        /// [en] Side on which the pins are.
         #[serde(default)]
         pins: PinSide,
     },
     /// Hexadecimální zobrazovač se 4bitovým vstupem.
+    ///
+    /// [en] Hexadecimal display with a 4-bit input.
     HexDisplay {
+        /// Strana, na které jsou vývody.
+        ///
+        /// [en] Side on which the pins are.
         #[serde(default)]
         pins: PinSide,
     },
     /// Instance podobvodu (definice `id` v projektu). Počty vývodů jsou kopií
     /// rozhraní definice, aby šlo značku nakreslit a propojit bez ní.
-    Subcircuit { id: u32, inputs: u8, outputs: u8 },
+    ///
+    /// [en] Instance of a subcircuit (definition `id` in the project). The pin counts are
+    /// a copy of the definition's interface so that the symbol can be drawn and
+    /// connected without it.
+    Subcircuit {
+        /// Id definice podobvodu v projektu.
+        ///
+        /// [en] Id of the subcircuit definition in the project.
+        id: u32,
+        /// Počet vstupů značky.
+        ///
+        /// [en] Number of the symbol's inputs.
+        inputs: u8,
+        /// Počet výstupů značky.
+        ///
+        /// [en] Number of the symbol's outputs.
+        outputs: u8,
+    },
 }
 
 /// Strana, na které má zobrazovač vývody (číslice zůstává vždy rovně).
+///
+/// [en] Side on which a display has its pins (the digit always stays upright).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PinSide {
+    /// Vývody vlevo.
+    ///
+    /// [en] Pins on the left.
     #[default]
     Left,
+    /// Vývody vpravo.
+    ///
+    /// [en] Pins on the right.
     Right,
+    /// Vývody nahoře.
+    ///
+    /// [en] Pins on the top.
     Top,
+    /// Vývody dole.
+    ///
+    /// [en] Pins on the bottom.
     Bottom,
 }
 
 impl PinSide {
+    /// Všechny strany v pořadí nabídky.
+    ///
+    /// [en] All sides in menu order.
     pub const ALL: [Self; 4] = [Self::Left, Self::Right, Self::Top, Self::Bottom];
 
     /// Tělo a vývody zobrazovače s `n` vstupy. `along` je poloviční délka strany
     /// s vývody, `across` poloviční šířka (u vývodů vlevo/vpravo).
+    ///
+    /// [en] Body and pins of a display with `n` inputs. `along` is half the length of
+    /// the side with pins, `across` half the width (for pins on the left/right).
     fn display_layout(self, n: i32, along: f32, across: f32) -> ((f32, f32, f32, f32), LocalPins) {
         let first = -(n - 1);
         let reach = across as i32 + 1;
@@ -143,6 +290,7 @@ impl PinSide {
             }
             Self::Top | Self::Bottom => {
                 // Vývody vedle sebe: tělo je široké podle počtu vývodů.
+                // [en] Pins side by side: the body is as wide as the number of pins requires.
                 let half_w = (n as f32).max(across + 1.0);
                 let half_h = (along - 2.0).max(4.0);
                 let y = half_h as i32 + 1;
@@ -157,24 +305,42 @@ impl PinSide {
 }
 
 /// Druh klopného obvodu.
+///
+/// [en] Kind of flip-flop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FlipFlopKind {
     /// Asynchronní RS (vstupy S, R).
+    ///
+    /// [en] Asynchronous RS (inputs S, R).
     Rs,
     /// D řízený úrovní (vstupy D, C) – „průhledný“, dokud je C = 1.
+    ///
+    /// [en] Level-triggered D latch (inputs D, C) – “transparent” while C = 1.
     DLatch,
     /// D řízený hranou (vstupy D, C).
+    ///
+    /// [en] Edge-triggered D (inputs D, C).
     D,
     /// JK řízený hranou (vstupy J, C, K).
+    ///
+    /// [en] Edge-triggered JK (inputs J, C, K).
     Jk,
     /// T řízený hranou (vstupy T, C).
+    ///
+    /// [en] Edge-triggered T (inputs T, C).
     T,
 }
 
 impl FlipFlopKind {
+    /// Všechny klopné obvody v pořadí knihovny.
+    ///
+    /// [en] All flip-flops in library order.
     pub const ALL: [Self; 5] = [Self::Rs, Self::DLatch, Self::D, Self::Jk, Self::T];
 
+    /// Krátký název (RS, D, JK, …).
+    ///
+    /// [en] Short name (RS, D, JK, …).
     pub const fn name(self) -> &'static str {
         match self {
             Self::Rs => "RS",
@@ -186,6 +352,8 @@ impl FlipFlopKind {
     }
 
     /// Názvy vstupů shora dolů.
+    ///
+    /// [en] Input names from top to bottom.
     pub const fn input_names(self) -> &'static [&'static str] {
         match self {
             Self::Rs => &["S", "R"],
@@ -196,6 +364,8 @@ impl FlipFlopKind {
     }
 
     /// Index hodinového (řídicího) vstupu.
+    ///
+    /// [en] Index of the clock (control) input.
     pub const fn clock_input(self) -> Option<usize> {
         match self {
             Self::Rs => None,
@@ -205,20 +375,34 @@ impl FlipFlopKind {
     }
 
     /// Řízený hranou hodinového signálu?
+    ///
+    /// [en] Triggered by a clock edge?
     pub const fn is_edge_triggered(self) -> bool {
         matches!(self, Self::D | Self::Jk | Self::T)
     }
 }
 
 impl ComponentKind {
+    /// Nejmenší počet vstupů vícevstupového hradla.
+    ///
+    /// [en] Smallest number of inputs of a multi-input gate.
     pub const MIN_INPUTS: u8 = 2;
+    /// Největší počet vstupů vícevstupového hradla.
+    ///
+    /// [en] Largest number of inputs of a multi-input gate.
     pub const MAX_INPUTS: u8 = 8;
 
+    /// Hradlo s výchozím počtem vstupů (1 u NOT a BUF, jinak 2).
+    ///
+    /// [en] Gate with the default number of inputs (1 for NOT and BUF, otherwise 2).
     pub fn gate(gate: GateKind) -> Self {
         let inputs = if gate.is_unary() { 1 } else { 2 };
         Self::Gate { gate, inputs }
     }
 
+    /// Klopný obvod řízený náběžnou hranou s počátečním stavem 0.
+    ///
+    /// [en] Flip-flop triggered by the rising edge with initial state 0.
     pub fn flip_flop(ff: FlipFlopKind) -> Self {
         Self::FlipFlop {
             ff,
@@ -227,21 +411,35 @@ impl ComponentKind {
         }
     }
 
+    /// Výchozí generátor hodin (1 Hz).
+    ///
+    /// [en] Default clock generator (1 Hz).
     pub const DEFAULT_CLOCK: Self = Self::Clock { period_ms: 1000 };
 
+    /// Počet vstupů.
+    ///
+    /// [en] Number of inputs.
     pub fn input_count(&self) -> usize {
         self.pins_local().0.len()
     }
 
+    /// Počet výstupů.
+    ///
+    /// [en] Number of outputs.
     pub fn output_count(&self) -> usize {
         self.pins_local().1.len()
     }
 
+    /// Má součástka aspoň jeden výstup?
+    ///
+    /// [en] Does the component have at least one output?
     pub fn has_output(&self) -> bool {
         self.output_count() > 0
     }
 
     /// Obsahuje součástka paměť (stav)?
+    ///
+    /// [en] Does the component contain memory (state)?
     pub fn is_sequential(&self) -> bool {
         match self {
             Self::FlipFlop { .. } => true,
@@ -251,6 +449,8 @@ impl ComponentKind {
     }
 
     /// Je to výstup obvodu (zobrazovací prvek)?
+    ///
+    /// [en] Is it a circuit output (display element)?
     pub fn is_display(&self) -> bool {
         matches!(
             self,
@@ -259,11 +459,15 @@ impl ComponentKind {
     }
 
     /// Je to vstup obvodu (zdroj signálu ovládaný uživatelem)?
+    ///
+    /// [en] Is it a circuit input (signal source controlled by the user)?
     pub fn is_input(&self) -> bool {
         matches!(self, Self::Switch { .. } | Self::Button)
     }
 
     /// Předpona pro automatické pojmenování.
+    ///
+    /// [en] Prefix for automatic naming.
     pub fn label_prefix(&self) -> &'static str {
         match self {
             Self::Gate { .. } => "G",
@@ -278,6 +482,8 @@ impl ComponentKind {
     }
 
     /// Ohraničení těla v místních souřadnicích (bez vývodů), pro otočení R0.
+    ///
+    /// [en] Bounds of the body in local coordinates (without pins), for rotation R0.
     pub fn body_local(&self) -> (f32, f32, f32, f32) {
         match self {
             Self::Gate { inputs, gate } => {
@@ -307,6 +513,8 @@ impl ComponentKind {
     }
 
     /// Vývody v místních souřadnicích: (vstupy, výstupy).
+    ///
+    /// [en] Pins in local coordinates: (inputs, outputs).
     pub fn pins_local(&self) -> LocalPins {
         match self {
             Self::Gate { inputs, .. } => {
@@ -333,36 +541,68 @@ impl ComponentKind {
 }
 
 /// Místní souřadnice vývodů: (vstupy, výstupy).
+///
+/// [en] Local pin coordinates: (inputs, outputs).
 pub type LocalPins = (Vec<(i32, i32)>, Vec<(i32, i32)>);
 
 /// Identifikátor součástky (stabilní v rámci souboru).
+///
+/// [en] Component identifier (stable within a file).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CompId(pub u32);
 
 /// Identifikátor vodiče.
+///
+/// [en] Wire identifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct WireId(pub u32);
 
+/// Součástka umístěná ve schématu.
+///
+/// [en] Component placed in the schematic.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Component {
+    /// Identifikátor.
+    ///
+    /// [en] Identifier.
     pub id: CompId,
+    /// Druh součástky a jeho nastavení.
+    ///
+    /// [en] Kind of component and its settings.
     pub kind: ComponentKind,
+    /// Poloha počátku značky na mřížce.
+    ///
+    /// [en] Position of the symbol's origin on the grid.
     pub pos: Point,
+    /// Otočení.
+    ///
+    /// [en] Rotation.
     #[serde(default)]
     pub rotation: Rotation,
+    /// Popisek (A, B, Y1…); u podobvodu tvoří názvy vývodů.
+    ///
+    /// [en] Label (A, B, Y1…); inside a subcircuit it forms the pin names.
     #[serde(default)]
     pub label: String,
     /// Stav tlačítka (neukládá se).
+    ///
+    /// [en] Push button state (not saved).
     #[serde(skip)]
     pub pressed: bool,
 }
 
 impl Component {
+    /// Převede místní souřadnice vývodu na světové (otočení a posun).
+    ///
+    /// [en] Converts local pin coordinates to world coordinates (rotation and offset).
     fn to_world(&self, (x, y): (i32, i32)) -> Point {
         let (rx, ry) = self.rotation.apply(x, y);
         self.pos.offset(rx, ry)
     }
 
+    /// Vstupní vývody ve světových souřadnicích.
+    ///
+    /// [en] Input pins in world coordinates.
     pub fn input_pins(&self) -> Vec<Point> {
         self.kind
             .pins_local()
@@ -372,6 +612,9 @@ impl Component {
             .collect()
     }
 
+    /// Výstupní vývody ve světových souřadnicích.
+    ///
+    /// [en] Output pins in world coordinates.
     pub fn output_pins(&self) -> Vec<Point> {
         self.kind
             .pins_local()
@@ -382,11 +625,15 @@ impl Component {
     }
 
     /// První (hlavní) výstup.
+    ///
+    /// [en] First (main) output.
     pub fn output_pin(&self) -> Option<Point> {
         self.output_pins().first().copied()
     }
 
     /// Všechny vývody (vstupy, pak výstupy).
+    ///
+    /// [en] All pins (inputs, then outputs).
     pub fn pins(&self) -> Vec<Point> {
         let mut v = self.input_pins();
         v.extend(self.output_pins());
@@ -394,6 +641,8 @@ impl Component {
     }
 
     /// Ohraničení těla ve světových souřadnicích (min_x, min_y, max_x, max_y).
+    ///
+    /// [en] Bounds of the body in world coordinates (min_x, min_y, max_x, max_y).
     pub fn body(&self) -> (f32, f32, f32, f32) {
         let (x0, y0, x1, y1) = self.kind.body_local();
         let (ax, ay) = self.rotation.apply_f(x0, y0);
@@ -408,12 +657,15 @@ impl Component {
     }
 
     /// Hodnota, kterou součástka sama vytváří (zdroje signálu).
+    ///
+    /// [en] Value the component produces by itself (signal sources).
     pub fn source_value(&self) -> Option<LogicValue> {
         match self.kind {
             ComponentKind::Switch { on } => Some(on.into()),
             ComponentKind::Button => Some(self.pressed.into()),
             ComponentKind::Constant { value } => Some(value.into()),
             // Hodiny řídí aplikace podle času; na začátku dávají 0.
+            // [en] The application drives clocks by time; they start at 0.
             ComponentKind::Clock { .. } => Some(LogicValue::Zero),
             _ => None,
         }
@@ -421,15 +673,28 @@ impl Component {
 }
 
 /// Vodič – vodorovná nebo svislá úsečka.
+///
+/// [en] Wire – a horizontal or vertical segment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Wire {
+    /// Identifikátor.
+    ///
+    /// [en] Identifier.
     pub id: WireId,
+    /// První konec.
+    ///
+    /// [en] First end.
     pub a: Point,
+    /// Druhý konec.
+    ///
+    /// [en] Second end.
     pub b: Point,
 }
 
 impl Wire {
     /// Leží bod na vodiči (včetně konců)?
+    ///
+    /// [en] Does the point lie on the wire (ends included)?
     pub fn contains(&self, p: Point) -> bool {
         let (a, b) = (self.a, self.b);
         if a.x == b.x {
@@ -441,31 +706,55 @@ impl Wire {
         }
     }
 
+    /// Je bod jedním z konců vodiče?
+    ///
+    /// [en] Is the point one of the wire's ends?
     pub fn is_endpoint(&self, p: Point) -> bool {
         p == self.a || p == self.b
     }
 
+    /// Délka vodiče v bodech mřížky.
+    ///
+    /// [en] Length of the wire in grid points.
     pub fn len(&self) -> i32 {
         (self.a.x - self.b.x).abs() + (self.a.y - self.b.y).abs()
     }
 
+    /// Má vodič nulovou délku?
+    ///
+    /// [en] Does the wire have zero length?
     pub fn is_empty(&self) -> bool {
         self.a == self.b
     }
 }
 
 /// Celý obvod (jeden list schématu).
+///
+/// [en] The whole circuit (one schematic sheet).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Circuit {
+    /// Součástky.
+    ///
+    /// [en] Components.
     pub components: Vec<Component>,
+    /// Vodiče.
+    ///
+    /// [en] Wires.
     pub wires: Vec<Wire>,
+    /// Poslední přidělené id (součástky i vodiče sdílejí jednu řadu).
+    ///
+    /// [en] Last allocated id (components and wires share one sequence).
     #[serde(default)]
     next_id: u32,
 }
 
 impl Circuit {
+    /// Přidělí nové id.
+    ///
+    /// [en] Allocates a new id.
     fn alloc_id(&mut self) -> u32 {
         // Po načtení souboru se pokračuje za nejvyšším existujícím id.
+        // [en] After loading a file, numbering continues after the highest existing id.
         let max = self
             .components
             .iter()
@@ -480,6 +769,8 @@ impl Circuit {
     }
 
     /// Přidá součástku a automaticky ji pojmenuje (A, B, … / Y1, Y2, …).
+    ///
+    /// [en] Adds a component and names it automatically (A, B, … / Y1, Y2, …).
     pub fn add_component(&mut self, kind: ComponentKind, pos: Point) -> CompId {
         let id = CompId(self.alloc_id());
         let label = self.auto_label(&kind);
@@ -494,6 +785,9 @@ impl Circuit {
         id
     }
 
+    /// První volný popisek pro daný druh součástky.
+    ///
+    /// [en] First free label for the given kind of component.
     fn auto_label(&self, kind: &ComponentKind) -> String {
         let taken = |l: &str| self.components.iter().any(|c| c.label == l);
         if kind.is_input() {
@@ -522,11 +816,14 @@ impl Circuit {
     }
 
     /// Přidá vodič; nulovou nebo šikmou úsečku odmítne.
+    ///
+    /// [en] Adds a wire; rejects a zero-length or diagonal segment.
     pub fn add_wire(&mut self, a: Point, b: Point) -> Option<WireId> {
         if a == b || (a.x != b.x && a.y != b.y) {
             return None;
         }
         // Stejný vodič už existuje.
+        // [en] The same wire already exists.
         if self
             .wires
             .iter()
@@ -539,22 +836,37 @@ impl Circuit {
         Some(id)
     }
 
+    /// Součástka podle id.
+    ///
+    /// [en] Component by id.
     pub fn component(&self, id: CompId) -> Option<&Component> {
         self.components.iter().find(|c| c.id == id)
     }
 
+    /// Součástka podle id pro úpravu.
+    ///
+    /// [en] Component by id for editing.
     pub fn component_mut(&mut self, id: CompId) -> Option<&mut Component> {
         self.components.iter_mut().find(|c| c.id == id)
     }
 
+    /// Vodič podle id.
+    ///
+    /// [en] Wire by id.
     pub fn wire(&self, id: WireId) -> Option<&Wire> {
         self.wires.iter().find(|w| w.id == id)
     }
 
+    /// Odstraní součástku (vodiče zůstanou).
+    ///
+    /// [en] Removes a component (wires stay).
     pub fn remove_component(&mut self, id: CompId) {
         self.components.retain(|c| c.id != id);
     }
 
+    /// Odstraní vodič.
+    ///
+    /// [en] Removes a wire.
     pub fn remove_wire(&mut self, id: WireId) {
         self.wires.retain(|w| w.id != id);
     }
@@ -566,6 +878,15 @@ impl Circuit {
     /// vodič nedotkl žádné jiné sítě (nejdřív uprostřed, pak dál od středu).
     /// Když takové místo není, vodič zůstane na místě a od vývodu se odpojí –
     /// raději viditelně volný konec než skrytý zkrat.
+    ///
+    /// [en] Returns a copy of the circuit in which the selected components and wires are
+    /// moved by (dx, dy).
+    ///
+    /// Unselected wires connected to a pin of a moved component are rerouted: the
+    /// end at the pin moves and the wire gets a bend. The bend position is chosen so
+    /// that the wire touches no other net (first in the middle, then further from
+    /// the middle). If there is no such place, the wire stays and is disconnected
+    /// from the pin – a visibly loose end is better than a hidden short circuit.
     pub fn moved(&self, comps: &[CompId], wires: &[WireId], dx: i32, dy: i32) -> Circuit {
         let mut c = self.clone();
         if dx == 0 && dy == 0 {
@@ -602,6 +923,7 @@ impl Circuit {
             return c;
         }
         // Sítě před přesunem: k nim se kontroluje, zda nová cesta nespojí cizí síť.
+        // [en] Nets before the move: a new route is checked against them so that it does not join a foreign net.
         let old = crate::sim::Netlist::build(self);
         let mut net_of_wire = old.wire_net.clone();
         let pin_nets: Vec<(Point, usize)> = c
@@ -617,6 +939,9 @@ impl Circuit {
         // Vodiče, které na přepojení teprve čekají, se kontrolují v původní
         // poloze – tam v nejhorším případě zůstanou. Kdo se nepřepojí napoprvé,
         // zkusí to znovu, až se ostatní vodiče uhnou (dokud se daří).
+        // [en] Wires still waiting to be rerouted are checked in their original position –
+        // in the worst case they stay there. A wire that fails the first time tries
+        // again after the others have moved out of the way (as long as it helps).
         let mut todo = stretched;
         loop {
             let before = todo.len();
@@ -642,6 +967,9 @@ impl Circuit {
 
     /// Přepojí vodič `i` (v `c`) k posunutému konci. Vrací `false`, pokud se
     /// nenašla cesta, která by se nedotkla cizí sítě (vodič pak zůstane, kde byl).
+    ///
+    /// [en] Reroutes wire `i` (in `c`) to the moved end. Returns `false` if no route
+    /// was found that touches no foreign net (the wire then stays where it was).
     #[allow(clippy::too_many_arguments)]
     fn reroute(
         &self,
@@ -664,6 +992,7 @@ impl Circuit {
             route_is_clean(c, segs, net, skip, nets, pin_nets)
         };
         // 1) Pevný konec je roh lomeného vodiče: roh se posune s ním.
+        // [en] 1) The fixed end is the corner of a bent wire: the corner moves with it.
         if let Some(j) = self.sole_partner(i, fixed, ends_move) {
             let corner = if horizontal {
                 Point::new(fixed.x, new.y)
@@ -686,6 +1015,7 @@ impl Circuit {
             }
         }
         // 2) Lomená cesta se zalomením v různých místech.
+        // [en] 2) A bent route with the bend at different places.
         let Some(segs) = route_candidates(new, fixed, horizontal)
             .into_iter()
             .find(|segs| check(c, segs, &[w.id], net_of_wire))
@@ -704,6 +1034,9 @@ impl Circuit {
 
     /// Je bod `p` rohem, kde se vodič `i` stýká s jediným dalším kolmým vodičem
     /// (a s ničím jiným)? Pak vrátí index toho vodiče.
+    ///
+    /// [en] Is point `p` a corner where wire `i` meets exactly one other perpendicular
+    /// wire (and nothing else)? Then returns the index of that wire.
     fn sole_partner(
         &self,
         i: usize,
@@ -730,6 +1063,8 @@ impl Circuit {
     }
 
     /// Zkopíruje vybrané součástky a vodiče (posunuté o 2 body) a vrátí id kopií.
+    ///
+    /// [en] Copies the selected components and wires (moved by 2 points) and returns the ids of the copies.
     pub fn duplicate(&mut self, comps: &[CompId], wires: &[WireId]) -> (Vec<CompId>, Vec<WireId>) {
         let originals: Vec<Component> = self
             .components
@@ -765,6 +1100,10 @@ impl Circuit {
     /// Sloučí úseky vodiče, které leží v jedné přímce a stýkají se v bodě, kde
     /// není nic jiného (vývod, další vodič). Rovný vodič pak nemá skrytý styčný
     /// bod, na který by se nechtěně napojil jiný vodič. Zapojení se nemění.
+    ///
+    /// [en] Merges wire segments that lie on one line and meet at a point where there is
+    /// nothing else (pin, another wire). A straight wire then has no hidden joint
+    /// another wire could unintentionally connect to. The connections do not change.
     pub fn merge_collinear(&mut self) {
         let pins: Vec<Point> = self.components.iter().flat_map(|c| c.pins()).collect();
         'outer: loop {
@@ -786,6 +1125,7 @@ impl Circuit {
                     let far_a = if a.a == p { a.b } else { a.a };
                     let far_b = if b.a == p { b.b } else { b.a };
                     // Úseky se nesmí překrývat (musí ležet na opačných stranách bodu).
+                    // [en] The segments must not overlap (they must lie on opposite sides of the point).
                     let opposite = (far_a.x - p.x).signum() != (far_b.x - p.x).signum()
                         || (far_a.y - p.y).signum() != (far_b.y - p.y).signum();
                     if !opposite {
@@ -804,6 +1144,10 @@ impl Circuit {
     /// Body, ve kterých by se nový vodič z úseků `segs` spojil s existujícími
     /// vodiči nebo vývody (podle stejných pravidel jako netlist): konec cizího
     /// vodiče na novém úseku, konec nového úseku na cizím vodiči nebo vývodu.
+    ///
+    /// [en] Points where a new wire made of segments `segs` would connect to existing
+    /// wires or pins (by the same rules as the netlist): the end of a foreign wire
+    /// on a new segment, the end of a new segment on a foreign wire or pin.
     pub fn wire_contacts(&self, segs: &[(Point, Point)]) -> Vec<Point> {
         let mut out = Vec::new();
         let pins: Vec<Point> = self.components.iter().flat_map(|c| c.pins()).collect();
@@ -825,6 +1169,8 @@ impl Circuit {
     }
 
     /// Body, ve kterých se kreslí spojovací tečka: setkávají se zde aspoň tři větve.
+    ///
+    /// [en] Points where a junction dot is drawn: at least three branches meet there.
     pub fn junctions(&self) -> Vec<Point> {
         let mut points: Vec<Point> = self.wires.iter().flat_map(|w| [w.a, w.b]).collect();
         points.sort();
@@ -852,6 +1198,8 @@ impl Circuit {
     }
 
     /// Ohraničení celého obvodu (min, max) v bodech mřížky.
+    ///
+    /// [en] Bounds of the whole circuit (min, max) in grid points.
     pub fn bounds(&self) -> Option<(f32, f32, f32, f32)> {
         let mut it = self
             .components
@@ -859,6 +1207,7 @@ impl Circuit {
             .map(|c| {
                 let (x0, y0, x1, y1) = c.body();
                 // Rezerva na vývody a popisky.
+                // [en] Margin for pins and labels.
                 (x0 - 4.0, y0 - 1.5, x1 + 7.0, y1 + 1.5)
             })
             .chain(self.wires.iter().map(|w| {
@@ -879,6 +1228,11 @@ impl Circuit {
 /// Možné cesty z nového konce `new` k pevnému konci `fixed`: zalomení
 /// postupně uprostřed, dál od středu, u pevného a nakonec u posunutého konce.
 /// `horizontal` říká, jakým směrem vodič vede (zachová se u obou konců).
+///
+/// [en] Possible routes from the new end `new` to the fixed end `fixed`: the bend
+/// first in the middle, then further from the middle, at the fixed end and
+/// finally at the moved end. `horizontal` tells which way the wire runs (kept
+/// at both ends).
 fn route_candidates(new: Point, fixed: Point, horizontal: bool) -> Vec<Vec<(Point, Point)>> {
     let (from, to) = if horizontal {
         (new.x, fixed.x)
@@ -910,6 +1264,9 @@ fn route_candidates(new: Point, fixed: Point, horizontal: bool) -> Vec<Vec<(Poin
 
 /// Nedotkne se cesta `segs` (síť `net`) žádného vývodu ani vodiče jiné sítě?
 /// Pouhé křížení vodičů nevadí – nepropojí se.
+///
+/// [en] Does the route `segs` (net `net`) avoid touching any pin or wire of another
+/// net? Merely crossing wires is fine – they do not connect.
 fn route_is_clean(
     c: &Circuit,
     segs: &[(Point, Point)],
@@ -938,6 +1295,9 @@ fn route_is_clean(
 impl Circuit {
     /// Vstupy (přepínače, tlačítka) a výstupy (LED) obvodu seřazené podle popisku.
     /// U podobvodu tvoří jeho rozhraní – vývody značky shora dolů.
+    ///
+    /// [en] Inputs (switches, buttons) and outputs (LEDs) of the circuit sorted by label.
+    /// For a subcircuit they form its interface – the symbol's pins from top to bottom.
     pub fn io(&self) -> (Vec<&Component>, Vec<&Component>) {
         let mut ins: Vec<&Component> = self
             .components
@@ -956,6 +1316,8 @@ impl Circuit {
 }
 
 /// Porovnání popisků „přirozeně“: A2 < A10.
+///
+/// [en] “Natural” comparison of labels: A2 < A10.
 pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     let split = |s: &str| {
         let i = s.find(|c: char| c.is_ascii_digit()).unwrap_or(s.len());
@@ -965,18 +1327,33 @@ pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
 }
 
 /// Nejvyšší počet vývodů podobvodu na každé straně.
+///
+/// [en] Largest number of subcircuit pins on each side.
 pub const MAX_SUBCIRCUIT_PINS: usize = 32;
 
 /// Definice podobvodu: pojmenovaný obvod, který lze vložit jako součástku.
+///
+/// [en] Subcircuit definition: a named circuit that can be inserted as a component.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SubcircuitDef {
+    /// Identifikátor definice (na něj odkazují instance).
+    ///
+    /// [en] Definition identifier (instances refer to it).
     pub id: u32,
+    /// Název podobvodu zobrazený na značce.
+    ///
+    /// [en] Subcircuit name shown on the symbol.
     pub name: String,
+    /// Zapojení podobvodu.
+    ///
+    /// [en] The subcircuit's circuit.
     pub circuit: Circuit,
 }
 
 impl SubcircuitDef {
     /// Názvy vstupů a výstupů značky (popisky přepínačů a LED uvnitř).
+    ///
+    /// [en] Names of the symbol's inputs and outputs (labels of the switches and LEDs inside).
     pub fn pin_names(&self) -> (Vec<String>, Vec<String>) {
         let (ins, outs) = self.circuit.io();
         let names = |v: Vec<&Component>| {
@@ -989,6 +1366,8 @@ impl SubcircuitDef {
     }
 
     /// Druh součástky pro vložení instance.
+    ///
+    /// [en] Kind of component for inserting an instance.
     pub fn kind(&self) -> ComponentKind {
         let (ins, outs) = self.pin_names();
         ComponentKind::Subcircuit {
@@ -999,12 +1378,16 @@ impl SubcircuitDef {
     }
 
     /// Obsahuje tento podobvod (i nepřímo) instanci podobvodu `target`?
+    ///
+    /// [en] Does this subcircuit contain (even indirectly) an instance of subcircuit `target`?
     pub fn uses(&self, target: u32, defs: &[SubcircuitDef]) -> bool {
         circuit_uses(&self.circuit, target, defs, 0)
     }
 }
 
 /// Obsahuje obvod (i nepřímo) instanci podobvodu `target`?
+///
+/// [en] Does the circuit contain (even indirectly) an instance of subcircuit `target`?
 pub fn circuit_uses(c: &Circuit, target: u32, defs: &[SubcircuitDef], depth: usize) -> bool {
     depth < 32
         && c.components.iter().any(|k| match k.kind {
@@ -1021,6 +1404,9 @@ pub fn circuit_uses(c: &Circuit, target: u32, defs: &[SubcircuitDef], depth: usi
 
 /// Upraví počty vývodů instancí podobvodů v obvodu podle aktuálních definic.
 /// Vrací `true`, pokud se něco změnilo.
+///
+/// [en] Updates the pin counts of subcircuit instances in the circuit according to
+/// the current definitions. Returns `true` if anything changed.
 pub fn sync_instances(circuit: &mut Circuit, defs: &[SubcircuitDef]) -> bool {
     let mut changed = false;
     for c in &mut circuit.components {
@@ -1038,21 +1424,42 @@ pub fn sync_instances(circuit: &mut Circuit, defs: &[SubcircuitDef]) -> bool {
 }
 
 /// Formát souboru projektu `.logicflow`.
+///
+/// [en] Format of the `.logicflow` project file.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectFile {
     /// Verze formátu – zvýší se při nekompatibilní změně.
+    ///
+    /// [en] Format version – increased on an incompatible change.
     pub format: u32,
+    /// Název a verze aplikace, která soubor uložila.
+    ///
+    /// [en] Name and version of the application that saved the file.
     pub app: String,
+    /// Hlavní obvod.
+    ///
+    /// [en] Main circuit.
     pub circuit: Circuit,
     /// Definice podobvodů (od verze 0.3).
+    ///
+    /// [en] Subcircuit definitions (since version 0.3).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subcircuits: Vec<SubcircuitDef>,
 }
 
 impl ProjectFile {
+    /// Aktuální verze formátu.
+    ///
+    /// [en] Current format version.
     pub const FORMAT: u32 = 1;
+    /// Přípona souboru.
+    ///
+    /// [en] File extension.
     pub const EXTENSION: &'static str = "logicflow";
 
+    /// Uloží obvod a podobvody jako formátovaný JSON.
+    ///
+    /// [en] Saves the circuit and subcircuits as formatted JSON.
     pub fn to_json(circuit: &Circuit, subcircuits: &[SubcircuitDef]) -> String {
         let file = ProjectFile {
             format: Self::FORMAT,
@@ -1063,6 +1470,9 @@ impl ProjectFile {
         serde_json::to_string_pretty(&file).expect("serializace obvodu nemůže selhat")
     }
 
+    /// Načte obvod a podobvody z JSON; odmítne soubor z novější verze formátu.
+    ///
+    /// [en] Loads the circuit and subcircuits from JSON; rejects a file in a newer format version.
     pub fn from_json(text: &str) -> Result<(Circuit, Vec<SubcircuitDef>), String> {
         let file: ProjectFile = serde_json::from_str(text).map_err(|e| e.to_string())?;
         if file.format > Self::FORMAT {
@@ -1090,6 +1500,7 @@ mod tests {
         c.component_mut(id).unwrap().rotation = Rotation::R90;
         let g = c.component(id).unwrap();
         // Po otočení o 90° míří výstup dolů.
+        // [en] After rotating by 90° the output points down.
         assert_eq!(g.output_pin(), Some(Point::new(10, 13)));
     }
 
@@ -1132,6 +1543,7 @@ mod tests {
         c.add_wire(Point::new(0, 0), Point::new(10, 0));
         c.add_wire(Point::new(5, 0), Point::new(5, 5));
         // Křížení bez spoje tečku nemá.
+        // [en] A crossing without a connection has no dot.
         c.add_wire(Point::new(8, -3), Point::new(8, 3));
         assert_eq!(c.junctions(), vec![Point::new(5, 0)]);
     }
@@ -1158,6 +1570,8 @@ mod tests {
         assert_eq!(m.component(sw).unwrap().pos, Point::new(0, 3));
         // Vodič se zalomí uprostřed (vodorovná – svislá – vodorovná část)
         // a spojení zůstane.
+        // [en] The wire bends in the middle (horizontal – vertical – horizontal part)
+        // and the connection stays.
         assert_eq!(m.wires.len(), 3);
         assert!(
             m.wires
@@ -1168,12 +1582,14 @@ mod tests {
         sim.run(100);
         assert_eq!(sim.inputs(led)[0], LogicValue::One);
         // Původní obvod zůstal beze změny.
+        // [en] The original circuit stayed unchanged.
         assert_eq!(c.wires.len(), 1);
     }
 
     #[test]
     fn display_pin_sides() {
         // Soubor z verze bez volby strany se načte s vývody vlevo.
+        // [en] A file from a version without the side option loads with pins on the left.
         let old: ComponentKind = serde_json::from_str(r#"{"type":"seven_segment"}"#).unwrap();
         assert_eq!(
             old,
@@ -1208,6 +1624,7 @@ mod tests {
         c.add_wire(Point::new(0, 0), Point::new(4, 0));
         c.add_wire(Point::new(4, 0), Point::new(9, 0));
         // Odbočka v (9,0) zůstane – tam se stýkají tři větve.
+        // [en] The branch at (9,0) stays – three branches meet there.
         c.add_wire(Point::new(9, 0), Point::new(12, 0));
         c.add_wire(Point::new(9, 0), Point::new(9, 5));
         c.merge_collinear();
@@ -1222,6 +1639,7 @@ mod tests {
     #[test]
     fn rerouting_avoids_other_pins() {
         // Přepínač → vstup C čítače; sousední vstup EN je o 2 body výš.
+        // [en] Switch → input C of the counter; the neighbouring input EN is 2 points higher.
         let mut c = Circuit::default();
         let sw = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 1));
         let block = crate::BlockKind::Counter {
@@ -1232,6 +1650,7 @@ mod tests {
         c.add_wire(Point::new(2, 1), Point::new(8, 1));
         let m = c.moved(&[sw], &[], 0, -2);
         // Zalomení nesmí vést přes vstup EN (8,-1).
+        // [en] The bend must not lead over input EN (8,-1).
         let en = m.component(ctr).unwrap().input_pins()[1];
         assert!(m.wires.iter().all(|w| !w.contains(en)));
         let nl = crate::sim::Netlist::build(&m);
@@ -1245,6 +1664,7 @@ mod tests {
     #[test]
     fn wire_over_pin_does_not_connect() {
         // Vodič vede přes vývod LED, ale nekončí v něm.
+        // [en] The wire runs over the LED's pin but does not end there.
         let mut c = Circuit::default();
         let sw = c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
         let led = c.add_component(ComponentKind::Led, Point::new(6, 0));
@@ -1262,11 +1682,13 @@ mod tests {
         let sw = c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
         let led = c.add_component(ComponentKind::Led, Point::new(12, 6));
         // lomený vodič: (2,0) → (6,0) → (6,6) → (10,6)
+        // [en] bent wire: (2,0) → (6,0) → (6,6) → (10,6)
         c.add_wire(Point::new(2, 0), Point::new(6, 0));
         c.add_wire(Point::new(6, 0), Point::new(6, 6));
         c.add_wire(Point::new(6, 6), Point::new(10, 6));
         let m = c.moved(&[sw], &[], 0, 2);
         // Žádný nový úsek, roh se jen posunul.
+        // [en] No new segment, the corner just moved.
         assert_eq!(m.wires.len(), 3);
         assert!(
             m.wires

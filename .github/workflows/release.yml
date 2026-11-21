@@ -8,6 +8,10 @@
 # Při vydání se sestaví i nápověda (docs/napoveda, mdBook): k vydání se připojí
 # ZIP s HTML nápovědou a – je-li v repozitáři proměnná NAPOVEDA_PAGES = true –
 # nápověda se zveřejní na GitHub Pages (česky v kořeni, anglicky v /en/).
+#
+# Před sestavením se ověří, že tag odpovídá verzi v Cargo.toml a že je verze
+# popsaná v CHANGELOG.md a CHANGELOG.en.md. Má-li vydání prázdný popis, doplní se
+# poznámkami z přehledu změn (česky a anglicky).
 name: Vydání
 
 on:
@@ -28,8 +32,26 @@ env:
   MDBOOK_VERSION: "0.5.4"
 
 jobs:
+  kontrola:
+    # Tag = verze programu a verze popsaná v přehledu změn (scripts/zmeny.py).
+    # Chrání před vydáním ze staré revize (stalo se u první verze v0.3.1).
+    name: Kontrola verze a přehledu změn
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - name: Verze a přehled změn
+        run: |
+          if [ -f scripts/zmeny.py ]; then
+            python3 scripts/zmeny.py kontrola --tag "$TAG"
+          else
+            echo "::warning::Starší verze bez scripts/zmeny.py – kontrola přeskočena."
+          fi
+
   build:
     name: ${{ matrix.name }}
+    needs: kontrola
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -77,6 +99,7 @@ jobs:
   raspberry-pi:
     # Sestavení v Debianu 13 (Trixie), na kterém stojí Raspberry Pi OS.
     name: linux-arm64 (Raspberry Pi OS)
+    needs: kontrola
     runs-on: ubuntu-24.04-arm
     container: debian:trixie
     steps:
@@ -107,6 +130,7 @@ jobs:
 
   napoveda:
     name: Nápověda (HTML)
+    needs: kontrola
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -163,10 +187,27 @@ jobs:
     needs: [build, raspberry-pi, napoveda]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          path: zdroj
       - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
+      - name: Poznámky k vydání z přehledu změn
+        # Jen když je popis vydání prázdný – ručně napsaný popis se nepřepisuje.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f zdroj/scripts/zmeny.py ]; then exit 0; fi
+          popis=$(gh release view "$TAG" --json body --jq .body --repo "${{ github.repository }}")
+          if [ -z "$(echo "$popis" | tr -d '[:space:]')" ]; then
+            python3 zdroj/scripts/zmeny.py poznamky "$TAG" > poznamky.md
+            gh release edit "$TAG" --notes-file poznamky.md --repo "${{ github.repository }}"
+          else
+            echo "Popis vydání už je vyplněný – ponechán."
+          fi
       - name: Nahrát soubory
         env:
           GH_TOKEN: ${{ github.token }}

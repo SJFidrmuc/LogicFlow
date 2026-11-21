@@ -26,6 +26,35 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # Komentáře v kódu česky i anglicky (CONTRIBUTING.md → Komentáře v kódu).
+      - run: python3 scripts/komentare.py kontrola
+      # Přehled změn CHANGELOG.md / CHANGELOG.en.md (CONTRIBUTING.md → Vydání nové verze).
+      - run: python3 scripts/zmeny.py kontrola
+      # Přenositelnost na web (CONTRIBUTING.md → Přenositelnost): aplikace používá
+      # web_time místo std::time (std::time::Instant::now() ve WebAssembly spadne).
+      - name: Přenositelnost – čas přes web_time
+        run: |
+          if grep -rnE "std::time::(\{[^}]*)?(Instant|SystemTime)" crates/logicflow/src \
+              | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//'; then
+            echo "::error::Místo std::time::Instant/SystemTime použijte web_time (viz CONTRIBUTING.md → Přenositelnost)."
+            exit 1
+          fi
+
+  wasm:
+    # Jádro se musí dát přeložit pro WebAssembly – základ budoucí webové verze
+    # (iPad, iPhone, Android, Chromebook). Clippy v jádru navíc zakazuje práci se soubory,
+    # vlákna a systémový čas (crates/logicflow-core/clippy.toml).
+    name: Jádro pro WebAssembly
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm32
+      - run: cargo build -p logicflow-core --target wasm32-unknown-unknown
 
   napoveda:
     # Nápověda v Markdownu (docs/napoveda): sestavení obou jazyků mdBookem.
