@@ -46,7 +46,7 @@ jobs:
           - name: linux-x64
             os: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@stable
@@ -68,7 +68,7 @@ jobs:
           cp target/release/logicflow README.md LICENSE "$name/"
           tar -czf "$name.tar.gz" "$name"
           echo "PACKAGE=$name.tar.gz" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           path: ${{ env.PACKAGE }}
@@ -84,7 +84,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl git build-essential pkg-config
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.TAG }}
       - name: Rust
@@ -99,7 +99,7 @@ jobs:
           cp target/release/logicflow README.md LICENSE "$name/"
           tar -czf "$name.tar.gz" "$name"
           echo "PACKAGE=$name.tar.gz" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: raspberry-pi-arm64
           path: ${{ env.PACKAGE }}
@@ -109,7 +109,7 @@ jobs:
     name: Nápověda (HTML)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.TAG }}
       - uses: taiki-e/install-action@v2
@@ -128,12 +128,12 @@ jobs:
           cp -r site "$name"
           zip -qr "$name.zip" "$name"
           echo "PACKAGE=$name.zip" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: napoveda
           path: ${{ env.PACKAGE }}
           if-no-files-found: error
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: vars.NAPOVEDA_PAGES == 'true'
         with:
           path: site
@@ -156,14 +156,14 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   publish:
     name: Připojit k vydání
     needs: [build, raspberry-pi, napoveda]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true

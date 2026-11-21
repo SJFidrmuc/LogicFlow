@@ -19,7 +19,7 @@ jobs:
     name: Formát a clippy
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -33,13 +33,13 @@ jobs:
     name: Nápověda
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: taiki-e/install-action@v2
         with:
           tool: mdbook@${{ env.MDBOOK_VERSION }}
       - run: mdbook build docs/napoveda/cs
       - run: mdbook build docs/napoveda/en
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: napoveda-html
           path: target/napoveda
@@ -68,14 +68,14 @@ jobs:
             os: ubuntu-24.04
             exe: logicflow
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.name }}
       - run: cargo test --workspace
       - run: cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: logicflow-${{ matrix.name }}
           path: target/release/${{ matrix.exe }}
@@ -92,7 +92,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl git build-essential pkg-config
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
@@ -102,7 +102,7 @@ jobs:
           key: linux-arm64-trixie
       - run: cargo test --workspace
       - run: cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: logicflow-linux-arm64-raspberry-pi
           path: target/release/logicflow
