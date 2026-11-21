@@ -1,0 +1,27 @@
+# Jádro musí jít přeložit i pro WebAssembly (budoucí webová verze, tablety).
+# Proto v něm nesmí být práce se soubory, vlákna, proměnné prostředí ani systémový čas –
+# vše to dodává aplikace. Clippy (úloha „Formát a clippy“ v CI) tato volání odmítne.
+# [en] The core must also compile for WebAssembly (future web version, tablets).
+# Therefore it must not use files, threads, environment variables or the system clock –
+# the application provides all of that. Clippy (CI job "Formát a clippy") rejects these calls.
+
+disallowed-types = [
+    { path = "std::time::Instant", reason = "jádro nemá systémový čas, čas simulace předává aplikace / [en] the core has no system clock, the app passes simulation time" },
+    { path = "std::time::SystemTime", reason = "jádro nemá systémový čas / [en] the core has no system clock" },
+    { path = "std::fs::File", reason = "jádro nepracuje se soubory, dostává text / [en] the core does not touch files, it gets text" },
+]
+
+disallowed-methods = [
+    { path = "std::fs::read", reason = "jádro nepracuje se soubory / [en] the core does not touch files" },
+    { path = "std::fs::read_to_string", reason = "jádro nepracuje se soubory / [en] the core does not touch files" },
+    { path = "std::fs::write", reason = "jádro nepracuje se soubory / [en] the core does not touch files" },
+    { path = "std::fs::read_dir", reason = "jádro nepracuje se soubory / [en] the core does not touch files" },
+    { path = "std::fs::create_dir", reason = "jádro nepracuje se soubory / [en] the core does not touch files" },
+    { path = "std::fs::create_dir_all", reason = "jádro nepracuje se soubory / [en] the core does not touch files" },
+    { path = "std::fs::remove_file", reason = "jádro nepracuje se soubory / [en] the core does not touch files" },
+    { path = "std::thread::spawn", reason = "WebAssembly v prohlížeči nemá vlákna / [en] WebAssembly in the browser has no threads" },
+    { path = "std::thread::sleep", reason = "WebAssembly v prohlížeči nesmí blokovat / [en] WebAssembly in the browser must not block" },
+    { path = "std::env::var", reason = "nastavení předává aplikace / [en] the app passes settings" },
+    { path = "std::env::args", reason = "parametry zpracovává aplikace / [en] the app handles arguments" },
+    { path = "std::env::args_os", reason = "parametry zpracovává aplikace / [en] the app handles arguments" },
+]

@@ -1696,6 +1696,7 @@ dependencies = [
  "logicflow-core",
  "serde",
  "sys-locale",
+ "web-time",
 ]
 
 [[package]]

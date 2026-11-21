@@ -45,6 +45,18 @@ python3 scripts/komentare.py cs         # kopie zdrojů jen s českými komentá
 
 Exportovaná kopie je samostatný projekt, který jde přeložit (`cargo build`); slouží ke čtení nebo předání, vyvíjí se vždy ve dvojjazyčném zdroji.
 
+## Přenositelnost (budoucí webová verze)
+
+Kolem verze 1.0 vznikne webová verze (WebAssembly v prohlížeči, instalovatelná na plochu) pro iPad, iPhone, Android a Chromebooky – viz plán vývoje. Aby to pak nebyl velký zásah, platí už teď:
+
+- **Jádro (`logicflow-core`) nepracuje se systémem:** žádné soubory, vlákna, proměnné prostředí ani systémový čas. Dostává a vrací text (JSON) a čas simulace mu předává aplikace. Hlídá to clippy podle `crates/logicflow-core/clippy.toml` a úloha CI **Jádro pro WebAssembly**, která jádro pro WebAssembly překládá.
+- **Čas v aplikaci přes `web_time`** (`web_time::Instant`, `web_time::SystemTime`), ne `std::time` – `std::time::Instant::now()` ve WebAssembly spadne. V nativním programu je to totéž; kontrolu má úloha Formát a clippy.
+- **Práce se soubory jen na vyhrazených místech:** `filedialog.rs` (vlastní okno pro soubory), `Project::load` / `Project::save` (tenké obaly kolem `Project::from_text` / `Project::to_text`), `main.rs` (soubor z příkazové řádky) a později soubor s nastavením a knihovny. Ostatní kód pracuje s textem nebo s `Project`, ne s cestami na disku. Webová verze tato místa nahradí nahráním / stažením souboru a úložištěm prohlížeče.
+- **Nic neblokuje hlavní smyčku:** žádné `thread::sleep` ani čekání na síť v `update`. Dlouhé akce (kontrola aktualizací, stahování knihovny) na pozadí s výsledkem v dalším snímku; ve webové verzi pak asynchronně.
+- **Každý příkaz jde vyvolat i bez klávesnice** – z nabídky, kontextové nabídky nebo panelu nástrojů (dotyk). Příkazy jsou na jednom místě a nabídky, klávesy i panel je jen volají.
+- **Žádné pevné předpoklady o okně:** velikost okna, myš s pravým tlačítkem a najetí myší (tooltip) nemusí na tabletu existovat – důležitá informace nesmí být jen v tooltipu.
+- **Nové závislosti** ověřte, že podporují `wasm32-unknown-unknown` (nebo je lze pro web vypnout přes `#[cfg(not(target_arch = "wasm32"))]`).
+
 ## Kdy je změna hotová
 
 Změna je hotová, když jsou hotové **všechny** tyto části – ve stejném pull requestu:
@@ -54,6 +66,7 @@ Změna je hotová, když jsou hotové **všechny** tyto části – ve stejném 
 - **texty rozhraní** česky i anglicky (`crates/logicflow/src/i18n.rs`),
 - **nápověda v Markdownu** v `docs/napoveda/cs` i `docs/napoveda/en` – nová funkce má svůj popis, změněné chování opravený text, nové klávesy jsou v kapitole Klávesové zkratky,
 - **snímky obrazovky** v nápovědě, pokud se změnil vzhled (`scripts/snimky-napovedy.sh`),
+- **přenositelnost** – jádro bez souborů a systémového času, čas v aplikaci přes `web_time` (viz Přenositelnost),
 - **README** a plán vývoje u nových funkcí, případně diagram `docs/architektura.svg` při změně struktury.
 
 Do verze 0.4 je nápověda ještě i přímo v kódu (`crates/logicflow/src/help.rs`). Od verze 0.4 (etapa J2) bude program zobrazovat přímo soubory z `docs/napoveda` a tento dvojí zápis odpadne.

@@ -229,7 +229,18 @@ impl Project {
     /// [en] Loads a project from a .logicflow file.
     pub fn load(path: &Path) -> Result<Self, String> {
         let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-        let (mut circuit, mut subs) = ProjectFile::from_json(&text)?;
+        let mut p = Self::from_text(&text)?;
+        p.path = Some(path.to_path_buf());
+        Ok(p)
+    }
+
+    /// Vytvoří projekt z textu souboru .logicflow (bez práce se soubory – použije
+    /// i budoucí webová verze, která dostane obsah souboru z prohlížeče).
+    ///
+    /// [en] Creates a project from the text of a .logicflow file (no file access – also
+    /// used by the future web version, which gets the file content from the browser).
+    pub fn from_text(text: &str) -> Result<Self, String> {
+        let (mut circuit, mut subs) = ProjectFile::from_json(text)?;
         // Počty vývodů instancí podle aktuálních definic.
         // [en] Pin counts of instances according to the current definitions.
         let defs = subs.clone();
@@ -237,21 +248,28 @@ impl Project {
         for d in &mut subs {
             sync_instances(&mut d.circuit, &defs);
         }
-        let mut p = Self::with_subcircuits(circuit, subs);
-        p.path = Some(path.to_path_buf());
-        Ok(p)
+        Ok(Self::with_subcircuits(circuit, subs))
     }
 
     /// Uloží projekt (hlavní obvod i všechny podobvody) do souboru.
     ///
     /// [en] Saves the project (main circuit and all subcircuits) to a file.
     pub fn save(&mut self, path: &Path) -> Result<(), String> {
-        let (main, subs) = self.snapshot();
-        std::fs::write(path, ProjectFile::to_json(&main, &subs)).map_err(|e| e.to_string())?;
+        std::fs::write(path, self.to_text()).map_err(|e| e.to_string())?;
         self.path = Some(path.to_path_buf());
         self.title = None;
         self.modified = false;
         Ok(())
+    }
+
+    /// Text souboru .logicflow s hlavním obvodem i všemi podobvody (bez práce se
+    /// soubory – webová verze ho nabídne ke stažení).
+    ///
+    /// [en] Text of the .logicflow file with the main circuit and all subcircuits (no file
+    /// access – the web version offers it as a download).
+    pub fn to_text(&self) -> String {
+        let (main, subs) = self.snapshot();
+        ProjectFile::to_json(&main, &subs)
     }
 
     /// Název do titulku okna.

@@ -17,7 +17,12 @@ use egui::{Key, KeyboardShortcut, Modifiers, RichText};
 use egui_tiles::Tree;
 use logicflow_core::Circuit;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+// Instant z web-time: v nativním programu je to std::time::Instant, ve webové verzi
+// (WebAssembly) čas prohlížeče – std::time::Instant::now() tam spadne.
+// [en] Instant from web-time: in the native program it is std::time::Instant, in the web
+// version (WebAssembly) the browser clock – std::time::Instant::now() panics there.
+use web_time::Instant;
 
 /// Akce, která čeká na rozhodnutí o neuložených změnách.
 ///
