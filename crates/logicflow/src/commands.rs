@@ -153,9 +153,17 @@ pub enum Command {
     ///
     /// [en] Run or pause the simulation.
     RunPause,
-    /// Jeden takt simulace (při pozastavení).
+    /// Spustit simulaci (režim simulace, čas běží).
     ///
-    /// [en] One simulation tick (when paused).
+    /// [en] Run the simulation (simulation mode, time runs).
+    Start,
+    /// Zastavit simulaci – zpět do režimu úprav, stav obvodu zůstává.
+    ///
+    /// [en] Stop the simulation – back to edit mode, the circuit state stays.
+    Stop,
+    /// Jeden takt simulace (při pozastavení; z režimu úprav přejde do pozastavené simulace).
+    ///
+    /// [en] One simulation tick (when paused; from edit mode it switches to a paused simulation).
     Step,
     /// Restartovat simulaci.
     ///
@@ -195,7 +203,7 @@ impl Command {
     /// Všechny příkazy (pořadí = pořadí v nápovědě).
     ///
     /// [en] All commands (order = order in the help).
-    pub const ALL: [Command; 23] = [
+    pub const ALL: [Command; 25] = [
         Command::New,
         Command::Open,
         Command::Save,
@@ -213,8 +221,10 @@ impl Command {
         Command::Cancel,
         Command::FitView,
         Command::Subcircuit,
+        Command::Start,
         Command::RunPause,
         Command::Step,
+        Command::Stop,
         Command::ResetSim,
         Command::NextWorkspace,
         Command::PrevWorkspace,
@@ -254,6 +264,8 @@ impl Command {
             Cancel => &[s!(NONE, Escape)],
             FitView => &[s!(NONE, Home)],
             Subcircuit => &[s!(NONE, Tab)],
+            Start => &[s!(NONE, F5)],
+            Stop => &[s!(Modifiers::SHIFT, F5)],
             RunPause => &[s!(NONE, Space)],
             Step => &[s!(NONE, ArrowRight)],
             ResetSim => &[s!(CMD, R)],
@@ -291,7 +303,16 @@ impl Command {
         use Command::*;
         matches!(
             self,
-            New | Open | Save | SaveAs | Quit | ResetSim | NextWorkspace | PrevWorkspace | Help
+            New | Open
+                | Save
+                | SaveAs
+                | Quit
+                | Start
+                | Stop
+                | ResetSim
+                | NextWorkspace
+                | PrevWorkspace
+                | Help
         )
     }
 
@@ -321,6 +342,8 @@ impl Command {
                 FitView => T::FitView,
                 Subcircuit => T::CmdSubcircuit,
                 RunPause => T::CmdRunPause,
+                Start => T::CmdStart,
+                Stop => T::CmdStop,
                 Step => T::Step,
                 ResetSim => T::ResetSim,
                 NextWorkspace => T::CmdNextWorkspace,
@@ -337,7 +360,14 @@ impl Command {
     /// level) – for menus and buttons.
     pub fn label_for(self, lang: Lang, project: &Project) -> &'static str {
         match self {
-            Command::RunPause => tr(lang, if project.running { T::Pause } else { T::Run }),
+            Command::RunPause => tr(
+                lang,
+                match (project.is_simulating(), project.running) {
+                    (false, _) => T::Run,
+                    (true, true) => T::Pause,
+                    (true, false) => T::Resume,
+                },
+            ),
             Command::Subcircuit if project.selected_subcircuit().is_none() => {
                 tr(lang, T::CmdBackToParent)
             }
@@ -358,6 +388,9 @@ impl Command {
     /// [en] Can the command be carried out right now? (Unavailable menu items are greyed out.)
     pub fn available(self, project: &Project) -> bool {
         use Command::*;
+        if self.blocked_by_simulation(project) {
+            return false;
+        }
         match self {
             Undo => project.can_undo(),
             Redo => project.can_redo(),
@@ -365,8 +398,25 @@ impl Command {
             SelectAll => !project.circuit.components.is_empty(),
             Subcircuit => project.selected_subcircuit().is_some() || project.sheet.is_some(),
             Step => !project.running,
+            Start => !(project.is_simulating() && project.running),
+            Stop => project.is_simulating(),
             _ => true,
         }
+    }
+
+    /// Mění příkaz schéma (přidání, přesun, otočení, mazání, Zpět / Znovu)?
+    ///
+    /// [en] Does the command change the schematic (adding, moving, rotating, deleting, Undo / Redo)?
+    pub fn edits(self) -> bool {
+        use Command::*;
+        matches!(self, Add | Grab | Rotate | Delete | Duplicate | Undo | Redo)
+    }
+
+    /// Je příkaz nedostupný jen proto, že běží režim simulace (schéma je zamčené)?
+    ///
+    /// [en] Is the command unavailable only because simulation mode is on (the schematic is locked)?
+    pub fn blocked_by_simulation(self, project: &Project) -> bool {
+        self.edits() && !project.can_edit()
     }
 }
 
@@ -427,7 +477,28 @@ pub fn menu_item(ui: &mut Ui, cmd: Command, lang: Lang, project: &Project) -> bo
     let mac = ui.ctx().os() == egui::os::OperatingSystem::Mac;
     let button = egui::Button::new(cmd.label_for(lang, project))
         .shortcut_text(cmd.shortcut().text(lang, mac));
-    ui.add_enabled(cmd.available(project), button).clicked()
+    let response = ui.add_enabled(cmd.available(project), button);
+    let response = if cmd.blocked_by_simulation(project) {
+        response.on_disabled_hover_text(tr(lang, T::LockedHint))
+    } else {
+        response
+    };
+    response.clicked()
+}
+
+/// Vybere ze vstupu stisk zkratky jednoho příkazu (bez ohledu na oblast).
+///
+/// [en] Takes a press of one command's shortcut from the input (regardless of the scope).
+pub fn take(ctx: &egui::Context, cmd: Command) -> bool {
+    let mut found = false;
+    ctx.input_mut(|i| {
+        i.events.retain(|e| {
+            let hit = cmd.shortcuts().iter().any(|&sc| matches(e, sc));
+            found |= hit;
+            !hit
+        });
+    });
+    found
 }
 
 #[cfg(test)]
@@ -516,6 +587,39 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// V režimu simulace jsou úpravy zablokované, ovládání simulace ne.
+    ///
+    /// [en] In simulation mode edits are blocked, simulation controls are not.
+    #[test]
+    fn simulation_blocks_edits() {
+        let mut c = logicflow_core::Circuit::default();
+        c.add_component(
+            logicflow_core::ComponentKind::Switch { on: false },
+            logicflow_core::Point::new(0, 0),
+        );
+        let mut p = Project::new(c);
+        p.select_all();
+        assert!(Command::Delete.available(&p));
+        assert!(Command::Start.available(&p) && !Command::Stop.available(&p));
+        p.start_simulation();
+        for cmd in [
+            Command::Delete,
+            Command::Rotate,
+            Command::Grab,
+            Command::Add,
+        ] {
+            assert!(
+                !cmd.available(&p) && cmd.blocked_by_simulation(&p),
+                "{cmd:?}"
+            );
+        }
+        assert!(Command::Stop.available(&p) && Command::RunPause.available(&p));
+        assert!(Command::SelectAll.available(&p) && Command::ResetSim.available(&p));
+        assert_eq!(Command::RunPause.label_for(Lang::Cs, &p), "Pozastavit");
+        p.edit_while_simulating = true;
+        assert!(Command::Delete.available(&p));
     }
 
     /// Přesné porovnání modifikátorů: Shift+X není X, Ctrl+S není Ctrl+Shift+S.

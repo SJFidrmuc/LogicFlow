@@ -14,7 +14,7 @@ Nakreslíme hradlo AND se dvěma přepínači a LED. LED se rozsvítí jen tehdy
 2. Najeďte myší do schématu a stiskněte **Shift+A**. Vyberte **Přepínač** a klikněte do schématu. Totéž ještě jednou, vzniknou vstupy A a B.
 3. **Shift+A → AND [&]** a umístěte hradlo vpravo od přepínačů. Pak **Shift+A → LED** a umístěte ji vpravo od hradla.
 4. Najeďte na výstup přepínače A (bod u pravé strany se zvýrazní kroužkem), stiskněte levé tlačítko a táhněte ke vstupu hradla. Po puštění vznikne vodič. Stejně propojte B se druhým vstupem a výstup hradla s LED.
-5. Klikejte na přepínače. Vodič s logickou 1 svítí světle zeleně a LED se rozsvítí jen tehdy, když jsou oba vstupy 1.
+5. Stiskněte **F5** (spustí simulaci) a klikejte na přepínače. Vodič s logickou 1 svítí světle zeleně a LED se rozsvítí jen tehdy, když jsou oba vstupy 1. **Esc** vás vrátí k úpravám.
 6. Obvod uložte klávesami **Ctrl+S**.
 
 ![Hotový obvod: hradlo AND se dvěma přepínači a rozsvícenou LED](obrazky/prvni-obvod.png)

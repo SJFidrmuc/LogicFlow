@@ -10,7 +10,7 @@ Okno je stejně jako v Blenderu rozdělené na oblasti. Každá oblast má naho�
 - **Pracovní plochy** Návrh, Simulace, Analýza a Paměť uprostřed.
 - **Přepínač jazyka** CS / EN vpravo.
 
-Dole je **stavový řádek**: ukazuje, zda simulace běží, číslo taktu, název obvodu a verzi programu.
+Dole je **stavový řádek**: ukazuje režim (úpravy nebo simulace), zda simulace běží, číslo taktu, název obvodu a verzi programu.
 
 ## Typy editorů
 

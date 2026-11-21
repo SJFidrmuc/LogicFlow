@@ -14,7 +14,7 @@ We will draw an AND gate with two switches and an LED. The LED lights only when 
 2. Move the mouse over the schematic and press **Shift+A**. Choose **Switch** and click in the schematic. Repeat – you get inputs A and B.
 3. **Shift+A → AND [&]** and place the gate to the right of the switches. Then **Shift+A → LED** and place it to the right of the gate.
 4. Hover the output of switch A (the point on its right side gets a ring), press the left button and drag to a gate input. Release – a wire is created. Connect B to the second input and the gate output to the LED the same way.
-5. Click the switches. A wire carrying logic 1 is light green and the LED lights only when both inputs are 1.
+5. Press **F5** (starts the simulation) and click the switches. A wire carrying logic 1 is light green and the LED lights only when both inputs are 1. **Esc** takes you back to editing.
 6. Save the circuit with **Ctrl+S**.
 
 ## What next

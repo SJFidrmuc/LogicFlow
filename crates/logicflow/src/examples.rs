@@ -464,6 +464,7 @@ mod tests {
     #[test]
     fn counter_counts_up() {
         let mut p = crate::project::Project::new(counter());
+        p.start_simulation();
         // Hodiny 2 Hz: náběžná hrana v čase 0,25; 0,75; 1,25; …
         // [en] Clock 2 Hz: rising edges at 0.25; 0.75; 1.25; …
         let mut seen = Vec::new();
@@ -477,6 +478,7 @@ mod tests {
     #[test]
     fn shift_register_shifts() {
         let mut p = crate::project::Project::new(shift_register());
+        p.start_simulation();
         let q = |p: &crate::project::Project, k: usize| {
             let id = p
                 .circuit
@@ -501,6 +503,7 @@ mod tests {
     #[test]
     fn d_example_builds() {
         let mut p = crate::project::Project::new(d_flip_flop());
+        p.start_simulation();
         p.update(1.5);
         let qid = p
             .circuit
@@ -525,6 +528,7 @@ mod tests {
     #[test]
     fn decade_counter_counts_to_nine() {
         let mut p = crate::project::Project::new(decade_counter());
+        p.start_simulation();
         let ctr = p
             .circuit
             .components

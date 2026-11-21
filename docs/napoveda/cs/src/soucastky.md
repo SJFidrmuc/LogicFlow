@@ -4,8 +4,8 @@ Součástky jsou v nabídce Shift+A i v Knihovně součástek rozdělené do sku
 
 | Součástka | Značka | Funkce |
 | --- | --- | --- |
-| Přepínač | čtvereček s 0 nebo 1 | vstup, kliknutím se přepíná mezi 0 a 1 |
-| Tlačítko | – | vstup, dává 1 jen po dobu stisku |
+| Přepínač | čtvereček s 0 nebo 1 | vstup 0 nebo 1; v simulaci se přepíná kliknutím, v režimu úprav dvojklikem |
+| Tlačítko | – | vstup, dává 1 jen po dobu stisku; v režimu úprav se stiskne druhým stiskem dvojkliku |
 | Konstanta 0, Konstanta 1 | – | pevná logická hodnota |
 | Generátor hodin | obdélníkový průběh | pravidelný hodinový signál 0,2–10 Hz (viz [Sekvenční obvody](sekvencni-obvody.md)) |
 | BUF | [1] | opakovač (budič) |

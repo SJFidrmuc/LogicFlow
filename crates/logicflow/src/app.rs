@@ -62,6 +62,10 @@ struct Settings {
     ///
     /// [en] Symbol style.
     symbols: SymbolStyle,
+    /// Povolit úpravy schématu i v režimu simulace (pro pokročilé, výchozí vypnuto).
+    ///
+    /// [en] Allow editing the schematic in simulation mode too (advanced, off by default).
+    edit_while_simulating: bool,
 }
 
 /// Klíč nastavení v úložišti eframe.
@@ -99,6 +103,7 @@ impl Settings {
             } else {
                 SymbolStyle::Iec
             },
+            edit_while_simulating: false,
         }
     }
 }
@@ -133,6 +138,10 @@ pub struct LogicFlowApp {
     ///
     /// [en] Symbol style.
     symbols: SymbolStyle,
+    /// Povolit úpravy za běhu simulace (osobní nastavení).
+    ///
+    /// [en] Allow editing while simulating (personal setting).
+    edit_while_simulating: bool,
     /// Vybraná pracovní plocha.
     ///
     /// [en] Selected workspace.
@@ -218,6 +227,7 @@ impl LogicFlowApp {
         Self {
             lang: settings.lang,
             symbols: settings.symbols,
+            edit_while_simulating: settings.edit_while_simulating,
             workspace: 0,
             trees: Workspace::ALL.iter().map(|w| w.default_tree()).collect(),
             last_dir: project
@@ -346,9 +356,13 @@ impl LogicFlowApp {
             Command::Rotate => self.project.rotate_selection(),
             Command::Delete => self.project.delete_selection(),
             Command::SelectAll => self.project.select_all(),
-            Command::SelectNone | Command::Cancel => self.project.selection.clear(),
+            Command::SelectNone => self.project.selection.clear(),
+            Command::Cancel if self.project.is_simulating() => self.project.stop_simulation(),
+            Command::Cancel => self.project.selection.clear(),
             Command::Subcircuit => self.project.toggle_subcircuit(),
-            Command::RunPause => self.project.running = !self.project.running,
+            Command::RunPause => self.project.toggle_run(),
+            Command::Start => self.project.start_simulation(),
+            Command::Stop => self.project.stop_simulation(),
             Command::Step => self.project.step(),
             Command::ResetSim => self.project.reset_simulation(),
             Command::NextWorkspace => self.workspace = (self.workspace + 1) % n,
@@ -465,14 +479,29 @@ impl LogicFlowApp {
                         });
                     });
                     ui.menu_button(tr(lang, T::MenuSimulation), |ui| {
+                        // V režimu úprav: Spustit (F5); v simulaci: Pozastavit / Pokračovat
+                        // (mezerník) a Zastavit (Shift+F5, Esc).
+                        // [en] In edit mode: Run (F5); in simulation: Pause / Resume (space)
+                        // and Stop (Shift+F5, Esc).
+                        let first = if self.project.is_simulating() {
+                            Command::RunPause
+                        } else {
+                            Command::Start
+                        };
                         self.menu_commands(
                             ui,
                             &[
-                                Some(Command::RunPause),
+                                Some(first),
                                 Some(Command::Step),
+                                Some(Command::Stop),
                                 None,
                                 Some(Command::ResetSim),
+                                None,
                             ],
+                        );
+                        ui.checkbox(
+                            &mut self.edit_while_simulating,
+                            tr(lang, T::EditWhileSimulating),
                         );
                     });
                     ui.menu_button(tr(lang, T::MenuHelp), |ui| {
@@ -538,13 +567,13 @@ impl LogicFlowApp {
             )
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    let (text, color) = if self.project.running {
-                        (tr(lang, T::Running), colors::TEXT)
-                    } else {
-                        (
+                    let (text, color) = match (self.project.is_simulating(), self.project.running) {
+                        (false, _) => (tr(lang, T::EditMode), colors::TEXT),
+                        (true, true) => (tr(lang, T::Running), colors::SIMULATION),
+                        (true, false) => (
                             tr(lang, T::Paused),
                             egui::Color32::from_rgb(0xff, 0xa0, 0x30),
-                        )
+                        ),
                     };
                     ui.label(RichText::new(text).color(color).small());
                     ui.label(
@@ -730,6 +759,7 @@ impl eframe::App for LogicFlowApp {
         let settings = Settings {
             lang: self.lang,
             symbols: self.symbols,
+            edit_while_simulating: self.edit_while_simulating,
         };
         eframe::set_value(storage, SETTINGS_KEY, &settings);
     }
@@ -792,7 +822,10 @@ impl eframe::App for LogicFlowApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
 
-        if self.file_dialog.is_none() && self.confirm.is_none() && self.error.is_none() {
+        self.project.edit_while_simulating = self.edit_while_simulating;
+        let no_dialog =
+            self.file_dialog.is_none() && self.confirm.is_none() && self.error.is_none();
+        if no_dialog {
             self.handle_shortcuts(&ctx);
         }
 
@@ -815,6 +848,10 @@ impl eframe::App for LogicFlowApp {
                 .time_to_next_clock_edge()
                 .map_or(REPAINT_INTERVAL, |t| t.clamp(0.0, REPAINT_INTERVAL));
             ctx.request_repaint_after(Duration::from_secs_f64(wait));
+        } else if !self.project.is_simulating() && !self.project.sim.is_stable() {
+            // Režim úprav: obvod se ještě ustaluje (nebo kmitá).
+            // [en] Edit mode: the circuit is still settling (or oscillating).
+            ctx.request_repaint();
         }
 
         self.top_bar(ui);
@@ -834,6 +871,17 @@ impl eframe::App for LogicFlowApp {
                 let requests = std::mem::take(&mut behavior.requests);
                 panes::apply_requests(tree, requests);
             });
+        // Esc, který nezpracoval žádný editor schématu (myš je jinde): v simulaci
+        // zastaví simulaci.
+        // [en] Esc not handled by any schematic editor (the mouse is elsewhere): in
+        // simulation it stops the simulation.
+        if no_dialog
+            && self.project.is_simulating()
+            && !ctx.egui_wants_keyboard_input()
+            && commands::take(&ctx, Command::Cancel)
+        {
+            self.project.stop_simulation();
+        }
         self.dialogs(&ctx);
         self.update_title(&ctx);
     }

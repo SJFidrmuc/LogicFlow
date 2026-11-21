@@ -56,7 +56,8 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 | F1 | nápověda |
 | Shift+A | nabídka Přidat součástku |
 | tažení z vývodu (Ctrl+tažení odkudkoli) | nakreslit vodič |
-| klik na přepínač / držení tlačítka | změna vstupu |
+| F5 / Esc (Shift+F5) | režim simulace (schéma zamčené) / zpět k úpravám, stav obvodu zůstane |
+| klik na přepínač / držení tlačítka | změna vstupu v simulaci (v režimu úprav dvojklik) |
 | klik, Shift+klik, tažení v prázdném místě | výběr, přidání do výběru, výběr obdélníkem |
 | tažení součástky, G | přesun výběru |
 | R | otočit o 90° (i při umisťování) |
@@ -65,9 +66,9 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 | A / Alt+A | vybrat vše / zrušit výběr |
 | Tab | otevřít vybraný podobvod / zpět o úroveň výš |
 | kolečko, prostřední tlačítko, Home | zoom, posun, celé schéma |
-| mezerník, šipka vpravo | spustit/pozastavit simulaci, jeden takt |
+| mezerník, šipka vpravo | spustit / pozastavit / pokračovat, jeden takt |
 | Ctrl+R | restartovat simulaci (klopné obvody do počátečního stavu) |
-| Ctrl+Z, Ctrl+Shift+Z | zpět, znovu |
+| Ctrl+Z, Ctrl+Shift+Z (Ctrl+Y) | zpět, znovu |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S | nový, otevřít, uložit, uložit jako |
 | Ctrl+PageUp / PageDown | předchozí / další pracovní plocha |
 
