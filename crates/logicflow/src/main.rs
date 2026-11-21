@@ -8,6 +8,7 @@
 
 mod app;
 mod catalog;
+mod commands;
 mod examples;
 mod filedialog;
 mod help;

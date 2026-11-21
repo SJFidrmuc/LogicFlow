@@ -12,8 +12,16 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- Menus show the keyboard shortcut of every item and unavailable items are greyed out; the Edit menu now offers Select all, Deselect, Rotate, Delete and Open subcircuit / back, the View menu switches workspaces.
+- Unified list of commands in the program – the basis for the context menu and the toolbar.
+- Ctrl+Y as a second shortcut for Redo.
 - Overview of changes and the roadmap in this file (Czech and English) – checked in CI; release notes are filled in from it automatically.
 - Source code comments in Czech and English in all files; checked in CI, and a copy of the sources with comments in one language only can be exported (`scripts/komentare.py`).
+
+### Fixed
+- Ctrl+R restarts the simulation (the shortcut was in the menu and the help but did not work).
+- Keys over the schematic react only to the exact combination (Shift+X no longer deletes like X).
+- The component library and the memory editor show the current plan for upcoming components (memories in version 0.5, 74xx chips in version 0.7).
 
 ### Changed
 - Preparation for the future web version (iPhone, iPad, Android, Chromebook): the simulation core does not use files or the system clock and CI also compiles it for WebAssembly; time in the application via `web_time`. The program behaves the same.

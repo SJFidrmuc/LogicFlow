@@ -4,7 +4,7 @@ Like in Blender, the window is divided into areas. Every area has a header with 
 
 ## Top bar
 
-- **Menus** File, Edit, View, Simulation and Help.
+- **Menus** File, Edit, View, Simulation and Help. Every item shows its keyboard shortcut on the right; items that cannot be used right now (for example Undo with no previous edit) are greyed out. Besides Undo and Redo, the Edit menu also offers selecting, rotating, deleting and opening a subcircuit – the same as the keys over the schematic.
 - **Workspaces** Design, Simulation, Analysis and Memory in the middle.
 - **Language switch** CS / EN on the right.
 

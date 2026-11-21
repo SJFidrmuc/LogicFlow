@@ -5,13 +5,14 @@
 //! drawing wires. The controls follow Blender (Shift+A, G, R, X, Shift+D, A).
 
 use crate::catalog;
+use crate::commands::{self, Command, Scope};
 use crate::i18n::{Lang, T, tr};
 use crate::project::Project;
 use crate::symbols::{self, Camera, Look, UNIT, Values, dist_to_segment, point, snap};
 use crate::theme::{colors, signal_color};
 use egui::{
-    Align2, Color32, FontId, Key, Modifiers, Painter, PointerButton, Pos2, Rect, Sense, Stroke, Ui,
-    Vec2, pos2, vec2,
+    Align2, Color32, FontId, Painter, PointerButton, Pos2, Rect, Sense, Stroke, Ui, Vec2, pos2,
+    vec2,
 };
 use logicflow_core::{Circuit, CompId, Component, ComponentKind, Point, Rotation, WireId};
 
@@ -282,9 +283,11 @@ impl SchematicView {
         self.add_menu_ui(ui, lang, catalog::subcircuit_items(project));
     }
 
-    /// Klávesové zkratky editoru (Shift+A, G, R, X, Shift+D, A, Tab, Esc, Home).
+    /// Klávesové zkratky editoru (Shift+A, G, R, X, Shift+D, A, Tab, Esc, Home) –
+    /// seznam a zkratky jsou v `commands.rs`.
     ///
-    /// [en] Editor keyboard shortcuts (Shift+A, G, R, X, Shift+D, A, Tab, Esc, Home).
+    /// [en] Editor keyboard shortcuts (Shift+A, G, R, X, Shift+D, A, Tab, Esc, Home) –
+    /// the list and the shortcuts are in `commands.rs`.
     fn keyboard(
         &mut self,
         ui: &mut Ui,
@@ -292,107 +295,79 @@ impl SchematicView {
         project: &mut Project,
         mouse_pt: Option<Point>,
     ) {
-        // Konkrétnější zkratky (se Shift/Alt) se musí zkontrolovat dřív.
-        // [en] More specific shortcuts (with Shift/Alt) must be checked first.
-        let (add, dup, deselect, all, grab, rotate, delete, esc, home) = ui.input_mut(|i| {
-            (
-                i.consume_key(Modifiers::SHIFT, Key::A),
-                i.consume_key(Modifiers::SHIFT, Key::D),
-                i.consume_key(Modifiers::ALT, Key::A),
-                i.consume_key(Modifiers::NONE, Key::A),
-                i.consume_key(Modifiers::NONE, Key::G),
-                i.consume_key(Modifiers::NONE, Key::R),
-                i.consume_key(Modifiers::NONE, Key::X)
-                    || i.consume_key(Modifiers::NONE, Key::Delete),
-                i.consume_key(Modifiers::NONE, Key::Escape),
-                i.consume_key(Modifiers::NONE, Key::Home),
-            )
-        });
-        let tab = take_tab(ui.ctx());
-        // Tab: do vybraného podobvodu a zpět (jako skupiny uzlů v Blenderu).
-        // [en] Tab: into the selected subcircuit and back (like node groups in Blender).
-        if tab && matches!(self.tool, Tool::Idle) {
-            let target = project.selection.single_comp().and_then(|id| {
-                match project.circuit.component(id).map(|c| c.kind) {
-                    Some(ComponentKind::Subcircuit { id, .. }) => Some(id),
-                    _ => None,
-                }
-            });
-            match target {
-                Some(id) => project.enter_subcircuit(id),
-                None => {
-                    project.leave_subcircuit();
-                }
-            }
-            return;
+        let mut pressed = commands::take_pressed(ui.ctx(), Scope::Schematic);
+        // Tab přichází zvlášť (raw_input_hook v app.rs), aby ho egui nepoužilo k přesunu fokusu.
+        // [en] Tab arrives separately (raw_input_hook in app.rs) so that egui does not use it to move the focus.
+        if take_tab(ui.ctx()) {
+            pressed.push(Command::Subcircuit);
         }
+        for cmd in pressed {
+            self.run_command(cmd, ui, rect, project, mouse_pt);
+        }
+    }
+
+    /// Provede příkaz editoru schématu. Během rozdělané akce (přesun, vodič, vkládání)
+    /// fungují jen Esc, Home a otočení vkládané součástky.
+    ///
+    /// [en] Carries out a schematic editor command. While an action is in progress (move,
+    /// wire, placing) only Esc, Home and rotating the component being placed work.
+    pub fn run_command(
+        &mut self,
+        cmd: Command,
+        ui: &Ui,
+        rect: Rect,
+        project: &mut Project,
+        mouse_pt: Option<Point>,
+    ) {
         let busy = !matches!(self.tool, Tool::Idle);
-        if esc {
-            if self.add_menu.take().is_some() {
-                // jen zavřít nabídku
-                // [en] just close the menu
-            } else if busy {
-                self.cancel(project);
-            } else {
-                project.selection.clear();
-            }
-        }
-        if home {
-            self.fit(rect, &project.circuit);
-        }
-        if add && !busy {
-            self.add_menu = ui.input(|i| i.pointer.hover_pos());
-        }
-        if rotate {
-            match &mut self.tool {
-                Tool::Place { rotation, .. } => *rotation = rotation.next(),
-                Tool::Idle if !project.selection.comps.is_empty() => {
-                    project.checkpoint();
-                    for id in project.selection.comp_vec() {
-                        if let Some(c) = project.circuit.component_mut(id) {
-                            c.rotation = c.rotation.next();
-                        }
-                    }
-                    project.after_structure_change();
+        match cmd {
+            Command::Cancel => {
+                if self.add_menu.take().is_some() {
+                    // jen zavřít nabídku
+                    // [en] just close the menu
+                } else if busy {
+                    self.cancel(project);
+                } else {
+                    project.selection.clear();
                 }
+            }
+            Command::FitView => self.fit(rect, &project.circuit),
+            Command::Rotate => match &mut self.tool {
+                Tool::Place { rotation, .. } => *rotation = rotation.next(),
+                Tool::Idle => project.rotate_selection(),
                 _ => {}
+            },
+            _ if busy => {}
+            // Tab: do vybraného podobvodu a zpět (jako skupiny uzlů v Blenderu).
+            // [en] Tab: into the selected subcircuit and back (like node groups in Blender).
+            Command::Subcircuit => project.toggle_subcircuit(),
+            Command::Add => self.add_menu = ui.input(|i| i.pointer.hover_pos()),
+            Command::SelectAll => project.select_all(),
+            Command::SelectNone => project.selection.clear(),
+            Command::Delete => project.delete_selection(),
+            Command::Duplicate => {
+                if let Some(start) = mouse_pt
+                    && !project.selection.is_empty()
+                {
+                    let before = project.circuit.clone();
+                    let (comps, wires) = project
+                        .circuit
+                        .duplicate(&project.selection.comp_vec(), &project.selection.wire_vec());
+                    project.push_undo(before);
+                    project.selection.comps = comps.iter().copied().collect();
+                    project.selection.wires = wires.iter().copied().collect();
+                    project.after_structure_change();
+                    self.start_grab(project, start, true, true);
+                }
             }
-        }
-        if busy {
-            return;
-        }
-        if all {
-            project.selection.comps = project.circuit.components.iter().map(|c| c.id).collect();
-            project.selection.wires = project.circuit.wires.iter().map(|w| w.id).collect();
-        }
-        if deselect {
-            project.selection.clear();
-        }
-        if delete && !project.selection.is_empty() {
-            project.checkpoint();
-            for id in project.selection.comp_vec() {
-                project.circuit.remove_component(id);
+            Command::Grab => {
+                if let Some(start) = mouse_pt
+                    && !project.selection.is_empty()
+                {
+                    self.start_grab(project, start, true, false);
+                }
             }
-            for id in project.selection.wire_vec() {
-                project.circuit.remove_wire(id);
-            }
-            project.selection.clear();
-            project.after_structure_change();
-        }
-        if let Some(start) = mouse_pt {
-            if dup && !project.selection.is_empty() {
-                let before = project.circuit.clone();
-                let (comps, wires) = project
-                    .circuit
-                    .duplicate(&project.selection.comp_vec(), &project.selection.wire_vec());
-                project.push_undo(before);
-                project.selection.comps = comps.iter().copied().collect();
-                project.selection.wires = wires.iter().copied().collect();
-                project.after_structure_change();
-                self.start_grab(project, start, true, true);
-            } else if grab && !project.selection.is_empty() {
-                self.start_grab(project, start, true, false);
-            }
+            _ => {}
         }
     }
 

@@ -8,6 +8,7 @@
 //! Each area has a header with a choice of editor type. Areas can be dragged
 //! by their header, resized and stacked into tabs.
 
+use crate::commands::Command;
 use crate::i18n::{Lang, T, tr};
 use crate::panels::{self, TruthCache};
 use crate::project::Project;
@@ -207,7 +208,7 @@ impl Behavior<Pane> for AreaBehavior<'_> {
                     if pane.kind == EditorKind::Schematic {
                         if ui
                             .button(tr(lang, T::FitView))
-                            .on_hover_text("Home")
+                            .on_hover_text(Command::FitView.shortcut().text(lang, false))
                             .clicked()
                         {
                             pane.view.needs_fit = true;
@@ -220,11 +221,7 @@ impl Behavior<Pane> for AreaBehavior<'_> {
                         // [en] Where we are now: Main circuit / subcircuit.
                         if let Some(name) = self.project.sheet_name() {
                             ui.separator();
-                            if ui
-                                .link(tr(lang, T::MainCircuit))
-                                .on_hover_text(tr(lang, T::BackToParent))
-                                .clicked()
-                            {
+                            if ui.link(tr(lang, T::MainCircuit)).clicked() {
                                 self.project.open_sheet(None);
                             }
                             ui.label(RichText::new(format!("/  {name}")).color(colors::ACCENT));

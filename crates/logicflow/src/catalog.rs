@@ -107,11 +107,11 @@ pub fn subcircuit_items(project: &crate::project::Project) -> Vec<(String, Compo
 /// [en] Components coming in later versions (only shown in the library).
 pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 2] {
     [
-        (T::CatMemory, &["ROM", "RAM", "EEPROM"], "0.4"),
+        (T::CatMemory, &["ROM", "RAM", "EEPROM"], "0.5"),
         (
             T::Cat74xx,
             &["7400", "7404", "7408", "7432", "7474", "74138", "74161"],
-            "0.6",
+            "0.7",
         ),
     ]
 }

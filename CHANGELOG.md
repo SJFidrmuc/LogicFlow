@@ -12,8 +12,16 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- Nabídky ukazují u každé položky klávesovou zkratku a nedostupné položky jsou zašedlé; nabídka Úpravy nově nabízí Vybrat vše, Zrušit výběr, Otočit, Smazat a Otevřít podobvod / zpět, nabídka Zobrazit přepínání pracovních ploch.
+- Jednotný seznam příkazů v programu – základ pro kontextovou nabídku a panel nástrojů.
+- Ctrl+Y jako druhá zkratka pro Znovu.
 - Přehled změn a plánu vývoje v tomto souboru (česky a anglicky) – kontrola v CI, poznámky k vydání se z něj doplní samy.
 - Komentáře ve zdrojovém kódu česky i anglicky ve všech souborech; kontrola v CI a export kopie zdrojů s komentáři jen v jednom jazyce (`scripts/komentare.py`).
+
+### Opraveno
+- Ctrl+R restartuje simulaci (zkratka byla v nabídce a nápovědě, ale nefungovala).
+- Klávesy nad schématem reagují jen na přesnou kombinaci (Shift+X už nemaže jako X).
+- Knihovna součástek a editor paměti uvádějí u připravovaných součástek aktuální plán (paměti ve verzi 0.5, obvody 74xx ve verzi 0.7).
 
 ### Změněno
 - Příprava na budoucí webovou verzi (iPhone, iPad, Android, Chromebook): simulační jádro bez práce se soubory a systémového času, překládá se v CI i pro WebAssembly; čas v aplikaci přes `web_time`. Chování programu se nemění.
