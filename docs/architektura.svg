@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1000" width="1400" height="1000" font-family="Segoe UI, Noto Sans, DejaVu Sans, Arial, sans-serif">
+  <title>LogicFlow – struktura aplikace a tok dat</title>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/>
+    </marker>
+    <style>
+      .t { font-size: 13px; fill: #0f172a; }
+      .s { font-size: 12px; fill: #1e293b; }
+      .x { font-size: 11px; fill: #334155; }
+      .h { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .g { font-size: 13px; font-weight: 700; fill: #475569; }
+      .m { font-family: Consolas, DejaVu Sans Mono, monospace; }
+      .ui { fill: #dbeafe; stroke: #2563eb; stroke-width: 1.5; }
+      .app { fill: #e0e7ff; stroke: #4f46e5; stroke-width: 1.5; }
+      .ed { fill: #ede9fe; stroke: #7c3aed; stroke-width: 1.5; }
+      .pr { fill: #dcfce7; stroke: #16a34a; stroke-width: 1.5; }
+      .co { fill: #ffedd5; stroke: #ea580c; stroke-width: 1.5; }
+      .fi { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.5; }
+      .grp { fill: none; stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 6 4; }
+      .act { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#a); }
+      .act2 { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#a); marker-start: url(#a); }
+      .rd { fill: none; stroke: #16a34a; stroke-width: 2; stroke-dasharray: 6 4; marker-end: url(#r); }
+    </style>
+  </defs>
+
+  <rect width="1400" height="1000" fill="#ffffff"/>
+
+  <!-- Nadpis -->
+  <text x="30" y="36" font-size="22" font-weight="700" fill="#0f172a">LogicFlow – struktura aplikace a tok dat</text>
+  <text x="30" y="58" class="s">verze 0.3.1 · Rust + egui · plná šipka = akce / volání, čárkovaná zelená = čtení dat</text>
+
+  <!-- Horní řada -->
+  <rect x="50" y="80" width="200" height="60" rx="10" class="ui"/>
+  <text x="150" y="106" class="h" text-anchor="middle">Uživatel</text>
+  <text x="150" y="126" class="s" text-anchor="middle">myš, klávesnice</text>
+
+  <rect x="330" y="80" width="500" height="60" rx="10" class="ui"/>
+  <text x="580" y="104" class="h" text-anchor="middle">egui / eframe – okno, vstupy, vykreslení</text>
+  <text x="580" y="124" class="s" text-anchor="middle">každý snímek (~60×/s) se celé rozhraní znovu nakreslí (okamžitý režim)</text>
+
+  <rect x="970" y="80" width="380" height="60" rx="10" class="fi"/>
+  <text x="1160" y="104" class="h" text-anchor="middle">Nastavení (eframe storage)</text>
+  <text x="1160" y="124" class="s" text-anchor="middle">jazyk, styl značek, rozložení okna</text>
+
+  <!-- Skupina aplikace -->
+  <rect x="30" y="165" width="820" height="595" rx="14" class="grp"/>
+  <text x="44" y="184" class="g">Aplikace – crate logicflow</text>
+
+  <rect x="60" y="195" width="770" height="80" rx="10" class="app"/>
+  <text x="76" y="218" class="h">LogicFlowApp <tspan class="s m">(app.rs)</tspan> – hlavní smyčka update() volaná každý snímek</text>
+  <text x="76" y="240" class="s">nabídky a klávesové zkratky · dialogy (filedialog.rs) · měření času (Instant) · nastavení</text>
+  <text x="76" y="261" class="s">pomocné moduly: i18n.rs (texty cs/en) · theme.rs (barvy) · examples.rs (příklady)</text>
+
+  <!-- Oblasti -->
+  <rect x="60" y="300" width="770" height="170" rx="10" fill="#faf5ff" stroke="#a78bfa" stroke-width="1.2"/>
+  <text x="76" y="320" class="g">Oblasti a pracovní plochy (panes.rs, egui_tiles) – typy editorů</text>
+
+  <rect x="70" y="330" width="140" height="125" rx="8" class="ed"/>
+  <text x="140" y="355" class="t" text-anchor="middle" font-weight="700">Schéma</text>
+  <text x="140" y="377" class="x m" text-anchor="middle">schematic.rs</text>
+  <text x="140" y="395" class="x m" text-anchor="middle">symbols.rs</text>
+  <text x="140" y="417" class="x" text-anchor="middle">kreslení, výběr,</text>
+  <text x="140" y="433" class="x" text-anchor="middle">vodiče, Tab</text>
+
+  <rect x="222" y="330" width="140" height="125" rx="8" class="ed"/>
+  <text x="292" y="355" class="t" text-anchor="middle" font-weight="700">Vlastnosti,</text>
+  <text x="292" y="372" class="t" text-anchor="middle" font-weight="700">Hierarchie,</text>
+  <text x="292" y="389" class="t" text-anchor="middle" font-weight="700">Knihovna</text>
+  <text x="292" y="413" class="x m" text-anchor="middle">panels.rs</text>
+  <text x="292" y="431" class="x m" text-anchor="middle">catalog.rs</text>
+
+  <rect x="374" y="330" width="140" height="125" rx="8" class="ed"/>
+  <text x="444" y="355" class="t" text-anchor="middle" font-weight="700">Časový diagram</text>
+  <text x="444" y="377" class="x m" text-anchor="middle">timing.rs</text>
+  <text x="444" y="399" class="x" text-anchor="middle">průběhy signálů</text>
+  <text x="444" y="415" class="x" text-anchor="middle">v čase</text>
+
+  <rect x="526" y="330" width="140" height="125" rx="8" class="ed"/>
+  <text x="596" y="355" class="t" text-anchor="middle" font-weight="700">Pravdivostní</text>
+  <text x="596" y="372" class="t" text-anchor="middle" font-weight="700">tabulka</text>
+  <text x="596" y="395" class="x m" text-anchor="middle">panels.rs</text>
+  <text x="596" y="417" class="x" text-anchor="middle">vlastní simulace</text>
+  <text x="596" y="433" class="x" text-anchor="middle">všech kombinací</text>
+
+  <rect x="678" y="330" width="140" height="125" rx="8" class="ed"/>
+  <text x="748" y="355" class="t" text-anchor="middle" font-weight="700">Nápověda</text>
+  <text x="748" y="377" class="x m" text-anchor="middle">help.rs</text>
+  <text x="748" y="399" class="x" text-anchor="middle">(od 0.4 z Markdownu</text>
+  <text x="748" y="415" class="x" text-anchor="middle">docs/napoveda)</text>
+
+  <!-- Project -->
+  <rect x="60" y="510" width="770" height="225" rx="10" class="pr"/>
+  <text x="76" y="534" class="h">Project <tspan class="s m">(project.rs)</tspan> – stav otevřeného projektu</text>
+  <g class="s">
+    <text x="76" y="560"><tspan class="m">circuit</tspan> – právě upravovaný list</text>
+    <text x="76" y="582"><tspan class="m">subcircuits</tspan> – definice podobvodů</text>
+    <text x="76" y="604"><tspan class="m">sheet, sheet_stack</tspan> – Tab do podobvodu a zpět</text>
+    <text x="76" y="626"><tspan class="m">selection</tspan> – vybrané součástky a vodiče</text>
+    <text x="76" y="648"><tspan class="m">undo / redo</tspan> – kopie obvodu pro Zpět/Znovu</text>
+    <text x="460" y="560"><tspan class="m">sim</tspan> – Simulator (jádro)</text>
+    <text x="460" y="582"><tspan class="m">running, time</tspan> – běh a čas simulace</text>
+    <text x="460" y="604"><tspan class="m">signals</tspan> – data časového diagramu</text>
+    <text x="460" y="626"><tspan class="m">revision</tspan> – číslo změny (přepočty)</text>
+    <text x="460" y="648"><tspan class="m">path, modified</tspan> – soubor, neuloženo</text>
+  </g>
+  <line x1="76" y1="666" x2="814" y2="666" stroke="#86efac" stroke-width="1"/>
+  <text x="76" y="688" class="s m">checkpoint() · after_structure_change() · toggle_switch() · set_button()</text>
+  <text x="76" y="710" class="s m">update(dt) · step() · reset_simulation() · undo() / redo() · load() / save()</text>
+
+  <!-- Skupina jádra -->
+  <rect x="950" y="165" width="420" height="645" rx="14" class="grp"/>
+  <text x="964" y="184" class="g">Jádro – crate logicflow-core (bez grafiky)</text>
+
+  <rect x="970" y="195" width="380" height="215" rx="10" class="co"/>
+  <text x="986" y="218" class="h">Circuit <tspan class="s m">(circuit.rs)</tspan> – model schématu</text>
+  <g class="s">
+    <text x="986" y="242"><tspan class="m">components</tspan>: Component { id, kind, pos,</text>
+    <text x="986" y="260">   rotation, label }</text>
+    <text x="986" y="282"><tspan class="m">kind</tspan>: ComponentKind – Switch, Gate, FlipFlop,</text>
+    <text x="986" y="300">   Block, SevenSegment, Subcircuit, …</text>
+    <text x="986" y="322"><tspan class="m">wires</tspan>: Wire – úsečky na mřížce</text>
+    <text x="986" y="344"><tspan class="m">SubcircuitDef</tspan> { id, name, circuit }</text>
+    <text x="986" y="366"><tspan class="m">ProjectFile</tspan> – převod do a z JSON</text>
+    <text x="986" y="388">úpravy: moved(), reroute(), merge_collinear()</text>
+  </g>
+
+  <rect x="970" y="450" width="380" height="270" rx="10" class="co"/>
+  <text x="986" y="473" class="h">Simulator <tspan class="s m">(sim.rs)</tspan> – událostní simulace</text>
+  <g class="s">
+    <text x="986" y="499">1. Flattener – rozvine podobvody</text>
+    <text x="986" y="517">   do jednoho zapojení</text>
+    <text x="986" y="541">2. Netlist – sítě (union-find); vývod se</text>
+    <text x="986" y="559">   připojí jen ke konci vodiče</text>
+    <text x="986" y="583">3. fronta událostí, zpoždění hradla = 1</text>
+    <text x="986" y="607">4. hodnoty 0 / 1 / X / Z (value.rs)</text>
+    <text x="986" y="633">vyhodnocení: gate.rs (hradla),</text>
+    <text x="986" y="651">   block.rs (funkční bloky)</text>
+  </g>
+  <line x1="986" y1="667" x2="1334" y2="667" stroke="#fdba74" stroke-width="1"/>
+  <text x="986" y="689" class="s m">set_source() · run() · step()</text>
+  <text x="986" y="707" class="s m">outputs() · wire_value() · block_state()</text>
+
+  <rect x="970" y="740" width="380" height="55" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+  <text x="1160" y="763" class="x" text-anchor="middle">Jádro používají i automatické testy a kontrola</text>
+  <text x="1160" y="781" class="x" text-anchor="middle">obvodů v repozitáři LogicFlow-obvody</text>
+
+  <!-- Soubor -->
+  <rect x="300" y="850" width="300" height="60" rx="10" class="fi"/>
+  <text x="450" y="874" class="h" text-anchor="middle">Soubor .logicflow</text>
+  <text x="450" y="894" class="s" text-anchor="middle">čitelný JSON: circuit + subcircuits</text>
+
+  <!-- Šipky -->
+  <!-- uživatel → egui -->
+  <path d="M250,110 L326,110" class="act"/>
+  <!-- egui ↔ app -->
+  <path d="M520,140 L520,191" class="act"/>
+  <text x="510" y="157" class="x" text-anchor="end">vstupy snímku</text>
+  <path d="M660,195 L660,144" class="act"/>
+  <text x="670" y="157" class="x">nakreslený snímek</text>
+  <!-- app ↔ nastavení -->
+  <path d="M830,215 L900,215 L900,110 L966,110" class="act2"/>
+  <text x="905" y="160" class="x">uložit /</text>
+  <text x="905" y="174" class="x">načíst</text>
+  <!-- app → oblasti -->
+  <path d="M445,275 L445,296" class="act"/>
+  <text x="455" y="291" class="x">vykreslí oblasti, předá Project</text>
+  <!-- oblasti → Project (úpravy) -->
+  <path d="M240,470 L240,506" class="act"/>
+  <text x="250" y="494" class="x">úpravy schématu, přepínače</text>
+  <!-- Project → oblasti (čtení) -->
+  <path d="M600,510 L600,474" class="rd"/>
+  <text x="610" y="494" class="x" fill="#15803d">čtení: obvod, výběr, hodnoty, signály</text>
+  <!-- app → Project (levý okraj) -->
+  <path d="M60,250 L44,250 L44,600 L56,600" class="act"/>
+  <text x="38" y="425" class="x" text-anchor="middle" transform="rotate(-90 38 425)">update(dt) · Zpět/Znovu · Otevřít/Uložit</text>
+  <!-- Project → Circuit -->
+  <path d="M830,545 L905,545 L905,300 L966,300" class="act"/>
+  <text x="858" y="537" class="x">mění</text>
+  <text x="912" y="292" class="x">model</text>
+  <!-- Project → Simulator -->
+  <path d="M830,640 L966,640" class="act"/>
+  <text x="858" y="616" class="x">přestavba,</text>
+  <text x="858" y="630" class="x">set_source, run</text>
+  <!-- Circuit → Simulator -->
+  <path d="M1160,410 L1160,446" class="rd"/>
+  <text x="1170" y="433" class="x" fill="#15803d">netlist se staví z modelu</text>
+  <!-- Project ↔ soubor -->
+  <path d="M450,735 L450,846" class="act2"/>
+  <text x="460" y="800" class="x">save() / load() přes ProjectFile</text>
+
+  <!-- Typické toky -->
+  <rect x="640" y="830" width="730" height="160" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="656" y="852" class="t" font-weight="700">Typické toky</text>
+  <g class="x">
+    <text x="656" y="874"><tspan font-weight="700">Úprava schématu:</tspan> myš → egui → app → Schéma → Project.checkpoint() (pro Zpět) → změna circuit</text>
+    <text x="656" y="890">   → after_structure_change() → nový Simulator převezme stav (klopné obvody, čítače) z předchozího</text>
+    <text x="656" y="910"><tspan font-weight="700">Přepínač:</tspan> klik → Schéma → Project.toggle_switch() → sim.set_source() → šíření událostí sítěmi</text>
+    <text x="656" y="930"><tspan font-weight="700">Běh času:</tspan> app změří uplynulý čas → Project.update(dt) → hrany hodin → sim.run() → signals</text>
+    <text x="656" y="950"><tspan font-weight="700">Kreslení:</tspan> editory čtou circuit a hodnoty ze sim → symbols.rs (značky IEC/ANSI) → egui</text>
+    <text x="656" y="970"><tspan font-weight="700">Soubor:</tspan> Project.save() / load() ↔ ProjectFile (JSON) ↔ .logicflow</text>
+  </g>
+
+  <!-- Legenda barev -->
+  <g class="x">
+    <rect x="30" y="935" width="16" height="12" class="ui"/><text x="52" y="945">okno a vstupy</text>
+    <rect x="150" y="935" width="16" height="12" class="app"/><text x="172" y="945">aplikace</text>
+    <rect x="245" y="935" width="16" height="12" class="ed"/><text x="267" y="945">editory</text>
+    <rect x="330" y="935" width="16" height="12" class="pr"/><text x="352" y="945">stav</text>
+    <rect x="400" y="935" width="16" height="12" class="co"/><text x="422" y="945">jádro</text>
+    <rect x="475" y="935" width="16" height="12" class="fi"/><text x="497" y="945">úložiště</text>
+  </g>
+</svg>

@@ -119,11 +119,16 @@ V GitHubu zvolte *Releases → Draft a new release*, zadejte nový tag ve tvaru 
 
 ## Struktura projektu
 
+![Struktura aplikace a tok dat](docs/architektura.svg)
+
+Diagram [`docs/architektura.svg`](docs/architektura.svg) ukazuje moduly aplikace, stav projektu, jádro se simulátorem a to, kudy tečou data při úpravě schématu, přepnutí vstupu, běhu simulace, kreslení a ukládání.
+
 | Složka | Obsah |
 | --- | --- |
 | `crates/logicflow-core` | jádro bez grafického rozhraní: model obvodu, netlist, událostní simulátor, formát souboru |
 | `crates/logicflow` | aplikace: okno, oblasti, editor schématu, panely, překlady |
 | `docs/napoveda` | nápověda v Markdownu (cs, en), obrázky a obvody pro snímky |
+| `docs/architektura.svg` | diagram struktury aplikace a toku dat |
 | `docs/screenshots` | snímky obrazovky pro README |
 | `scripts` | pomocné skripty (snímky obrazovky pro nápovědu) |
 | `.github/workflows` | automatické sestavení a testy pro 6 platforem, nápověda, vydání |
