@@ -68,7 +68,7 @@ const CS: &[Section] = &[
                 "Najeďte myší do schématu a stiskněte Shift+A. Vyberte Přepínač a klikněte do schématu. Totéž ještě jednou – vzniknou vstupy A a B.",
                 "Shift+A > AND [&] a umístěte hradlo vpravo od přepínačů. Pak Shift+A > LED a umístěte ji vpravo od hradla.",
                 "Najeďte na výstup přepínače A (bod u pravé strany, zvýrazní se kroužkem), stiskněte levé tlačítko a táhněte ke vstupu hradla. Pusťte – vznikne vodič. Stejně propojte B a výstup hradla s LED.",
-                "Klikněte na přepínače. LED se rozsvítí, jen když jsou oba vstupy 1.",
+                "Stiskněte F5 (spustí simulaci) a klikejte na přepínače. LED se rozsvítí, jen když jsou oba vstupy 1. Esc vás vrátí k úpravám.",
             ]),
             Tip(
                 "Hotové obvody najdete v nabídce Soubor > Příklady. Klopný obvod RS z hradel NOR je dobrá ukázka toho, jak si obvod pamatuje stav.",
@@ -136,7 +136,10 @@ const CS: &[Section] = &[
         title: "Součástky",
         blocks: &[
             Keys(&[
-                ("Přepínač", "vstup, kliknutím se přepíná mezi 0 a 1"),
+                (
+                    "Přepínač",
+                    "vstup 0 nebo 1; v simulaci se přepíná kliknutím, v režimu úprav dvojklikem",
+                ),
                 ("Tlačítko", "vstup, dává 1 jen po dobu stisku"),
                 ("Konstanta 0 / 1", "pevná logická hodnota"),
                 ("BUF  [1]", "opakovač (budič)"),
@@ -193,7 +196,7 @@ const CS: &[Section] = &[
             H("Generátor hodin"),
             List(&[
                 "Vytváří pravidelný obdélníkový signál. Frekvence se nastavuje ve Vlastnostech (0,2 až 10 Hz).",
-                "Hodiny běží jen při spuštěné simulaci. Při pozastavení se posunou s každým krokem (šipka vpravo) o čtvrt sekundy.",
+                "Hodiny běží jen v režimu simulace (F5), v režimu úprav stojí. Při pozastavení se posunou s každým krokem (šipka vpravo) o čtvrt sekundy.",
                 "V časovém diagramu jsou hodiny vždy nahoře, takže je vidět, při které hraně se výstupy mění.",
             ]),
             H("Restart simulace"),
@@ -288,8 +291,15 @@ const CS: &[Section] = &[
         title: "Simulace",
         blocks: &[
             P(
-                "Simulace běží neustále. Každé hradlo má zpoždění jeden takt, takže signál se obvodem šíří postupně – stejně jako ve skutečném obvodu.",
+                "Každé hradlo má zpoždění jeden takt, takže signál se obvodem šíří postupně – stejně jako ve skutečném obvodu.",
             ),
+            H("Režim úprav a režim simulace"),
+            List(&[
+                "Režim úprav: schéma kreslíte a upravujete, logika se přepočítává hned, ale hodiny stojí. Přepínač se přepne dvojklikem, tlačítko druhým stiskem dvojkliku.",
+                "Režim simulace spustí F5 (nebo mezerník). Schéma je zamčené, fungují jen přepínače, tlačítka, posun, zoom, Tab a frekvence hodin ve Vlastnostech. Schéma má jantarový rámeček se štítkem SIMULACE.",
+                "Esc nebo Shift+F5 vrátí do režimu úprav. Stav obvodu zůstane, vynuluje ho jen Restartovat simulaci (Ctrl+R).",
+                "Úpravy za běhu povolí Simulace > Povolit úpravy za běhu simulace (výchozí vypnuto).",
+            ]),
             H("Barvy vodičů"),
             Keys(&[
                 ("světle zelená", "logická 1"),
@@ -302,8 +312,8 @@ const CS: &[Section] = &[
             ]),
             H("Krokování"),
             List(&[
-                "Mezerník simulaci pozastaví nebo spustí.",
-                "Při pozastavení provede šipka vpravo (nebo Simulace > Krok) jeden takt. Je vidět, jak změna prochází hradlo po hradle.",
+                "Mezerník v režimu úprav simulaci spustí, v simulaci ji pozastaví nebo nechá pokračovat.",
+                "Šipka vpravo (nebo Simulace > Krok) provede jeden takt; z režimu úprav přejde do pozastavené simulace. Je vidět, jak změna prochází hradlo po hradle.",
                 "Pokud se obvod nikdy neustálí (např. invertor zapojený sám do sebe), zobrazí se upozornění „Obvod kmitá“.",
                 "Simulace > Restartovat simulaci (Ctrl+R) začne znovu od počátečního stavu.",
             ]),
@@ -345,12 +355,17 @@ const CS: &[Section] = &[
             ("X, Delete", "smazat"),
             ("Shift+D", "duplikovat"),
             ("A / Alt+A", "vybrat vše / nic"),
-            ("Esc", "zrušit nástroj nebo výběr"),
+            (
+                "Esc",
+                "zrušit nástroj nebo výběr; v simulaci zpět k úpravám",
+            ),
             ("Home", "zobrazit celé schéma"),
             ("Tab", "otevřít vybraný podobvod / zpět o úroveň výš"),
             ("kolečko myši", "zoom"),
             ("prostřední / pravé tlačítko + tažení", "posun pohledu"),
-            ("Mezerník", "spustit / pozastavit simulaci"),
+            ("F5", "spustit simulaci"),
+            ("Shift+F5", "zastavit simulaci, zpět k úpravám"),
+            ("Mezerník", "spustit / pozastavit / pokračovat"),
             ("šipka vpravo", "jeden takt (při pozastavení)"),
             ("Ctrl+R", "restartovat simulaci"),
             ("Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y", "zpět / znovu"),
@@ -402,7 +417,7 @@ const EN: &[Section] = &[
                 "Move the mouse over the schematic and press Shift+A. Choose Switch and click in the schematic. Repeat – you get inputs A and B.",
                 "Shift+A > AND [&] and place the gate to the right of the switches. Then Shift+A > LED and place it right of the gate.",
                 "Hover the output of switch A (the point on its right side gets a ring), press the left button and drag to a gate input. Release – a wire is created. Connect B and the gate output to the LED the same way.",
-                "Click the switches. The LED lights only when both inputs are 1.",
+                "Press F5 (starts the simulation) and click the switches. The LED lights only when both inputs are 1. Esc takes you back to editing.",
             ]),
             Tip(
                 "Ready-made circuits are in File > Examples. The SR latch built from NOR gates shows nicely how a circuit remembers its state.",
@@ -470,7 +485,10 @@ const EN: &[Section] = &[
         title: "Components",
         blocks: &[
             Keys(&[
-                ("Switch", "input, click to toggle between 0 and 1"),
+                (
+                    "Switch",
+                    "input 0 or 1; toggled by a click in simulation, by a double-click in edit mode",
+                ),
                 ("Push button", "input, 1 only while pressed"),
                 ("Constant 0 / 1", "fixed logic value"),
                 ("BUF  [1]", "buffer"),
@@ -518,7 +536,7 @@ const EN: &[Section] = &[
             H("Clock generator"),
             List(&[
                 "Produces a regular square wave. Set the frequency in Properties (0.2 to 10 Hz).",
-                "The clock runs only while the simulation runs. While paused it advances by a quarter of a second with every step (right arrow).",
+                "The clock runs only in simulation mode (F5); in edit mode it stands still. While paused it advances by a quarter of a second with every step (right arrow).",
                 "Clocks are always at the top of the timing diagram, so you can see on which edge the outputs change.",
             ]),
             H("Restarting the simulation"),
@@ -610,8 +628,15 @@ const EN: &[Section] = &[
         title: "Simulation",
         blocks: &[
             P(
-                "The simulation runs continuously. Each gate has a delay of one tick, so a signal travels through the circuit step by step – just like in a real circuit.",
+                "Each gate has a delay of one tick, so a signal travels through the circuit step by step – just like in a real circuit.",
             ),
+            H("Edit mode and simulation mode"),
+            List(&[
+                "Edit mode: you draw and edit the schematic, logic is recomputed at once, but clocks stand still. A switch is toggled by a double-click, a button by the second press of a double-click.",
+                "Simulation mode is started with F5 (or Space). The schematic is locked; only switches, buttons, panning, zooming, Tab and the clock frequency in Properties work. The schematic has an amber frame with a SIMULATION badge.",
+                "Esc or Shift+F5 returns to edit mode. The circuit state stays; only Restart simulation (Ctrl+R) clears it.",
+                "Simulation > Allow editing while simulating permits edits while running (off by default).",
+            ]),
             H("Wire colours"),
             Keys(&[
                 ("light green", "logic 1"),
@@ -624,8 +649,8 @@ const EN: &[Section] = &[
             ]),
             H("Stepping"),
             List(&[
-                "Space pauses or resumes the simulation.",
-                "While paused, the right arrow (or Simulation > Step) performs one tick. You can watch a change pass gate by gate.",
+                "Space starts the simulation in edit mode; in simulation it pauses or resumes it.",
+                "The Right arrow (or Simulation > Step) performs one tick; from edit mode it goes to a paused simulation. You can watch a change pass gate by gate.",
                 "If the circuit never settles (e.g. an inverter feeding itself), an “oscillating” warning appears.",
                 "Simulation > Restart simulation (Ctrl+R) starts again from the initial state.",
             ]),
@@ -667,12 +692,17 @@ const EN: &[Section] = &[
             ("X, Delete", "delete"),
             ("Shift+D", "duplicate"),
             ("A / Alt+A", "select all / none"),
-            ("Esc", "cancel tool or selection"),
+            (
+                "Esc",
+                "cancel tool or selection; in simulation back to editing",
+            ),
             ("Home", "fit the whole schematic"),
             ("Tab", "open selected subcircuit / go back one level"),
             ("mouse wheel", "zoom"),
             ("middle / right button + drag", "pan"),
-            ("Space", "run / pause simulation"),
+            ("F5", "run the simulation"),
+            ("Shift+F5", "stop the simulation, back to editing"),
+            ("Space", "run / pause / resume"),
             ("Right arrow", "one tick (while paused)"),
             ("Ctrl+R", "restart the simulation"),
             ("Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y", "undo / redo"),

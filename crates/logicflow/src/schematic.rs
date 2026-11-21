@@ -25,6 +25,15 @@ const MIN_ZOOM: f32 = 0.15;
 /// [en] Largest zoom.
 const MAX_ZOOM: f32 = 6.0;
 
+/// Nejdelší odstup dvou stisků dvojkliku na tlačítku v obvodu (s).
+///
+/// [en] Longest gap between the two presses of a double-click on a push button (s).
+const DOUBLE_CLICK_S: f64 = 0.4;
+/// Jak dlouho svítí hláška „Pro úpravy zastavte simulaci“ (s).
+///
+/// [en] How long the message "Stop the simulation to edit" is shown (s).
+const LOCKED_HINT_S: f64 = 2.5;
+
 /// Právě používaný nástroj editoru – stavový automat ovládání myší a klávesnicí.
 ///
 /// [en] Editor tool currently in use – the state machine of mouse and keyboard control.
@@ -136,6 +145,16 @@ pub struct SchematicView {
     ///
     /// [en] Sheet shown last time (the view adapts when it changes).
     shown_sheet: Option<Option<u32>>,
+    /// Do kdy (čas egui v s) ukazovat hlášku „Pro úpravy zastavte simulaci“.
+    ///
+    /// [en] Until when (egui time in s) to show the "Stop the simulation to edit" message.
+    locked_hint_until: f64,
+    /// Poslední stisk na tlačítku v obvodu (id, čas) – v režimu úprav se tlačítko
+    /// stiskne až druhým stiskem dvojkliku.
+    ///
+    /// [en] Last press on a push button in the circuit (id, time) – in edit mode the
+    /// button is pressed only by the second press of a double-click.
+    last_button_press: Option<(CompId, f64)>,
 }
 
 impl Default for SchematicView {
@@ -147,6 +166,8 @@ impl Default for SchematicView {
             tool: Tool::Idle,
             add_menu: None,
             shown_sheet: None,
+            locked_hint_until: 0.0,
+            last_button_press: None,
         }
     }
 }
@@ -223,6 +244,19 @@ impl SchematicView {
         let mouse = mouse_screen.map(|p| cam.to_world(p));
         let mouse_pt = mouse.map(snap);
 
+        // V režimu simulace se rozdělané úpravy zruší (např. F5 během přesunu).
+        // [en] In simulation mode, edits in progress are cancelled (e.g. F5 during a move).
+        if !project.can_edit() {
+            self.add_menu = None;
+            if matches!(
+                self.tool,
+                Tool::Place { .. } | Tool::Grab { .. } | Tool::Wire { .. }
+            ) {
+                self.cancel(project);
+            }
+            project.pending_place = None;
+        }
+
         // Součástka vybraná v knihovně se umístí do editoru, nad kterým je myš.
         // [en] A component chosen in the library is placed in the editor the mouse is over.
         if response.hovered()
@@ -266,7 +300,11 @@ impl SchematicView {
                 Color32::from_rgb(0xff, 0x70, 0x60),
             );
         }
+        self.draw_mode(ui, &painter, rect, project, lang);
         let hint = match self.tool {
+            _ if project.is_simulating() && matches!(self.tool, Tool::Idle | Tool::Press(_)) => {
+                T::HintSim
+            }
             Tool::Idle | Tool::BoxSelect { .. } | Tool::Press(_) => T::HintIdle,
             Tool::Place { .. } => T::HintPlace,
             Tool::Grab { .. } => T::HintGrab,
@@ -319,6 +357,10 @@ impl SchematicView {
         project: &mut Project,
         mouse_pt: Option<Point>,
     ) {
+        if cmd.blocked_by_simulation(project) {
+            self.show_locked_hint(ui);
+            return;
+        }
         let busy = !matches!(self.tool, Tool::Idle);
         match cmd {
             Command::Cancel => {
@@ -327,6 +369,10 @@ impl SchematicView {
                     // [en] just close the menu
                 } else if busy {
                     self.cancel(project);
+                } else if project.is_simulating() {
+                    // Esc v simulaci: zpět k úpravám (stav obvodu zůstává).
+                    // [en] Esc in simulation: back to editing (the circuit state stays).
+                    project.stop_simulation();
                 } else {
                     project.selection.clear();
                 }
@@ -368,6 +414,84 @@ impl SchematicView {
                 }
             }
             _ => {}
+        }
+    }
+
+    /// Ukáže na chvíli hlášku „Pro úpravy zastavte simulaci (Esc)“.
+    ///
+    /// [en] Shows the message "Stop the simulation to edit (Esc)" for a moment.
+    fn show_locked_hint(&mut self, ui: &Ui) {
+        self.locked_hint_until = ui.input(|i| i.time) + LOCKED_HINT_S;
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_secs_f64(LOCKED_HINT_S));
+    }
+
+    /// Indikace režimu simulace: barevný rámeček a štítek SIMULACE, ruka nad
+    /// ovládacími prvky, hláška po pokusu o úpravu.
+    ///
+    /// [en] Simulation mode indication: coloured frame and SIMULATION badge, a hand over
+    /// the controls, a message after an attempt to edit.
+    fn draw_mode(&self, ui: &Ui, painter: &Painter, rect: Rect, project: &Project, lang: Lang) {
+        if project.is_simulating() {
+            painter.rect_stroke(
+                rect.shrink(1.5),
+                0.0,
+                Stroke::new(3.0, colors::SIMULATION),
+                egui::StrokeKind::Inside,
+            );
+            let badge = tr(
+                lang,
+                if project.running {
+                    T::SimBadge
+                } else {
+                    T::SimPausedBadge
+                },
+            );
+            let galley = painter.layout_no_wrap(
+                badge.to_owned(),
+                FontId::proportional(12.0),
+                Color32::BLACK,
+            );
+            let pos = rect.right_top() + vec2(-12.0 - galley.size().x, 10.0);
+            painter.rect_filled(
+                Rect::from_min_size(pos, galley.size()).expand2(vec2(7.0, 3.0)),
+                4.0,
+                colors::SIMULATION,
+            );
+            painter.galley(pos, galley, Color32::BLACK);
+            // Ruka nad přepínači a tlačítky – na ně se v simulaci kliká.
+            // [en] A hand over switches and buttons – they are clicked in simulation.
+            if let Some(m) = ui
+                .input(|i| i.pointer.hover_pos())
+                .filter(|p| rect.contains(*p))
+                && let Some(id) = component_at(&project.circuit, self.camera(rect).to_world(m))
+                && matches!(
+                    project.circuit.component(id).map(|c| c.kind),
+                    Some(ComponentKind::Switch { .. } | ComponentKind::Button)
+                )
+            {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+        }
+        if ui.input(|i| i.time) < self.locked_hint_until {
+            let galley = painter.layout_no_wrap(
+                tr(lang, T::LockedHint).to_owned(),
+                FontId::proportional(14.0),
+                colors::TEXT,
+            );
+            let pos = pos2(rect.center().x - galley.size().x / 2.0, rect.top() + 40.0);
+            painter.rect_filled(
+                Rect::from_min_size(pos, galley.size()).expand2(vec2(12.0, 7.0)),
+                6.0,
+                colors::HEADER,
+            );
+            painter.rect_stroke(
+                Rect::from_min_size(pos, galley.size()).expand2(vec2(12.0, 7.0)),
+                6.0,
+                Stroke::new(1.0, colors::SIMULATION),
+                egui::StrokeKind::Outside,
+            );
+            painter.galley(pos, galley, colors::TEXT);
         }
     }
 
@@ -451,8 +575,12 @@ impl SchematicView {
 
         match &mut self.tool {
             Tool::Idle => {
-                // Stisk tlačítka v obvodu.
-                // [en] Pressing a button in the circuit.
+                // Stisk tlačítka v obvodu: v režimu simulace hned, v režimu úprav až
+                // druhým stiskem dvojkliku (první stisk tlačítko jen vybere / přesouvá).
+                // [en] Pressing a button in the circuit: in simulation mode at once, in edit
+                // mode only with the second press of a double-click (the first press only
+                // selects / moves the button).
+                let (pressed_now, now) = ui.input(|i| (i.pointer.primary_pressed(), i.time));
                 if response.is_pointer_button_down_on()
                     && primary_down
                     && let Some(m) = mouse
@@ -462,18 +590,39 @@ impl SchematicView {
                         Some(ComponentKind::Button)
                     )
                 {
-                    project.set_button(id, true);
-                    project.selection.clear();
-                    project.selection.comps.insert(id);
-                    self.tool = Tool::Press(id);
-                    return;
+                    let double = pressed_now
+                        && self
+                            .last_button_press
+                            .is_some_and(|(last, t)| last == id && now - t < DOUBLE_CLICK_S);
+                    if pressed_now {
+                        self.last_button_press = Some((id, now));
+                    }
+                    if project.is_simulating() || double {
+                        project.set_button(id, true);
+                        project.selection.clear();
+                        project.selection.comps.insert(id);
+                        self.tool = Tool::Press(id);
+                        return;
+                    }
                 }
                 if response.drag_started_by(PointerButton::Primary) {
                     let origin = ui
                         .input(|i| i.pointer.press_origin())
                         .map(|p| cam.to_world(p));
                     if let Some(p0) = origin {
-                        self.begin_drag(project, p0, shift, ctrl);
+                        self.begin_drag(ui, project, p0, shift, ctrl);
+                    }
+                } else if response.double_clicked() && !project.is_simulating() {
+                    // Režim úprav: přepínač se přepne dvojklikem.
+                    // [en] Edit mode: a switch is toggled by a double-click.
+                    if let Some(m) = mouse
+                        && let Some(id) = component_at(&project.circuit, m)
+                        && matches!(
+                            project.circuit.component(id).map(|c| c.kind),
+                            Some(ComponentKind::Switch { .. })
+                        )
+                    {
+                        project.toggle_switch(id);
                     }
                 } else if response.clicked()
                     && let Some(m) = mouse
@@ -588,8 +737,25 @@ impl SchematicView {
     /// Začátek tažení: z vývodu nebo vodiče kreslí vodič, ze součástky přesouvá, jinde vybírá obdélníkem.
     ///
     /// [en] Start of a drag: from a pin or wire it draws a wire, from a component it moves, elsewhere it box-selects.
-    fn begin_drag(&mut self, project: &mut Project, p0: Pos2, shift: bool, ctrl: bool) {
+    fn begin_drag(&mut self, ui: &Ui, project: &mut Project, p0: Pos2, shift: bool, ctrl: bool) {
         let circuit = &project.circuit;
+        if !project.can_edit() {
+            // Zamčené schéma: jen výběr obdélníkem; vodič ani přesun nejde.
+            // [en] Locked schematic: box selection only; no wire and no move.
+            if pin_at(circuit, p0).is_some()
+                || component_at(circuit, p0).is_some()
+                || ctrl
+                || wire_at(circuit, p0).is_some()
+            {
+                self.show_locked_hint(ui);
+            } else {
+                self.tool = Tool::BoxSelect {
+                    start: p0,
+                    additive: shift,
+                };
+            }
+            return;
+        }
         if let Some(pin) = pin_at(circuit, p0) {
             self.tool = Tool::Wire {
                 start: pin,
@@ -846,10 +1012,16 @@ fn click(project: &mut Project, m: Pos2, shift: bool) {
             project.selection.clear();
             project.selection.comps.insert(id);
         }
-        if matches!(
-            project.circuit.component(id).map(|c| c.kind),
-            Some(ComponentKind::Switch { .. })
-        ) {
+        // V režimu simulace přepíná přepínač jedno kliknutí, v režimu úprav dvojklik
+        // (jedno kliknutí jen vybírá).
+        // [en] In simulation mode a single click toggles a switch, in edit mode a
+        // double-click (a single click only selects).
+        if project.is_simulating()
+            && matches!(
+                project.circuit.component(id).map(|c| c.kind),
+                Some(ComponentKind::Switch { .. })
+            )
+        {
             project.toggle_switch(id);
         }
     } else if let Some(w) = wire_at(&project.circuit, m) {

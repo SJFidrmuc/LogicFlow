@@ -8,7 +8,7 @@ Like in Blender, the window is divided into areas. Every area has a header with 
 - **Workspaces** Design, Simulation, Analysis and Memory in the middle.
 - **Language switch** CS / EN on the right.
 
-At the bottom, the **status bar** shows whether the simulation runs, the tick number, the circuit name and the program version.
+At the bottom, the **status bar** shows the mode (editing or simulation), whether the simulation runs, the tick number, the circuit name and the program version.
 
 ## Editor types
 

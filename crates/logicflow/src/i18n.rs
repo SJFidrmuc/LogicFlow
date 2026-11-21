@@ -214,6 +214,17 @@ pub enum T {
     CmdRunPause,
     CmdNextWorkspace,
     CmdPrevWorkspace,
+    CmdStart,
+    CmdStop,
+    Resume,
+    EditWhileSimulating,
+    LockedHint,
+    SimBadge,
+    SimPausedBadge,
+    HintSim,
+    EditMode,
+    PropsLocked,
+    LibraryLocked,
     // Stavový řádek
     // [en] Status bar
     Running,
@@ -281,7 +292,7 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             EmptySchematic => "Prázdné schéma – Shift+A přidá součástku",
             Oscillating => "Obvod kmitá – nemá ustálený stav",
             HintIdle => {
-                "F1 nápověda · Shift+A přidat · tažením z vývodu kreslíte vodič · G přesunout · R otočit · X smazat · Shift+D duplikovat · kolečko zoom · prostřední tlačítko posun"
+                "F5 simulace · dvojklik přepne přepínač · F1 nápověda · Shift+A přidat · tažením z vývodu kreslíte vodič · G přesunout · R otočit · X smazat · Shift+D duplikovat · kolečko zoom · prostřední tlačítko posun"
             }
             HintPlace => "Klikněte pro umístění · Shift+klik umístí další · R otočit · Esc zrušit",
             HintGrab => "Přesouvání – klikněte nebo pusťte tlačítko · Esc zrušit",
@@ -407,6 +418,21 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             CmdRunPause => "Spustit / pozastavit",
             CmdNextWorkspace => "Další pracovní plocha",
             CmdPrevWorkspace => "Předchozí pracovní plocha",
+            CmdStart => "Spustit simulaci",
+            CmdStop => "Zastavit simulaci",
+            Resume => "Pokračovat",
+            EditWhileSimulating => "Povolit úpravy za běhu simulace",
+            LockedHint => "Pro úpravy zastavte simulaci (Esc)",
+            SimBadge => "SIMULACE",
+            SimPausedBadge => "SIMULACE – POZASTAVENO",
+            HintSim => {
+                "Klikněte na přepínač nebo tlačítko · mezerník pozastavit · šipka vpravo krok · Esc zpět k úpravám · kolečko zoom · pravé tlačítko posun"
+            }
+            EditMode => "Režim úprav",
+            PropsLocked => {
+                "Za běhu simulace jde měnit jen přepínače a frekvenci hodin. Pro úpravy zastavte simulaci (Esc)."
+            }
+            LibraryLocked => "Součástky jde přidávat v režimu úprav – simulaci zastaví Esc.",
             Running => "Simulace běží",
             Paused => "Simulace pozastavena",
             Unsaved => "neuloženo",
@@ -465,7 +491,7 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             EmptySchematic => "Empty schematic – Shift+A adds a component",
             Oscillating => "The circuit oscillates – no stable state",
             HintIdle => {
-                "F1 help · Shift+A add · drag from a pin to draw a wire · G move · R rotate · X delete · Shift+D duplicate · wheel zoom · middle button pan"
+                "F5 simulation · double-click toggles a switch · F1 help · Shift+A add · drag from a pin to draw a wire · G move · R rotate · X delete · Shift+D duplicate · wheel zoom · middle button pan"
             }
             HintPlace => "Click to place · Shift+click places another · R rotate · Esc cancel",
             HintGrab => "Moving – click or release · Esc cancel",
@@ -589,6 +615,21 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             CmdRunPause => "Run / pause",
             CmdNextWorkspace => "Next workspace",
             CmdPrevWorkspace => "Previous workspace",
+            CmdStart => "Run simulation",
+            CmdStop => "Stop simulation",
+            Resume => "Resume",
+            EditWhileSimulating => "Allow editing while simulating",
+            LockedHint => "Stop the simulation to edit (Esc)",
+            SimBadge => "SIMULATION",
+            SimPausedBadge => "SIMULATION – PAUSED",
+            HintSim => {
+                "Click a switch or button · Space pause · Right arrow step · Esc back to editing · wheel zoom · right button pan"
+            }
+            EditMode => "Edit mode",
+            PropsLocked => {
+                "While simulating, only switches and the clock frequency can be changed. Stop the simulation to edit (Esc)."
+            }
+            LibraryLocked => "Components can be added in edit mode – Esc stops the simulation.",
             Running => "Simulation running",
             Paused => "Simulation paused",
             Unsaved => "unsaved",

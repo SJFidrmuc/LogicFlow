@@ -17,7 +17,7 @@ Every flip-flop has outputs Q and Q̄ (negated). An edge-triggered input is mark
 ## Clock generator
 
 - Produces a regular square wave. Set the frequency in Properties (0.2 to 10 Hz).
-- The clock runs only while the simulation runs. While paused it advances by a quarter of a second with every step (right arrow).
+- The clock runs only in simulation mode (F5); in edit mode it stands still. While paused it advances by a quarter of a second with every step (right arrow).
 - Clocks are always at the top of the timing diagram, so you can see on which edge the outputs change.
 
 ## Restarting the simulation

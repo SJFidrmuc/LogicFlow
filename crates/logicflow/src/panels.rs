@@ -81,7 +81,10 @@ pub fn properties(ui: &mut Ui, project: &mut Project, lang: Lang) {
         }
         ui.add_space(8.0);
         if ui
-            .button(Command::Delete.button_text(lang, project))
+            .add_enabled(
+                project.can_edit(),
+                egui::Button::new(Command::Delete.button_text(lang, project)),
+            )
             .clicked()
         {
             project.delete_selection();
@@ -108,6 +111,13 @@ fn component_properties(
     };
     ui.heading(title);
     ui.add_space(4.0);
+    // V režimu simulace jde měnit jen přepínač a frekvence hodin.
+    // [en] In simulation mode only the switch and the clock frequency can be changed.
+    let editable = project.can_edit();
+    if !editable {
+        ui.label(weak(tr(lang, T::PropsLocked)));
+        ui.add_space(4.0);
+    }
 
     let mut structure_changed = false;
     let mut rotate = false;
@@ -122,7 +132,10 @@ fn component_properties(
 
             ui.label(weak(tr(lang, T::Label)));
             let mut label = comp.label.clone();
-            let r = ui.add(egui::TextEdit::singleline(&mut label).desired_width(120.0));
+            let r = ui.add_enabled(
+                editable,
+                egui::TextEdit::singleline(&mut label).desired_width(120.0),
+            );
             if r.gained_focus() {
                 project.checkpoint();
             }
@@ -138,17 +151,19 @@ fn component_properties(
                 ComponentKind::Gate { gate, inputs } => {
                     ui.label(weak(tr(lang, T::Gate)));
                     let mut new_gate = gate;
-                    egui::ComboBox::from_id_salt("gate_kind")
-                        .selected_text(gate.name())
-                        .show_ui(ui, |ui| {
-                            for g in GateKind::ALL {
-                                ui.selectable_value(
-                                    &mut new_gate,
-                                    g,
-                                    format!("{}  [{}]", g.name(), g.iec_label()),
-                                );
-                            }
-                        });
+                    ui.add_enabled_ui(editable, |ui| {
+                        egui::ComboBox::from_id_salt("gate_kind")
+                            .selected_text(gate.name())
+                            .show_ui(ui, |ui| {
+                                for g in GateKind::ALL {
+                                    ui.selectable_value(
+                                        &mut new_gate,
+                                        g,
+                                        format!("{}  [{}]", g.name(), g.iec_label()),
+                                    );
+                                }
+                            });
+                    });
                     if new_gate != gate {
                         project.checkpoint();
                         let inputs = match (new_gate.is_unary(), gate.is_unary()) {
@@ -169,6 +184,9 @@ fn component_properties(
                     if !gate.is_unary() {
                         ui.label(weak(tr(lang, T::InputCount)));
                         ui.horizontal(|ui| {
+                            if !editable {
+                                ui.disable();
+                            }
                             let mut n = inputs;
                             if ui
                                 .add_enabled(n > ComponentKind::MIN_INPUTS, egui::Button::new("−"))
@@ -212,6 +230,9 @@ fn component_properties(
                 ComponentKind::Constant { value } => {
                     ui.label(weak(tr(lang, T::Value)));
                     ui.horizontal(|ui| {
+                        if !editable {
+                            ui.disable();
+                        }
                         let mut v = value;
                         ui.radio_value(&mut v, false, "0");
                         ui.radio_value(&mut v, true, "1");
@@ -232,19 +253,24 @@ fn component_properties(
                 } => {
                     ui.label(weak(tr(lang, T::FlipFlop)));
                     let mut new_ff = ff;
-                    egui::ComboBox::from_id_salt("ff_kind")
-                        .selected_text(ff_name(ff, lang))
-                        .show_ui(ui, |ui| {
-                            for f in FlipFlopKind::ALL {
-                                ui.selectable_value(&mut new_ff, f, ff_name(f, lang));
-                            }
-                        });
+                    ui.add_enabled_ui(editable, |ui| {
+                        egui::ComboBox::from_id_salt("ff_kind")
+                            .selected_text(ff_name(ff, lang))
+                            .show_ui(ui, |ui| {
+                                for f in FlipFlopKind::ALL {
+                                    ui.selectable_value(&mut new_ff, f, ff_name(f, lang));
+                                }
+                            });
+                    });
                     ui.end_row();
 
                     ui.label(weak(tr(lang, T::Trigger)));
                     let mut new_falling = falling;
                     if ff.is_edge_triggered() {
                         ui.vertical(|ui| {
+                            if !editable {
+                                ui.disable();
+                            }
                             ui.radio_value(&mut new_falling, false, tr(lang, T::RisingEdge));
                             ui.radio_value(&mut new_falling, true, tr(lang, T::FallingEdge));
                         });
@@ -258,6 +284,9 @@ fn component_properties(
                     ui.label(weak(tr(lang, T::InitialState)));
                     let mut new_initial = initial;
                     ui.horizontal(|ui| {
+                        if !editable {
+                            ui.disable();
+                        }
                         ui.radio_value(&mut new_initial, false, "0");
                         ui.radio_value(&mut new_initial, true, "1");
                     });
@@ -320,6 +349,9 @@ fn component_properties(
                             };
                         ui.label(weak(tr(lang, title)));
                         ui.horizontal(|ui| {
+                            if !editable {
+                                ui.disable();
+                            }
                             let mut m = n;
                             if ui.add_enabled(m > lo, egui::Button::new("−")).clicked() {
                                 m -= 1;
@@ -336,6 +368,9 @@ fn component_properties(
                         ui.label(weak(tr(lang, T::CountDirection)));
                         let mut d = down;
                         ui.vertical(|ui| {
+                            if !editable {
+                                ui.disable();
+                            }
                             ui.radio_value(&mut d, false, tr(lang, T::CountUp));
                             ui.radio_value(&mut d, true, tr(lang, T::CountDown));
                         });
@@ -410,13 +445,15 @@ fn component_properties(
                         )
                     };
                     let mut new_pins = pins;
-                    egui::ComboBox::from_id_salt("pin_side")
-                        .selected_text(side_name(pins))
-                        .show_ui(ui, |ui| {
-                            for p in PinSide::ALL {
-                                ui.selectable_value(&mut new_pins, p, side_name(p));
-                            }
-                        });
+                    ui.add_enabled_ui(editable, |ui| {
+                        egui::ComboBox::from_id_salt("pin_side")
+                            .selected_text(side_name(pins))
+                            .show_ui(ui, |ui| {
+                                for p in PinSide::ALL {
+                                    ui.selectable_value(&mut new_pins, p, side_name(p));
+                                }
+                            });
+                    });
                     if new_pins != pins {
                         project.checkpoint();
                         if let Some(c) = project.circuit.component_mut(id) {
@@ -486,7 +523,10 @@ fn component_properties(
                 };
                 ui.label(format!("{deg}°"));
                 if ui
-                    .button(Command::Rotate.button_text(lang, project))
+                    .add_enabled(
+                        editable,
+                        egui::Button::new(Command::Rotate.button_text(lang, project)),
+                    )
                     .clicked()
                 {
                     rotate = true;
@@ -510,7 +550,10 @@ fn component_properties(
     }
     ui.add_space(8.0);
     if ui
-        .button(Command::Delete.button_text(lang, project))
+        .add_enabled(
+            editable,
+            egui::Button::new(Command::Delete.button_text(lang, project)),
+        )
         .clicked()
     {
         project.delete_selection();
@@ -550,7 +593,10 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
                 }
             }
             if ui
-                .button(format!("+ {}", tr(lang, T::NewSubcircuit)))
+                .add_enabled(
+                    project.can_edit(),
+                    egui::Button::new(format!("+ {}", tr(lang, T::NewSubcircuit))),
+                )
                 .clicked()
             {
                 project.new_subcircuit(tr(lang, T::Subcircuit));
@@ -566,7 +612,10 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
                     ui.label(weak(tr(lang, T::SubcircuitName)));
                     let mut name = project.sheet_name().unwrap_or_default();
                     if ui
-                        .add(egui::TextEdit::singleline(&mut name).desired_width(140.0))
+                        .add_enabled(
+                            project.can_edit(),
+                            egui::TextEdit::singleline(&mut name).desired_width(140.0),
+                        )
                         .changed()
                     {
                         project.rename_subcircuit(id, name);
@@ -589,7 +638,10 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
                         project.leave_subcircuit();
                     }
                     let used = project.is_subcircuit_used(id);
-                    let r = ui.add_enabled(!used, egui::Button::new(tr(lang, T::DeleteSubcircuit)));
+                    let r = ui.add_enabled(
+                        !used && project.can_edit(),
+                        egui::Button::new(tr(lang, T::DeleteSubcircuit)),
+                    );
                     if used {
                         r.on_disabled_hover_text(tr(lang, T::SubcircuitUsed));
                     } else if r.clicked() {
@@ -684,6 +736,13 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
 /// [en] Component library with search; a click chooses a component to place.
 pub fn library(ui: &mut Ui, search: &mut String, project: &mut Project, lang: Lang) {
     padded(ui, |ui| {
+        // V režimu simulace se součástky nepřidávají.
+        // [en] Components are not added in simulation mode.
+        if !project.can_edit() {
+            ui.label(weak(tr(lang, T::LibraryLocked)));
+            ui.add_space(4.0);
+            ui.disable();
+        }
         ui.add(
             egui::TextEdit::singleline(search)
                 .hint_text(tr(lang, T::Search))

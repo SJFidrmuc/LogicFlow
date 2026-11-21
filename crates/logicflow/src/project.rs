@@ -72,6 +72,25 @@ impl Selection {
     }
 }
 
+/// Režim práce se schématem (jako v DigitalWorks).
+///
+/// [en] Mode of working with the schematic (as in DigitalWorks).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mode {
+    /// Úpravy: schéma jde měnit, logika se přepočítává hned, ale čas (hodiny) stojí.
+    ///
+    /// [en] Editing: the schematic can be changed, logic is recomputed immediately,
+    /// but time (clocks) stands still.
+    #[default]
+    Edit,
+    /// Simulace: schéma je zamčené, fungují jen ovládací prvky; čas běží nebo je
+    /// pozastavený (krokování).
+    ///
+    /// [en] Simulation: the schematic is locked, only the controls work; time runs or
+    /// is paused (stepping).
+    Simulation,
+}
+
 /// Signál zobrazený v časovém diagramu.
 ///
 /// [en] Signal shown in the timing diagram.
@@ -169,10 +188,18 @@ pub struct Project {
     ///
     /// [en] Increased on every change of the circuit (to recompute the truth table etc.).
     pub revision: u64,
-    /// Běží simulace (není pozastavená)?
+    /// Režim úprav nebo režim simulace.
     ///
-    /// [en] Is the simulation running (not paused)?
+    /// [en] Edit mode or simulation mode.
+    pub mode: Mode,
+    /// Běží v režimu simulace čas (není pozastavená)? V režimu úprav je vždy `false`.
+    ///
+    /// [en] Does time run in simulation mode (not paused)? Always `false` in edit mode.
     pub running: bool,
+    /// Povolit úpravy schématu i v režimu simulace (volba pro pokročilé, výchozí vypnuto).
+    ///
+    /// [en] Allow editing the schematic in simulation mode too (advanced option, off by default).
+    pub edit_while_simulating: bool,
     /// Čas časového diagramu v sekundách; běží jen při spuštěné simulaci.
     ///
     /// [en] Time of the timing diagram in seconds; runs only while the simulation runs.
@@ -215,7 +242,9 @@ impl Project {
             undo: Vec::new(),
             redo: Vec::new(),
             revision: 0,
-            running: true,
+            mode: Mode::Edit,
+            running: false,
+            edit_while_simulating: false,
             time: 0.0,
             signals: Vec::new(),
             pending_place: None,
@@ -665,11 +694,7 @@ impl Project {
             let v = (*on).into();
             self.sim.set_source(id, v);
             self.modified = true;
-            if !self.running {
-                // I při pozastavené simulaci se změna vstupu projeví, ale dál se nešíří.
-                // [en] Even with a paused simulation the input change shows, but does not propagate further.
-                self.sim.step();
-            }
+            self.after_input_change();
         }
     }
 
@@ -683,31 +708,106 @@ impl Project {
         if matches!(c.kind, ComponentKind::Button) && c.pressed != pressed {
             c.pressed = pressed;
             self.sim.set_source(id, pressed.into());
-            if !self.running {
-                self.sim.step();
-            }
+            self.after_input_change();
         }
     }
 
-    /// Volá se každý snímek.
+    /// Po změně vstupu (přepínač, tlačítko): v režimu úprav se obvod hned ustálí,
+    /// při pozastavené simulaci se udělá jen jeden krok (změna se projeví, ale dál se
+    /// nešíří – krokování), při běžící simulaci se o šíření postará `update`.
     ///
-    /// [en] Called every frame.
+    /// [en] After an input change (switch, button): in edit mode the circuit settles at
+    /// once, with a paused simulation only one step is made (the change shows but does
+    /// not propagate further – stepping), with a running simulation `update` takes care
+    /// of propagation.
+    fn after_input_change(&mut self) {
+        match (self.mode, self.running) {
+            (Mode::Edit, _) => {
+                self.sim.run(EVENT_BUDGET);
+            }
+            (Mode::Simulation, false) => {
+                self.sim.step();
+            }
+            (Mode::Simulation, true) => {}
+        }
+    }
+
+    /// Je projekt v režimu simulace?
+    ///
+    /// [en] Is the project in simulation mode?
+    pub fn is_simulating(&self) -> bool {
+        self.mode == Mode::Simulation
+    }
+
+    /// Jde schéma upravovat? V režimu úprav ano, v režimu simulace jen se zapnutou
+    /// volbou „Povolit úpravy za běhu simulace“.
+    ///
+    /// [en] Can the schematic be edited? In edit mode yes, in simulation mode only with
+    /// the "Allow editing while simulating" option switched on.
+    pub fn can_edit(&self) -> bool {
+        self.mode == Mode::Edit || self.edit_while_simulating
+    }
+
+    /// Spustit (F5): přepne do režimu simulace a pustí čas.
+    ///
+    /// [en] Run (F5): switches to simulation mode and starts time.
+    pub fn start_simulation(&mut self) {
+        self.mode = Mode::Simulation;
+        self.running = true;
+    }
+
+    /// Zastavit (Esc, Shift+F5): návrat do režimu úprav. Stav obvodu (klopné obvody,
+    /// čítače, LED, časový diagram) zůstává – vynuluje ho jen Restart.
+    ///
+    /// [en] Stop (Esc, Shift+F5): back to edit mode. The circuit state (flip-flops,
+    /// counters, LEDs, timing diagram) stays – only Restart clears it.
+    pub fn stop_simulation(&mut self) {
+        self.mode = Mode::Edit;
+        self.running = false;
+    }
+
+    /// Mezerník: v režimu úprav spustí simulaci, v režimu simulace ji pozastaví nebo
+    /// znovu rozběhne.
+    ///
+    /// [en] Space: in edit mode starts the simulation, in simulation mode pauses or
+    /// resumes it.
+    pub fn toggle_run(&mut self) {
+        match self.mode {
+            Mode::Edit => self.start_simulation(),
+            Mode::Simulation => self.running = !self.running,
+        }
+    }
+
+    /// Volá se každý snímek. Čas (hodiny, časový diagram) běží jen v režimu simulace;
+    /// v režimu úprav se obvod jen ustaluje po změnách.
+    ///
+    /// [en] Called every frame. Time (clocks, timing diagram) runs only in simulation
+    /// mode; in edit mode the circuit only settles after changes.
     pub fn update(&mut self, dt: f64) {
-        if self.running {
-            let prev = self.time;
-            self.time += dt;
-            self.advance_clocks(prev, self.time);
-            self.sim.run(EVENT_BUDGET);
+        match (self.mode, self.running) {
+            (Mode::Simulation, true) => {
+                let prev = self.time;
+                self.time += dt;
+                self.advance_clocks(prev, self.time);
+                self.sim.run(EVENT_BUDGET);
+            }
+            (Mode::Edit, _) => {
+                self.sim.run(EVENT_BUDGET);
+            }
+            (Mode::Simulation, false) => {}
         }
         self.record_signals();
     }
 
-    /// Jeden takt simulace (při pozastavení). Časový diagram se posune o čtvrt sekundy,
-    /// aby byl každý krok vidět.
+    /// Jeden takt simulace (šipka vpravo). Z režimu úprav přejde do pozastavené
+    /// simulace. Časový diagram se posune o čtvrt sekundy, aby byl každý krok vidět.
     ///
-    /// [en] One simulation tick (while paused). The timing diagram moves by a quarter
-    /// of a second so that every step is visible.
+    /// [en] One simulation tick (right arrow). From edit mode it switches to a paused
+    /// simulation. The timing diagram moves by a quarter of a second so that every
+    /// step is visible.
     pub fn step(&mut self) {
+        self.mode = Mode::Simulation;
+        self.running = false;
         self.time += 0.25;
         self.drive_clocks();
         self.sim.step();
@@ -953,6 +1053,7 @@ mod tests {
         let mut p = small();
         let a = p.circuit.components[0].id;
         let y = p.circuit.components[1].id;
+        p.start_simulation();
         p.update(1.0);
         p.toggle_switch(a);
         p.update(0.5);
@@ -977,6 +1078,7 @@ mod tests {
         c.add_wire(Point::new(3, 1), Point::new(7, 1));
         c.add_wire(Point::new(2, -1), Point::new(7, -1));
         let mut p = Project::new(c);
+        p.start_simulation();
         let mut states = Vec::new();
         for _ in 0..8 {
             p.update(0.5);
@@ -1000,6 +1102,7 @@ mod tests {
         // Půlperiody 0,5 s a 0,15 s → nejbližší hrana v čase 0,15 s.
         // [en] Half periods 0.5 s and 0.15 s → the nearest edge at 0.15 s.
         assert!((p.time_to_next_clock_edge().unwrap() - 0.15).abs() < 1e-9);
+        p.start_simulation();
         p.update(0.4);
         // Další hrany v 0,45 s (rychlé hodiny) a 0,5 s → za 0,05 s.
         // [en] Next edges at 0.45 s (fast clock) and 0.5 s → in 0.05 s.
@@ -1008,6 +1111,80 @@ mod tests {
             Project::new(Circuit::default()).time_to_next_clock_edge(),
             None
         );
+    }
+
+    /// Obvod hodiny 1 Hz → klopný obvod T (T = 1); vrací projekt a id klopného obvodu.
+    ///
+    /// [en] Circuit clock 1 Hz → T flip-flop (T = 1); returns the project and the flip-flop id.
+    fn clocked_t() -> (Project, CompId) {
+        let mut c = Circuit::default();
+        c.add_component(ComponentKind::Clock { period_ms: 1000 }, Point::new(0, 1));
+        c.add_component(ComponentKind::Constant { value: true }, Point::new(0, -1));
+        let ff = c.add_component(
+            ComponentKind::flip_flop(logicflow_core::FlipFlopKind::T),
+            Point::new(10, 0),
+        );
+        c.add_wire(Point::new(3, 1), Point::new(7, 1));
+        c.add_wire(Point::new(2, -1), Point::new(7, -1));
+        (Project::new(c), ff)
+    }
+
+    #[test]
+    fn edit_mode_settles_logic_but_time_stands() {
+        let mut p = small();
+        let a = p.circuit.components[0].id;
+        let y = p.circuit.components[1].id;
+        assert_eq!(p.mode, Mode::Edit);
+        assert!(p.can_edit());
+        // Přepínač v režimu úprav: LED svítí hned, bez spuštění simulace.
+        // [en] A switch in edit mode: the LED lights up at once, without running the simulation.
+        p.toggle_switch(a);
+        assert_eq!(p.signal_value(y), LogicValue::One);
+        p.update(1.0);
+        assert_eq!(p.time, 0.0, "v režimu úprav čas stojí");
+        // Hodiny v režimu úprav netikají.
+        // [en] Clocks do not tick in edit mode.
+        let (mut p, ff) = clocked_t();
+        for _ in 0..6 {
+            p.update(0.5);
+        }
+        assert_eq!(p.sim.flip_flop_state(ff), Some(LogicValue::Zero));
+    }
+
+    #[test]
+    fn stop_keeps_state_and_start_resumes() {
+        let (mut p, ff) = clocked_t();
+        p.start_simulation();
+        assert!(p.is_simulating() && p.running && !p.can_edit());
+        p.update(0.5);
+        p.update(0.5);
+        assert_eq!(p.sim.flip_flop_state(ff), Some(LogicValue::One));
+        let t = p.time;
+        p.stop_simulation();
+        assert!(!p.is_simulating() && !p.running && p.can_edit());
+        p.update(5.0);
+        // Po zastavení zůstává stav i čas.
+        // [en] After stopping, the state and the time stay.
+        assert_eq!(p.sim.flip_flop_state(ff), Some(LogicValue::One));
+        assert_eq!(p.time, t);
+        // Mezerník v úpravách spustí, v simulaci pozastaví.
+        // [en] Space starts in edit mode, pauses in simulation mode.
+        p.toggle_run();
+        assert!(p.is_simulating() && p.running);
+        p.toggle_run();
+        assert!(p.is_simulating() && !p.running);
+        // Volba pro pokročilé povolí úpravy i v simulaci.
+        // [en] The advanced option allows editing in simulation too.
+        p.edit_while_simulating = true;
+        assert!(p.can_edit());
+    }
+
+    #[test]
+    fn step_from_edit_mode_pauses_simulation() {
+        let (mut p, _) = clocked_t();
+        p.step();
+        assert!(p.is_simulating() && !p.running);
+        assert!((p.time - 0.25).abs() < 1e-9);
     }
 
     #[test]

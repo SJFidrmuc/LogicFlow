@@ -12,6 +12,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Režim úprav a režim simulace** (jako v DigitalWorks): F5 spustí simulaci a schéma se zamkne – fungují jen přepínače, tlačítka, posun, zoom, Tab a frekvence hodin; Esc nebo Shift+F5 vrátí k úpravám a stav obvodu (klopné obvody, čítače, LED, časový diagram) zůstane. Jantarový rámeček se štítkem SIMULACE, režim ve stavovém řádku, hláška „Pro úpravy zastavte simulaci (Esc)“. Volba Simulace → Povolit úpravy za běhu simulace (výchozí vypnuto).
 - Nabídky ukazují u každé položky klávesovou zkratku a nedostupné položky jsou zašedlé; nabídka Úpravy nově nabízí Vybrat vše, Zrušit výběr, Otočit, Smazat a Otevřít podobvod / zpět, nabídka Zobrazit přepínání pracovních ploch.
 - Jednotný seznam příkazů v programu – základ pro kontextovou nabídku a panel nástrojů.
 - Ctrl+Y jako druhá zkratka pro Znovu.
@@ -24,6 +25,8 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 - Knihovna součástek a editor paměti uvádějí u připravovaných součástek aktuální plán (paměti ve verzi 0.5, obvody 74xx ve verzi 0.7).
 
 ### Změněno
+- V režimu úprav se přepínač přepíná dvojklikem a tlačítko stiskne druhým stiskem dvojkliku – jedno kliknutí součástku jen vybere, takže ji při přesouvání nepřepnete omylem. Hodiny v režimu úprav stojí.
+- Mezerník v režimu úprav spustí simulaci, šipka vpravo z režimu úprav přejde do pozastavené simulace a udělá krok.
 - Příprava na budoucí webovou verzi (iPhone, iPad, Android, Chromebook): simulační jádro bez práce se soubory a systémového času, překládá se v CI i pro WebAssembly; čas v aplikaci přes `web_time`. Chování programu se nemění.
 - Workflow vydání před sestavením ověří, že tag odpovídá verzi programu a že je verze popsaná v přehledu změn.
 

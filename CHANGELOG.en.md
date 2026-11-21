@@ -12,6 +12,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **Edit mode and simulation mode** (as in DigitalWorks): F5 starts the simulation and locks the schematic – only switches, buttons, panning, zooming, Tab and the clock frequency work; Esc or Shift+F5 returns to editing and the circuit state (flip-flops, counters, LEDs, timing diagram) stays. Amber frame with a SIMULATION badge, the mode in the status bar, the message "Stop the simulation to edit (Esc)". Option Simulation → Allow editing while simulating (off by default).
 - Menus show the keyboard shortcut of every item and unavailable items are greyed out; the Edit menu now offers Select all, Deselect, Rotate, Delete and Open subcircuit / back, the View menu switches workspaces.
 - Unified list of commands in the program – the basis for the context menu and the toolbar.
 - Ctrl+Y as a second shortcut for Redo.
@@ -24,6 +25,8 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 - The component library and the memory editor show the current plan for upcoming components (memories in version 0.5, 74xx chips in version 0.7).
 
 ### Changed
+- In edit mode a switch is toggled by a double-click and a push button pressed by the second press of a double-click – a single click only selects the component, so it is not toggled by accident while moving. Clocks stand still in edit mode.
+- Space starts the simulation in edit mode; the Right arrow goes from edit mode to a paused simulation and makes a step.
 - Preparation for the future web version (iPhone, iPad, Android, Chromebook): the simulation core does not use files or the system clock and CI also compiles it for WebAssembly; time in the application via `web_time`. The program behaves the same.
 - Before building, the release workflow checks that the tag matches the program version and that the version is described in the changelog.
 

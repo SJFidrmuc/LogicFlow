@@ -19,7 +19,7 @@ Každý klopný obvod má výstupy Q a Q̄ (negovaný). Vstup řízený hranou j
 ## Generátor hodin
 
 - Vytváří pravidelný obdélníkový signál. Frekvence se nastavuje ve Vlastnostech (0,2 až 10 Hz).
-- Hodiny běží jen při spuštěné simulaci. Při pozastavení se s každým krokem (šipka vpravo) posunou o čtvrt sekundy.
+- Hodiny běží jen v režimu simulace (F5), v režimu úprav stojí. Při pozastavení se s každým krokem (šipka vpravo) posunou o čtvrt sekundy.
 - V časovém diagramu jsou hodiny vždy nahoře, takže je vidět, při které hraně se výstupy mění.
 
 ## Restart simulace

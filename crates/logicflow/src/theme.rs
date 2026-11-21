@@ -63,6 +63,10 @@ pub mod colors {
     ///
     /// [en] Fill of symbols.
     pub const SYMBOL_FILL: Color32 = Color32::from_rgb(0x2c, 0x2c, 0x2c);
+    /// Rámeček a štítek režimu simulace (jantarová – odlišná od barev signálů).
+    ///
+    /// [en] Frame and badge of simulation mode (amber – distinct from the signal colours).
+    pub const SIMULATION: Color32 = Color32::from_rgb(0xff, 0xb3, 0x47);
 }
 
 /// Barva vodiče podle logické hodnoty.
