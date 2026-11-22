@@ -26,6 +26,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 - Přehled změn a plánu vývoje v tomto souboru (česky a anglicky) – kontrola v CI, poznámky k vydání se z něj doplní samy.
 - Komentáře ve zdrojovém kódu česky i anglicky ve všech souborech; kontrola v CI a export kopie zdrojů s komentáři jen v jednom jazyce (`scripts/komentare.py`).
 - Formát knihoven prvků `.lflib` v jádře (načtení, uložení, kontrola, názvy ve více jazycích, kategorie) – základ pro knihovny ve verzi 0.4; popis formátu a vzorová knihovna v `docs/knihovny`.
+- **Výuková knihovna „Číslicová technika“** (`docs/knihovny/cislicova-technika.lflib`): 36 hradlových zapojení běžných úloh – hradla z NAND a NOR, multiplexory, dekodér, komparátory, převodníky Grayova kódu, parita, sčítačky a odčítačky, klopné obvody RS a D, čítače (asynchronní, synchronní, BCD, nahoru/dolů), posuvný registr, Johnsonův a kruhový čítač, alarm, indikace ventilátorů a semafor; česky i anglicky, každý prvek ověřený simulací. Program ji bude umět otevřít s knihovnami ve verzi 0.4.
 
 ### Opraveno
 - Ctrl+R restartuje simulaci (zkratka byla v nabídce a nápovědě, ale nefungovala).

@@ -26,6 +26,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 - Overview of changes and the roadmap in this file (Czech and English) – checked in CI; release notes are filled in from it automatically.
 - Source code comments in Czech and English in all files; checked in CI, and a copy of the sources with comments in one language only can be exported (`scripts/komentare.py`).
 - Element library format `.lflib` in the core (loading, saving, checking, names in several languages, categories) – the basis for libraries in version 0.4; format description and a sample library in `docs/knihovny`.
+- **Teaching library “Digital electronics”** (`docs/knihovny/cislicova-technika.lflib`): 36 gate-level circuits of common tasks – gates from NAND and NOR, multiplexers, decoder, comparators, Gray code converters, parity, adders and subtractors, RS and D flip-flops, counters (asynchronous, synchronous, BCD, up/down), shift register, Johnson and ring counters, alarm, fan indicator and traffic light; in Czech and English, every item verified by simulation. The program will open it with libraries in version 0.4.
 
 ### Fixed
 - Ctrl+R restarts the simulation (the shortcut was in the menu and the help but did not work).

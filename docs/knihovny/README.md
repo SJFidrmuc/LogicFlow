@@ -6,6 +6,28 @@ Knihovna je soubor hotových podobvodů – **prvků** –, které jde vložit d
 
 Vzor: [`vzor.lflib`](vzor.lflib) – úplná sčítačka 1 bit a 2bitová sčítačka, která ji dvakrát používá. Test v jádře ověřuje, že se vzor načte, že oba prvky správně sčítají (všechny kombinace vstupů) a že ho program uloží beze změny.
 
+## Výuková knihovna „Číslicová technika“
+
+[`cislicova-technika.lflib`](cislicova-technika.lflib) – 36 hradlových zapojení běžných úloh číslicové techniky (podle osnov a sbírky úloh rc2000 – µLAB, kap. 7). Každý prvek má český i anglický název a popis, licenci CC BY 4.0 a je ověřený simulací.
+
+| Kategorie | Prvky |
+| --- | --- |
+| Kombinační obvody | NOT, AND, OR z NAND; XOR ze čtyř NAND; NOT, OR, AND z NOR; XNOR ze čtyř NOR; majoritní obvod 2 ze 3; generátor sudé parity 4 bity; multiplexor 2:1 a 4:1 z hradel; dekodér 2 → 4 z hradel; komparátor 1 bit; komparátor 2 bity (ze dvou komparátorů 1 bit) |
+| Převodníky kódů | binární → Grayův kód 4 bity; Grayův kód → binární 4 bity |
+| Aritmetika | poloviční sčítačka; úplná sčítačka ze dvou polovičních; sčítačka 4 bity (ze čtyř úplných); poloviční a úplná odčítačka; sčítačka a odčítačka 4 bity |
+| Sekvenční obvody | klopný obvod RS z NOR a z NAND; D (úroveň) z NAND; asynchronní čítač 4 bity (T); synchronní čítač 4 bity (JK); synchronní čítač modulo 10 (BCD); čítač nahoru / dolů 3 bity; posuvný registr 4 bity; Johnsonův a kruhový čítač 4 bity |
+| Aplikace | alarm s pamětí; indikace funkce ventilátorů; semafor |
+
+Rozhraní prvků tvoří přepínače (vstupy) a LED (výstupy) uvnitř; u sekvenčních obvodů jsou hodiny vstup **C**. Prvky, které používají jiné prvky (úplná sčítačka, sčítačka 4 bity, komparátor 2 bity, sčítačka a odčítačka), se vloží i s nimi.
+
+Knihovnu **generuje test** `crates/logicflow-core/tests/vyukova_knihovna.rs`: zapojení je popsané jako netlist a sestavovač schémat (`tests/sestavovac`) ho rozmístí do sloupců a propojí vodiči; z hotového schématu pak znovu postaví netlist a porovná ho se zamýšleným zapojením. Testy projdou pravdivostní tabulky všech kombinačních prvků, průběh čítačů a registrů a chování klopných obvodů a aplikací. Po změně prvků:
+
+```sh
+LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test vyukova_knihovna
+```
+
+Dokud program knihovny neumí otevřít, lze prvky prohlédnout jako projekty: `LOGICFLOW_NAHLED=<složka> cargo test -p logicflow-core --test vyukova_knihovna nahled` zapíše každý prvek jako samostatný `.logicflow` a katalog `cislicova-technika.logicflow` se všemi prvky jako podobvody.
+
 ## Stavba souboru
 
 JSON ve stejném stylu jako projekt `.logicflow`:
@@ -100,3 +122,5 @@ A library is a file of ready-made subcircuits – **items** – that can be inse
 - `inputs` / `outputs` are informative only; they are recomputed from the circuit on saving.
 - On loading the core checks valid and unique UUIDs, unique numbers, references between items and that no item contains itself.
 - An item is inserted into a project **as a copy**, the same way as Ctrl+V (`Library::insertion_text`).
+
+**Teaching library “Digital electronics”** – [`cislicova-technika.lflib`](cislicova-technika.lflib): 36 gate-level circuits of common tasks (gates from NAND/NOR, multiplexers, decoder, comparators, Gray code converters, parity, adders and subtractors, RS/D flip-flops, asynchronous, synchronous, BCD and up/down counters, shift register, Johnson and ring counters, alarm, fan indicator, traffic light), with Czech and English names. It is generated and verified by simulation in `crates/logicflow-core/tests/vyukova_knihovna.rs`; regenerate with `LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test vyukova_knihovna`.
