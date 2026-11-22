@@ -297,6 +297,7 @@ impl SchematicView {
                 self.cancel(project);
             }
             project.pending_place = None;
+            project.pending_paste = None;
         }
 
         // Součástka vybraná v knihovně se umístí do editoru, nad kterým je myš.
@@ -308,6 +309,16 @@ impl SchematicView {
                 kind,
                 rotation: Rotation::R0,
             };
+        }
+        // Prvek knihovny se vloží jako Ctrl+V: objeví se u ukazatele myši a klik ho položí.
+        // [en] A library element is inserted like Ctrl+V: it appears at the mouse pointer
+        // and a click drops it.
+        if response.hovered()
+            && let Some(start) = mouse_pt
+            && let Some((_, text)) = project.pending_paste.take()
+            && project.paste_text(&text, Some(start))
+        {
+            self.start_grab(project, start, true, true);
         }
 
         if response.hovered() && !ui.ctx().egui_wants_keyboard_input() {

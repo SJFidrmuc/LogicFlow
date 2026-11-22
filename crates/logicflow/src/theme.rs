@@ -128,4 +128,37 @@ pub fn apply(ctx: &egui::Context) {
         style.spacing.button_padding = egui::vec2(8.0, 3.0);
         style.spacing.interact_size.y = 22.0;
     });
+    ctx.set_fonts(fonts());
+}
+
+/// Písma: výchozí písma egui a navíc Hack jako záložní písmo běžného textu.
+/// Ubuntu nemá šipky ani znaky jako ⊕ (popisy prvků knihoven je používají),
+/// Hack je má – chybějící znak se pak vezme z něj místo prázdného obdélníku.
+///
+/// [en] Fonts: the egui default fonts plus Hack as a fallback font for normal text.
+/// Ubuntu lacks arrows and characters like ⊕ (library element descriptions use
+/// them), Hack has them – a missing character is then taken from it instead of an
+/// empty rectangle.
+pub fn fonts() -> egui::FontDefinitions {
+    let mut fonts = egui::FontDefinitions::default();
+    if let Some(list) = fonts.families.get_mut(&egui::FontFamily::Proportional)
+        && !list.iter().any(|f| f == "Hack")
+    {
+        list.push("Hack".to_owned());
+    }
+    fonts
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn hack_is_fallback_for_text() {
+        let fonts = super::fonts();
+        let list = &fonts.families[&egui::FontFamily::Proportional];
+        // Hack je za hlavním písmem (záložní), ne místo něj.
+        // [en] Hack comes after the main font (as a fallback), not instead of it.
+        assert_eq!(list.last().map(String::as_str), Some("Hack"));
+        assert!(list.len() > 1);
+        assert!(fonts.font_data.contains_key("Hack"));
+    }
 }

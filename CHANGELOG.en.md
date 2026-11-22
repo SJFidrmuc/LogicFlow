@@ -27,7 +27,8 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 - Overview of changes and the roadmap in this file (Czech and English) – checked in CI; release notes are filled in from it automatically.
 - Source code comments in Czech and English in all files; checked in CI, and a copy of the sources with comments in one language only can be exported (`scripts/komentare.py`).
 - Element library format `.lflib` in the core (loading, saving, checking, names in several languages, categories) – the basis for libraries in version 0.4; format description and a sample library in `docs/knihovny`.
-- **Teaching library “Digital electronics”** (`docs/knihovny/cislicova-technika.lflib`): 36 gate-level circuits of common tasks – gates from NAND and NOR, multiplexers, decoder, comparators, Gray code converters, parity, adders and subtractors, RS and D flip-flops, counters (asynchronous, synchronous, BCD, up/down), shift register, Johnson and ring counters, alarm, fan indicator and traffic light; in Czech and English, every item verified by simulation. The program will open it with libraries in version 0.4.
+- **Element libraries in the Component library:** the built-in teaching library “Digital electronics” and personal libraries from the folder `Documents/LogicFlow/Knihovny` (Open folder and Reload buttons), elements by category, search by name and category, the chosen element shows its description, pins, author and licence. An element is inserted as a project subcircuit (a copy) together with the elements it uses – like Ctrl+V at the mouse pointer; names in the interface language. A broken library file is shown as an error, the program does not crash.
+- **Teaching library “Digital electronics”** (`docs/knihovny/cislicova-technika.lflib`, built into the program): 36 gate-level circuits of common tasks – gates from NAND and NOR, multiplexers, decoder, comparators, Gray code converters, parity, adders and subtractors, RS and D flip-flops, counters (asynchronous, synchronous, BCD, up/down), shift register, Johnson and ring counters, alarm, fan indicator and traffic light; in Czech and English, every item verified by simulation.
 
 ### Fixed
 - Ctrl+R restarts the simulation (the shortcut was in the menu and the help but did not work).
@@ -113,7 +114,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 - Finer setting of the clock frequency and simulation speed, stepping by one edge.
 - **VCC and GND** power supply with symbols.
 - Author, licence and description stored in the circuit file.
-- LED colour, subcircuit interface pads, importing a finished circuit as a subcircuit.
+- LED colour, importing a finished circuit as a subcircuit.
 - Settings file in the home folder, **School edition** (classroom settings, Classroom administration).
 - Language packs, in-program help directly from Markdown.
 - Light theme (projector, printing), exporting a schematic image as PNG / SVG.
@@ -124,6 +125,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 ### 0.5 (2027)
 - ROM, RAM and EEPROM memories with a hex editor.
 - Toolbar with icons in two forms: compact, and large icons with tabs (touch, projector).
+- Subcircuit interface pads (subcircuit inputs and outputs with a name and order, later also bus pads).
 
 ### 0.6 (2027)
 - VHDL export.

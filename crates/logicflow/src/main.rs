@@ -13,6 +13,7 @@ mod examples;
 mod filedialog;
 mod help;
 mod i18n;
+mod libraries;
 mod panels;
 mod panes;
 mod project;

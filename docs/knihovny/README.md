@@ -2,7 +2,7 @@
 
 **Česky** · [English](#english)
 
-Knihovna je soubor hotových podobvodů – **prvků** –, které jde vložit do libovolného projektu (sčítačky, převodníky kódů, čítače, vlastní bloky). Program knihovny zatím neumí otevřít; formát je připravený pro verzi 0.4 (etapa K1 – panel knihoven, vložení prvku, export podobvodu do knihovny). V jádře ho čte a zapisuje modul `crates/logicflow-core/src/library.rs`.
+Knihovna je soubor hotových podobvodů – **prvků** –, které jde vložit do libovolného projektu (sčítačky, převodníky kódů, čítače, vlastní bloky). Program knihovny ukazuje v oblasti **Knihovna součástek** pod nadpisem **Knihovny prvků**: vestavěnou výukovou knihovnu a osobní knihovny ze složky `Dokumenty/LogicFlow/Knihovny` (načítá je `crates/logicflow/src/libraries.rs`). Export podobvodu do knihovny a sdílené složky přijdou v dalších krocích etapy K1. V jádře ho čte a zapisuje modul `crates/logicflow-core/src/library.rs`.
 
 Vzor: [`vzor.lflib`](vzor.lflib) – úplná sčítačka 1 bit a 2bitová sčítačka, která ji dvakrát používá. Test v jádře ověřuje, že se vzor načte, že oba prvky správně sčítají (všechny kombinace vstupů) a že ho program uloží beze změny.
 
@@ -26,7 +26,7 @@ Knihovnu **generuje test** `crates/logicflow-core/tests/vyukova_knihovna.rs`: za
 LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test vyukova_knihovna
 ```
 
-Dokud program knihovny neumí otevřít, lze prvky prohlédnout jako projekty: `LOGICFLOW_NAHLED=<složka> cargo test -p logicflow-core --test vyukova_knihovna nahled` zapíše každý prvek jako samostatný `.logicflow` a katalog `cislicova-technika.logicflow` se všemi prvky jako podobvody.
+Prvky lze prohlédnout i jako samostatné projekty: `LOGICFLOW_NAHLED=<složka> cargo test -p logicflow-core --test vyukova_knihovna nahled` zapíše každý prvek jako samostatný `.logicflow` a katalog `cislicova-technika.logicflow` se všemi prvky jako podobvody.
 
 ## Stavba souboru
 
@@ -102,7 +102,7 @@ Při uložení se český nebo anglický název vestavěné kategorie převede n
 
 ## Vložení prvku do projektu
 
-Prvek se do projektu vkládá **jako kopie** – stejně jako Ctrl+V: jádro připraví text ve tvaru schránky (`Library::insertion_text`) s jednou instancí prvku a definicemi všech prvků, které používá, a projekt ho vloží stejnou cestou jako ze schránky (stejné podobvody se použijí znovu, kolize názvů se přejmenují). Záznam původu (knihovna, uid a verze prvku) přibude v dalším kroku K1.
+Prvek se do projektu vkládá **jako kopie** – stejně jako Ctrl+V: jádro připraví text ve tvaru schránky (`Library::insertion_text`, názvy podobvodů v jazyce rozhraní) s jednou instancí prvku a definicemi všech prvků, které používá, a projekt ho vloží stejnou cestou jako ze schránky (stejné podobvody se použijí znovu, kolize názvů se přejmenují). Záznam původu (knihovna, uid a verze prvku) přibude v dalším kroku K1.
 
 ## Pro vývojáře
 
@@ -113,7 +113,7 @@ Prvek se do projektu vkládá **jako kopie** – stejně jako Ctrl+V: jádro př
 
 ## English
 
-A library is a file of ready-made subcircuits – **items** – that can be inserted into any project. The program cannot open libraries yet; the format is prepared for version 0.4 (stage K1). The core reads and writes it in `crates/logicflow-core/src/library.rs`; [`vzor.lflib`](vzor.lflib) is a sample (a 1-bit full adder and a 2-bit adder that uses it twice).
+A library is a file of ready-made subcircuits – **items** – that can be inserted into any project. The program shows libraries in the **Component library** area under **Element libraries**: the built-in teaching library and personal libraries from the folder `Documents/LogicFlow/Knihovny` (loaded by `crates/logicflow/src/libraries.rs`). The core reads and writes it in `crates/logicflow-core/src/library.rs`; [`vzor.lflib`](vzor.lflib) is a sample (a 1-bit full adder and a 2-bit adder that uses it twice).
 
 - The file is JSON like `.logicflow`, with `"type": "logicflow-library"`, a `library` header and a list of `items`.
 - `uid` is the **stable identity** (a UUID) of the library and of each item; `id` is the item number that instances inside other items of the same library refer to.
@@ -121,6 +121,6 @@ A library is a file of ready-made subcircuits – **items** – that can be inse
 - `category` is the key of a built-in category (table above) or custom text. The default licence of new items is **CC BY 4.0**.
 - `inputs` / `outputs` are informative only; they are recomputed from the circuit on saving.
 - On loading the core checks valid and unique UUIDs, unique numbers, references between items and that no item contains itself.
-- An item is inserted into a project **as a copy**, the same way as Ctrl+V (`Library::insertion_text`).
+- An item is inserted into a project **as a copy**, the same way as Ctrl+V (`Library::insertion_text`, názvy podobvodů v jazyce rozhraní).
 
 **Teaching library “Digital electronics”** – [`cislicova-technika.lflib`](cislicova-technika.lflib): 36 gate-level circuits of common tasks (gates from NAND/NOR, multiplexers, decoder, comparators, Gray code converters, parity, adders and subtractors, RS/D flip-flops, asynchronous, synchronous, BCD and up/down counters, shift register, Johnson and ring counters, alarm, fan indicator, traffic light), with Czech and English names. It is generated and verified by simulation in `crates/logicflow-core/tests/vyukova_knihovna.rs`; regenerate with `LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test vyukova_knihovna`.

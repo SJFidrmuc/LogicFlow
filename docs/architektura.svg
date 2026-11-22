@@ -71,7 +71,8 @@
   <text x="292" y="372" class="t" text-anchor="middle" font-weight="700">Hierarchie,</text>
   <text x="292" y="389" class="t" text-anchor="middle" font-weight="700">Knihovna</text>
   <text x="292" y="413" class="x m" text-anchor="middle">panels.rs</text>
-  <text x="292" y="431" class="x m" text-anchor="middle">catalog.rs</text>
+  <text x="292" y="429" class="x m" text-anchor="middle">catalog.rs</text>
+  <text x="292" y="445" class="x m" text-anchor="middle">libraries.rs (.lflib)</text>
 
   <rect x="374" y="330" width="140" height="125" rx="8" class="ed"/>
   <text x="444" y="355" class="t" text-anchor="middle" font-weight="700">Časový diagram</text>

@@ -170,6 +170,10 @@ pub struct LogicFlowApp {
     ///
     /// [en] Cached truth table.
     truth_cache: TruthCache,
+    /// Knihovny prvků (vestavěná a osobní).
+    ///
+    /// [en] Element libraries (built-in and personal).
+    libraries: crate::libraries::Libraries,
     /// Je otevřené okno O aplikaci?
     ///
     /// [en] Is the About window open?
@@ -251,6 +255,7 @@ impl LogicFlowApp {
                 .and_then(|p| p.parent().map(PathBuf::from)),
             project,
             truth_cache: None,
+            libraries: crate::libraries::Libraries::load(),
             about_open: false,
             help: HelpWindow::new(),
             file_dialog: None,
@@ -1042,6 +1047,7 @@ impl eframe::App for LogicFlowApp {
                 let mut behavior = AreaBehavior {
                     project: &mut self.project,
                     truth_cache: &mut self.truth_cache,
+                    libraries: &mut self.libraries,
                     lang: self.lang,
                     requests: Vec::new(),
                     can_close: panes::count_panes(tree) > 1,

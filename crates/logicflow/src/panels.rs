@@ -5,9 +5,11 @@
 use crate::catalog::{self, ff_name, kind_name};
 use crate::commands::{self, Command};
 use crate::i18n::{Lang, T, tr};
+use crate::libraries::{self, Libraries, Source};
 use crate::project::{Project, natural_cmp};
-use crate::theme::colors;
+use crate::theme::{colors, signal_color};
 use egui::{RichText, Ui};
+use logicflow_core::library::LibraryItem;
 use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, LogicValue, PinSide};
 
 /// Obsah panelu s posuvníkem a okraji.
@@ -831,9 +833,17 @@ fn component_context_menu(
 }
 
 /// Knihovna součástek s vyhledáváním; kliknutí vybere součástku k umístění.
+/// Pod součástkami a podobvody projektu jsou knihovny prvků.
 ///
 /// [en] Component library with search; a click chooses a component to place.
-pub fn library(ui: &mut Ui, search: &mut String, project: &mut Project, lang: Lang) {
+/// Below the components and the project's subcircuits are the element libraries.
+pub fn library(
+    ui: &mut Ui,
+    search: &mut String,
+    project: &mut Project,
+    libs: &mut Libraries,
+    lang: Lang,
+) {
     padded(ui, |ui| {
         // V režimu simulace se součástky nepřidávají.
         // [en] Components are not added in simulation mode.
@@ -911,7 +921,192 @@ pub fn library(ui: &mut Ui, search: &mut String, project: &mut Project, lang: La
                     }
                 });
         }
+        element_libraries(ui, &q, project, libs, lang);
     });
+}
+
+/// Popis prvku knihovny: popis, vývody, autor, licence a verze.
+///
+/// [en] Description of a library element: description, pins, author, licence and version.
+fn item_details(item: &LibraryItem, lang: Lang) -> String {
+    let mut lines = Vec::new();
+    let desc = item.display_description(lang.code());
+    if !desc.is_empty() {
+        lines.push(desc.to_owned());
+    }
+    let (ins, outs) = item.def().pin_names();
+    lines.push(format!(
+        "{}: {}  →  {}: {}",
+        tr(lang, T::LibInputs),
+        ins.join(", "),
+        tr(lang, T::LibOutputs),
+        outs.join(", ")
+    ));
+    lines.push(format!(
+        "{}: {} · {}: {} · {} {}",
+        tr(lang, T::LibAuthor),
+        item.author,
+        tr(lang, T::LibLicense),
+        item.license,
+        tr(lang, T::LibVersion),
+        item.version
+    ));
+    lines.join("\n")
+}
+
+/// Knihovny prvků: vestavěná a osobní, prvky podle kategorií. Kliknutí připraví
+/// prvek k vložení (vloží se jako podobvod i s prvky, které používá); pod
+/// vybraným prvkem je jeho popis (i pro dotyk, ne jen v tooltipu).
+///
+/// [en] Element libraries: built-in and personal, elements by category. A click
+/// prepares the element for insertion (inserted as a subcircuit together with the
+/// elements it uses); below the chosen element is its description (also for touch,
+/// not only in a tooltip).
+fn element_libraries(
+    ui: &mut Ui,
+    q: &str,
+    project: &mut Project,
+    libs: &mut Libraries,
+    lang: Lang,
+) {
+    let code = lang.code();
+    let matches = |item: &LibraryItem| {
+        q.is_empty()
+            || [
+                item.display_name(code),
+                &item.name,
+                &item.category_name(code),
+            ]
+            .iter()
+            .any(|n| n.to_lowercase().contains(q))
+    };
+    let chosen_id = egui::Id::unique("logicflow-lib-chosen");
+    let chosen: Option<String> = ui.data(|d| d.get_temp(chosen_id));
+    ui.add_space(6.0);
+    ui.separator();
+    ui.label(RichText::new(tr(lang, T::LibSection)).strong());
+    ui.label(
+        RichText::new(tr(lang, T::LibHint))
+            .small()
+            .color(colors::TEXT_WEAK),
+    );
+    let mut any = false;
+    for loaded in &libs.list {
+        let lib = &loaded.library;
+        let groups: Vec<_> = libraries::by_category(lib, lang)
+            .into_iter()
+            .map(|(name, items)| {
+                (
+                    name,
+                    items.into_iter().filter(|i| matches(i)).collect::<Vec<_>>(),
+                )
+            })
+            .filter(|(_, items)| !items.is_empty())
+            .collect();
+        if groups.is_empty() {
+            continue;
+        }
+        any = true;
+        let source = match &loaded.source {
+            Source::Builtin => tr(lang, T::LibBuiltin).to_owned(),
+            Source::Personal(path) => format!(
+                "{} · {}",
+                tr(lang, T::LibPersonal),
+                path.file_name()
+                    .map(|n| n.to_string_lossy())
+                    .unwrap_or_default()
+            ),
+        };
+        let title = format!("{} ({})", lib.info.display_name(code), lib.items.len());
+        egui::CollapsingHeader::new(title)
+            .id_salt(("lib-ext", &lib.info.uid, &loaded.source))
+            .default_open(false)
+            .open((!q.is_empty()).then_some(true))
+            .show(ui, |ui| {
+                ui.label(weak(&source));
+                ui.label(weak(&format!("{} · {}", lib.info.author, lib.info.license)));
+                for (cat, items) in groups {
+                    egui::CollapsingHeader::new(cat.as_str())
+                        .id_salt(("lib-ext-cat", &lib.info.uid, &loaded.source, &cat))
+                        .default_open(false)
+                        .open((!q.is_empty()).then_some(true))
+                        .show(ui, |ui| {
+                            for item in items {
+                                let active = project
+                                    .pending_paste
+                                    .as_ref()
+                                    .is_some_and(|(uid, _)| uid == &item.uid);
+                                let resp = ui
+                                    .add(egui::Button::selectable(active, item.display_name(code)))
+                                    .on_hover_text(item_details(item, lang));
+                                if resp.clicked()
+                                    && let Some(text) = lib.insertion_text(&item.uid, code)
+                                {
+                                    project.pending_place = None;
+                                    project.pending_paste = Some((item.uid.clone(), text));
+                                    ui.data_mut(|d| d.insert_temp(chosen_id, item.uid.clone()));
+                                }
+                                if chosen.as_deref() == Some(item.uid.as_str()) {
+                                    ui.label(
+                                        RichText::new(item_details(item, lang))
+                                            .small()
+                                            .color(colors::TEXT_WEAK),
+                                    );
+                                }
+                            }
+                        });
+                }
+            });
+    }
+    if !any && !q.is_empty() {
+        ui.label(weak(tr(lang, T::LibNoMatch)));
+    }
+
+    // Osobní složka: cesta, otevření ve správci souborů, opětovné načtení, chyby.
+    // [en] Personal folder: path, opening in the file manager, reloading, errors.
+    ui.add_space(4.0);
+    ui.label(RichText::new(tr(lang, T::LibFolder)).small());
+    match libs.folder.clone() {
+        Some(dir) => {
+            ui.label(weak(&dir.display().to_string()));
+            ui.horizontal_wrapped(|ui| {
+                if ui.button(tr(lang, T::LibOpenFolder)).clicked()
+                    && let Err(e) = libraries::open_folder(&dir)
+                {
+                    libs.problems
+                        .push((dir.display().to_string(), libraries::Problem::Io(e)));
+                }
+                if ui.button(tr(lang, T::LibReload)).clicked() {
+                    libs.reload();
+                }
+            });
+            if !libs
+                .list
+                .iter()
+                .any(|l| matches!(l.source, Source::Personal(_)))
+            {
+                ui.label(
+                    RichText::new(tr(lang, T::LibEmpty))
+                        .small()
+                        .color(colors::TEXT_WEAK),
+                );
+            }
+        }
+        None => {
+            ui.label(weak(tr(lang, T::LibNoFolder)));
+        }
+    }
+    for (file, problem) in &libs.problems {
+        ui.label(
+            RichText::new(format!(
+                "{} {file}: {}",
+                tr(lang, T::LibProblem),
+                problem.text(lang)
+            ))
+            .small()
+            .color(signal_color(LogicValue::X)),
+        );
+    }
 }
 
 /// Pravdivostní tabulka spočítaná simulací všech kombinací vstupů.
