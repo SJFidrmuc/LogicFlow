@@ -8,6 +8,19 @@
 - Before closing the program or opening another circuit, the program asks about unsaved changes.
 - A file can also be opened from the command line: `logicflow circuit.logicflow`
 
+## Circuit properties – author and licence
+
+The **File → Circuit properties…** window (or a click on the information at the top of the Hierarchy panel) stores information about the circuit in its file:
+
+- **Title**, **authors**, **description** (what the circuit does, what it is for), **licence** and optionally **school / class**.
+- **A new circuit** (Ctrl+N) gets the author and licence from the settings (see below) and today's creation date. Every save records the date of the last modification.
+- For someone else's circuit, the **Add me as co-author** button appends your name to the list – the original author stays first.
+- Changes take effect with **OK**, **Cancel** discards them. Then save the circuit.
+- The title, authors and licence are shown at the top of the **Hierarchy** panel (the description on hover) and in the open dialog after choosing a file – before you open it.
+- The **online circuit library** accepts circuits with a title, author, description and the **CC BY 4.0** licence filled in.
+
+> **Tip:** Version 0.3 does not know the circuit information – if you save the file in it, the information is lost.
+
 ## Examples
 
 **File → Examples** offers 9 ready-made circuits. An example opens as a new circuit, so you can change it freely and save it under your own name.

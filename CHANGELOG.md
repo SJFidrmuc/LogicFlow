@@ -12,6 +12,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Vlastnosti obvodu** (Soubor → Vlastnosti obvodu…): název, autoři, popis, licence a škola/třída se ukládají do souboru obvodu (část `info`, stejné klíče jako v online knihovně obvodů; neznámé klíče se zachovají). Nový obvod dostane autora a licenci z nastavení, uložení zapíše datum úpravy, u cizího obvodu se můžete přidat jako spoluautor. Informace jsou vidět nahoře v Hierarchii a v náhledu v okně pro otevření souboru.
 - **Napájení VCC a zem GND** se značkami podle elektrotechnických schémat (logická 1 a 0, bez automatického popisku). Spojení VCC s GND je **zkrat napájení**: síť zčervená a schéma i stavový řádek ukážou hlášku, i když je zkrat uvnitř podobvodu.
 - **Průběžné sestavení z větve main:** předběžné vydání „Průběžné sestavení (main)“ s balíčky pro všechny platformy se přepíše po každé změně – novinky se dají vyzkoušet bez čekání na vydání. **Archiv verzí** na webu: tabulka všech vydání × platforem s odkazy ke stažení.
 - **Jemnější nastavení hodin:** frekvence posuvníkem 0,1–100 Hz (logaritmicky, s polem pro zadání čísla), periodou v ms nebo rychlými volbami; změna i za běhu simulace bez skoku fáze – hodiny navážou plynule.
