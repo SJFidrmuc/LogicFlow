@@ -158,6 +158,14 @@ pub enum ComponentKind {
         /// [en] Value of the constant (true = 1).
         value: bool,
     },
+    /// Napájení VCC – logická 1 se značkou napájení.
+    ///
+    /// [en] VCC supply – logic 1 with a power symbol.
+    Vcc,
+    /// Zem GND – logická 0 se značkou země.
+    ///
+    /// [en] GND ground – logic 0 with a ground symbol.
+    Gnd,
     /// Svítivá dioda.
     ///
     /// [en] Light-emitting diode.
@@ -465,6 +473,20 @@ impl ComponentKind {
         matches!(self, Self::Switch { .. } | Self::Button)
     }
 
+    /// Pevná logická úroveň napájení nebo konstanty (VCC / Konstanta 1 = 1,
+    /// GND / Konstanta 0 = 0); ostatní součástky `None`. Slouží k hledání zkratu napájení.
+    ///
+    /// [en] Fixed logic level of a supply or a constant (VCC / Constant 1 = 1,
+    /// GND / Constant 0 = 0); other components `None`. Used to find a power short.
+    pub fn supply_level(&self) -> Option<bool> {
+        match self {
+            Self::Vcc => Some(true),
+            Self::Gnd => Some(false),
+            Self::Constant { value } => Some(*value),
+            _ => None,
+        }
+    }
+
     /// Předpona pro automatické pojmenování.
     ///
     /// [en] Prefix for automatic naming.
@@ -473,6 +495,7 @@ impl ComponentKind {
             Self::Gate { .. } => "G",
             Self::Switch { .. } | Self::Button => "",
             Self::Constant { .. } => "K",
+            Self::Vcc | Self::Gnd => "",
             Self::Led | Self::SevenSegment { .. } | Self::HexDisplay { .. } => "Y",
             Self::Block { .. } => "IO",
             Self::Subcircuit { .. } => "P",
@@ -496,6 +519,10 @@ impl ComponentKind {
             }
             Self::Switch { .. } | Self::Button => (-1.2, -0.8, 1.2, 0.8),
             Self::Constant { .. } => (-0.8, -0.8, 0.8, 0.8),
+            // Značka nad vývodem (VCC) / pod vývodem (GND), vývod míří k vodiči.
+            // [en] Symbol above the pin (VCC) / below the pin (GND), the pin points to the wire.
+            Self::Vcc => (-1.0, -1.6, 1.0, 0.0),
+            Self::Gnd => (-1.0, 0.0, 1.0, 1.2),
             Self::Led => (-0.9, -0.9, 0.9, 0.9),
             Self::FlipFlop {
                 ff: FlipFlopKind::Jk,
@@ -523,6 +550,8 @@ impl ComponentKind {
                 (ins, vec![(3, 0)])
             }
             Self::Switch { .. } | Self::Button | Self::Constant { .. } => (vec![], vec![(2, 0)]),
+            Self::Vcc => (vec![], vec![(0, 1)]),
+            Self::Gnd => (vec![], vec![(0, -1)]),
             Self::Led => (vec![(-2, 0)], vec![]),
             Self::FlipFlop {
                 ff: FlipFlopKind::Jk,
@@ -664,6 +693,8 @@ impl Component {
             ComponentKind::Switch { on } => Some(on.into()),
             ComponentKind::Button => Some(self.pressed.into()),
             ComponentKind::Constant { value } => Some(value.into()),
+            ComponentKind::Vcc => Some(LogicValue::One),
+            ComponentKind::Gnd => Some(LogicValue::Zero),
             // Hodiny řídí aplikace podle času; na začátku dávají 0.
             // [en] The application drives clocks by time; they start at 0.
             ComponentKind::Clock { .. } => Some(LogicValue::Zero),
@@ -798,7 +829,10 @@ impl Circuit {
                 }
             }
         }
-        if matches!(kind, ComponentKind::Gate { .. }) {
+        if matches!(
+            kind,
+            ComponentKind::Gate { .. } | ComponentKind::Vcc | ComponentKind::Gnd
+        ) {
             return String::new();
         }
         if matches!(kind, ComponentKind::Clock { .. }) && !taken("CLK") {
@@ -1631,6 +1665,23 @@ mod tests {
         // Po otočení o 90° míří výstup dolů.
         // [en] After rotating by 90° the output points down.
         assert_eq!(g.output_pin(), Some(Point::new(10, 13)));
+    }
+
+    /// VCC a GND se ukládají jako `{"type":"vcc"}` / `{"type":"gnd"}` a načtou zpět.
+    ///
+    /// [en] VCC and GND are stored as `{"type":"vcc"}` / `{"type":"gnd"}` and load back.
+    #[test]
+    fn power_kinds_serde() {
+        for (kind, json) in [
+            (ComponentKind::Vcc, r#"{"type":"vcc"}"#),
+            (ComponentKind::Gnd, r#"{"type":"gnd"}"#),
+        ] {
+            assert_eq!(serde_json::to_string(&kind).unwrap(), json);
+            assert_eq!(serde_json::from_str::<ComponentKind>(json).unwrap(), kind);
+        }
+        assert_eq!(ComponentKind::Vcc.supply_level(), Some(true));
+        assert_eq!(ComponentKind::Gnd.supply_level(), Some(false));
+        assert_eq!(ComponentKind::Led.supply_level(), None);
     }
 
     #[test]
