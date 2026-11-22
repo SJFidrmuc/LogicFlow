@@ -12,6 +12,14 @@
 # Před sestavením se ověří, že tag odpovídá verzi v Cargo.toml a že je verze
 # popsaná v CHANGELOG.md a CHANGELOG.en.md. Má-li vydání prázdný popis, doplní se
 # poznámkami z přehledu změn (česky a anglicky).
+#
+# Spolu s nápovědou se na GitHub Pages zveřejní i archiv verzí (/vydani/,
+# scripts/archiv.py): tabulka vydání × platforma s odkazy ke stažení.
+# Průběžné sestavení z main (tag „prubezne“, workflow prubezne.yml) se tu přeskočí.
+#
+# [en] Together with the help, the version archive is published on GitHub Pages
+# (/vydani/, scripts/archiv.py): a table of releases × platforms with download links.
+# The rolling build from main (tag "prubezne", workflow prubezne.yml) is skipped here.
 name: Vydání
 
 on:
@@ -36,6 +44,9 @@ jobs:
     # Tag = verze programu a verze popsaná v přehledu změn (scripts/zmeny.py).
     # Chrání před vydáním ze staré revize (stalo se u první verze v0.3.1).
     name: Kontrola verze a přehledu změn
+    # Jen tagy verzí vX.Y.Z – ne průběžné sestavení (ostatní úlohy se tím přeskočí).
+    # [en] Only version tags vX.Y.Z – not the rolling build (the other jobs are skipped too).
+    if: startsWith(github.event.release.tag_name || inputs.tag, 'v')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -157,10 +168,6 @@ jobs:
           name: napoveda
           path: ${{ env.PACKAGE }}
           if-no-files-found: error
-      - uses: actions/upload-pages-artifact@v5
-        if: vars.NAPOVEDA_PAGES == 'true'
-        with:
-          path: site
 
   pages:
     # Zapnutí: Settings → Pages → Source: GitHub Actions (a případně vlastní
@@ -168,17 +175,40 @@ jobs:
     # povolit nasazení z tagů v* (výchozí pravidlo pouští jen větev main)
     # a nakonec Settings → Secrets and variables → Actions → Variables →
     # NAPOVEDA_PAGES = true.
-    name: Nápověda na webu (GitHub Pages)
-    needs: napoveda
+    # Až po připojení balíčků k vydání, aby archiv verzí obsahoval i tuto verzi.
+    # [en] Only after the packages are attached, so the archive includes this version.
+    name: Nápověda a archiv verzí na webu (GitHub Pages)
+    needs: publish
     if: vars.NAPOVEDA_PAGES == 'true'
     runs-on: ubuntu-24.04
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          path: zdroj
+      - uses: actions/download-artifact@v8
+        with:
+          name: napoveda
+      - name: Nápověda a archiv verzí (/vydani/)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          unzip -q "LogicFlow-${TAG#v}-napoveda-html.zip"
+          mv "LogicFlow-${TAG#v}-napoveda-html" site
+          gh api "repos/${{ github.repository }}/releases" --paginate --slurp > vydani.json
+          if [ -f zdroj/scripts/archiv.py ]; then
+            python3 zdroj/scripts/archiv.py html vydani.json site/vydani
+          fi
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
       - id: deploy
         uses: actions/deploy-pages@v5
 
