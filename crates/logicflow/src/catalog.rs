@@ -102,16 +102,26 @@ pub fn subcircuit_items(project: &crate::project::Project) -> Vec<(String, Compo
         .collect()
 }
 
+/// Verze, ve které přibudou paměti (knihovna součástek, panel Paměť).
+///
+/// [en] Version in which memories arrive (component library, Memory panel).
+pub const MEMORY_VERSION: &str = "0.6";
+
+/// Verze, ve které přibudou obvody 74xx.
+///
+/// [en] Version in which the 74xx chips arrive.
+pub const CHIPS_74XX_VERSION: &str = "0.8";
+
 /// Součástky, které přibudou v dalších verzích (jen pro zobrazení v knihovně).
 ///
 /// [en] Components coming in later versions (only shown in the library).
 pub fn upcoming() -> [(T, &'static [&'static str], &'static str); 2] {
     [
-        (T::CatMemory, &["ROM", "RAM", "EEPROM"], "0.5"),
+        (T::CatMemory, &["ROM", "RAM", "EEPROM"], MEMORY_VERSION),
         (
             T::Cat74xx,
             &["7400", "7404", "7408", "7432", "7474", "74138", "74161"],
-            "0.7",
+            CHIPS_74XX_VERSION,
         ),
     ]
 }
