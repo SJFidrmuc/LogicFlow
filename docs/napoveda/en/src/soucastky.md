@@ -7,7 +7,7 @@ Components are grouped in the Shift+A menu and in the Component library. This ch
 | Switch | square with 0 or 1 | input 0 or 1; toggled by a click in simulation, by a double-click in edit mode |
 | Push button | – | input, 1 only while pressed; in edit mode pressed by the second press of a double-click |
 | Constant 0, Constant 1 | – | fixed logic value |
-| Clock generator | square wave | regular clock signal 0.2–10 Hz (see [Sequential circuits](sekvencni-obvody.md)) |
+| Clock generator | square wave | regular clock signal 0.1–100 Hz (see [Sequential circuits](sekvencni-obvody.md)) |
 | BUF | [1] | buffer |
 | NOT | [1] with polarity indicator | inverter |
 | AND | [&] | 1 when all inputs are 1 |

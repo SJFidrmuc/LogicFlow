@@ -435,6 +435,8 @@ impl SchematicView {
             Command::Start => project.start_simulation(),
             Command::Stop => project.stop_simulation(),
             Command::Step => project.step(),
+            Command::StepEdge => project.step_to_edge(false),
+            Command::StepCycle => project.step_to_edge(true),
             Command::ResetSim => project.reset_simulation(),
             Command::Rotate => match &mut self.tool {
                 Tool::Place { rotation, .. } => *rotation = rotation.next(),
@@ -1196,7 +1198,13 @@ impl SchematicView {
                 } else {
                     Command::Start
                 };
-                for cmd in [first, Command::Step, Command::Stop, Command::ResetSim] {
+                for cmd in [
+                    first,
+                    Command::Step,
+                    Command::StepCycle,
+                    Command::Stop,
+                    Command::ResetSim,
+                ] {
                     self.menu_command(ui, cmd, rect, project, lang);
                 }
             }
@@ -1233,8 +1241,8 @@ impl SchematicView {
             // [en] The clock frequency can be changed while simulating too.
             ComponentKind::Clock { period_ms } => {
                 ui.menu_button(tr(lang, T::Frequency), |ui| {
-                    for hz in [0.2_f32, 0.5, 1.0, 2.0, 5.0, 10.0] {
-                        let p = (1000.0 / hz).round() as u32;
+                    for hz in crate::project::CLOCK_PRESETS_HZ {
+                        let p = crate::project::period_for_hz(hz);
                         if ui
                             .add(egui::Button::selectable(
                                 period_ms == p,
@@ -1242,7 +1250,10 @@ impl SchematicView {
                             ))
                             .clicked()
                         {
-                            new_kind = ComponentKind::Clock { period_ms: p };
+                            // Bez skoku fáze – hodiny navážou plynule.
+                            // [en] Without a phase jump – the clock continues smoothly.
+                            project.set_clock_period(id, p, true);
+                            ui.close();
                         }
                     }
                 });

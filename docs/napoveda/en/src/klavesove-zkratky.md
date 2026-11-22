@@ -20,6 +20,8 @@
 | Shift+F5 | stop the simulation, back to editing (the circuit state stays) |
 | Space | run, pause or resume |
 | Right arrow | one tick (the simulation pauses) |
+| Shift+Right arrow | step to the next clock edge |
+| Ctrl+Right arrow | step one whole clock period (to the rising edge) |
 | Ctrl+R | restart the simulation |
 | Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y | undo, redo |
 | Ctrl+N, Ctrl+O, Ctrl+S | new, open, save |

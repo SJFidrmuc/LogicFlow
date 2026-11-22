@@ -142,6 +142,10 @@ pub struct LogicFlowApp {
     ///
     /// [en] Allow editing while simulating (personal setting).
     edit_while_simulating: bool,
+    /// Rychlost simulace (×0,1 … ×10); po spuštění programu vždy ×1.
+    ///
+    /// [en] Simulation speed (×0.1 … ×10); always ×1 after the program starts.
+    speed: f64,
     /// Vybraná pracovní plocha.
     ///
     /// [en] Selected workspace.
@@ -236,6 +240,7 @@ impl LogicFlowApp {
             lang: settings.lang,
             symbols: settings.symbols,
             edit_while_simulating: settings.edit_while_simulating,
+            speed: 1.0,
             workspace: 0,
             shown_workspace: 0,
             return_workspace: 0,
@@ -374,6 +379,8 @@ impl LogicFlowApp {
             Command::Start => self.project.start_simulation(),
             Command::Stop => self.project.stop_simulation(),
             Command::Step => self.project.step(),
+            Command::StepEdge => self.project.step_to_edge(false),
+            Command::StepCycle => self.project.step_to_edge(true),
             Command::ResetSim => self.project.reset_simulation(),
             Command::NextWorkspace => self.workspace = (self.workspace + 1) % n,
             Command::PrevWorkspace => self.workspace = (self.workspace + n - 1) % n,
@@ -556,12 +563,19 @@ impl LogicFlowApp {
                             &[
                                 Some(first),
                                 Some(Command::Step),
+                                Some(Command::StepEdge),
+                                Some(Command::StepCycle),
                                 Some(Command::Stop),
                                 None,
                                 Some(Command::ResetSim),
                                 None,
                             ],
                         );
+                        ui.menu_button(tr(lang, T::SimSpeed), |ui| {
+                            for v in crate::project::SPEED_CHOICES {
+                                ui.radio_value(&mut self.speed, v, speed_text(v));
+                            }
+                        });
                         ui.checkbox(
                             &mut self.edit_while_simulating,
                             tr(lang, T::EditWhileSimulating),
@@ -645,6 +659,30 @@ impl LogicFlowApp {
                             .small()
                             .color(colors::TEXT_WEAK),
                     );
+                    if self.project.has_clocks() || self.project.time > 0.0 {
+                        ui.label(
+                            RichText::new(format!(
+                                "{} {}",
+                                tr(lang, T::SimTime),
+                                time_text(self.project.time, lang)
+                            ))
+                            .monospace()
+                            .small()
+                            .color(colors::TEXT_WEAK),
+                        );
+                    }
+                    // Rychlost simulace – kliknutím jde změnit.
+                    // [en] Simulation speed – it can be changed by clicking.
+                    egui::ComboBox::from_id_salt("sim_speed")
+                        .selected_text(RichText::new(speed_text(self.speed)).small())
+                        .width(56.0)
+                        .show_ui(ui, |ui| {
+                            for v in crate::project::SPEED_CHOICES {
+                                ui.selectable_value(&mut self.speed, v, speed_text(v));
+                            }
+                        })
+                        .response
+                        .on_hover_text(tr(lang, T::SimSpeed));
                     if self.project.sim.is_oscillating() {
                         ui.label(
                             RichText::new(tr(lang, T::Oscillating))
@@ -804,6 +842,24 @@ impl LogicFlowApp {
     }
 }
 
+/// Text rychlosti simulace, např. „×0,25“.
+///
+/// [en] Simulation speed text, e.g. "×0.25".
+fn speed_text(v: f64) -> String {
+    format!("×{v}")
+}
+
+/// Simulovaný čas pro stavový řádek, např. „12,25 s“ (v angličtině s tečkou).
+///
+/// [en] Simulated time for the status bar, e.g. "12.25 s" (with a decimal point in English).
+fn time_text(t: f64, lang: Lang) -> String {
+    let text = format!("{t:.2} s");
+    match lang {
+        Lang::Cs => text.replace('.', ","),
+        Lang::En => text,
+    }
+}
+
 /// Výsledek pravidla „plocha Simulace = režim simulace“.
 ///
 /// [en] Result of the rule "Simulation workspace = simulation mode".
@@ -943,6 +999,7 @@ impl eframe::App for LogicFlowApp {
         }
 
         self.project.edit_while_simulating = self.edit_while_simulating;
+        self.project.speed = self.speed;
         let no_dialog =
             self.file_dialog.is_none() && self.confirm.is_none() && self.error.is_none();
         if no_dialog {
@@ -966,7 +1023,9 @@ impl eframe::App for LogicFlowApp {
             let wait = self
                 .project
                 .time_to_next_clock_edge()
-                .map_or(REPAINT_INTERVAL, |t| t.clamp(0.0, REPAINT_INTERVAL));
+                .map_or(REPAINT_INTERVAL, |t| {
+                    (t / self.speed.max(0.01)).clamp(0.0, REPAINT_INTERVAL)
+                });
             ctx.request_repaint_after(Duration::from_secs_f64(wait));
         } else if !self.project.is_simulating() && !self.project.sim.is_stable() {
             // Režim úprav: obvod se ještě ustaluje (nebo kmitá).

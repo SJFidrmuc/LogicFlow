@@ -28,7 +28,7 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 ## Co umí
 
 - **Kreslení schémat** – součástky se přidávají přes Shift+A nebo z knihovny, vodiče se kreslí tažením z vývodu. Vodiče se při přesunu součástky samy přepojí.
-- **Součástky** – přepínač, tlačítko, konstanty 0 a 1, generátor hodin (0,2–10 Hz), hradla BUF, NOT, AND, OR, NAND, NOR, XOR, XNOR (2–8 vstupů), LED, sedmisegmentovka a hex displej.
+- **Součástky** – přepínač, tlačítko, konstanty 0 a 1, generátor hodin (0,1–100 Hz, rychlost simulace ×0,1–×10), hradla BUF, NOT, AND, OR, NAND, NOR, XOR, XNOR (2–8 vstupů), LED, sedmisegmentovka a hex displej.
 - **Značky** podle ČSN EN 60617-12 (obdélníkové, negace indikátorem negace), nebo po přepnutí v nabídce Zobrazit → Značky americké tvarové značky podle ANSI/IEEE Std 91. Volba se ukládá jako osobní nastavení, ne do souboru obvodu.
 - **Klopné obvody** RS, D řízený úrovní, D, JK a T řízené náběžnou nebo sestupnou hranou, s výstupy Q a Q̄ a volitelným počátečním stavem.
 - **Funkční bloky** – multiplexor, dekodér (demultiplexor), prioritní kodér, sčítačka, komparátor, převodník BCD na 7 segmentů, čítač nahoru/dolů, registr a posuvný registr s nastavitelným počtem bitů.

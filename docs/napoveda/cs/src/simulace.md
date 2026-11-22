@@ -26,8 +26,10 @@ Program pracuje ve dvou režimech, podobně jako DigitalWorks:
 
 - **Mezerník** v režimu úprav simulaci spustí, v režimu simulace ji pozastaví nebo nechá pokračovat.
 - **Šipka vpravo** (nebo Simulace → Krok) provede jeden takt; z režimu úprav přejde rovnou do pozastavené simulace. Je vidět, jak změna prochází hradlo po hradle.
+- **Shift+šipka vpravo** posune čas na další hranu hodin, **Ctrl+šipka vpravo** o celou periodu (na další náběžnou hranu) – viz [Sekvenční obvody](sekvencni-obvody.md).
+- **Rychlost simulace** ×0,1 až ×10 se nastavuje ve stavovém řádku nebo v nabídce Simulace.
 - Pokud se obvod nikdy neustálí (např. invertor zapojený sám do sebe), zobrazí se upozornění **Obvod kmitá**.
 - **Simulace → Restartovat simulaci** (Ctrl+R) začne znovu od počátečního stavu.
-- Stavový řádek dole ukazuje režim, zda simulace běží, a číslo taktu.
+- Stavový řádek dole ukazuje režim, zda simulace běží, číslo taktu, simulovaný čas a rychlost simulace.
 
 > **Tip:** Obvody s pamětí, například klopný obvod RS z hradel NOR, začínají ve stavu X. Teprve nastavení (S) nebo nulování (R) určí jejich stav. Po úpravě schématu si takový obvod svůj stav pamatuje dál.

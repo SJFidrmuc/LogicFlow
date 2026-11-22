@@ -12,6 +12,9 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Jemnější nastavení hodin:** frekvence posuvníkem 0,1–100 Hz (logaritmicky, s polem pro zadání čísla), periodou v ms nebo rychlými volbami; změna i za běhu simulace bez skoku fáze – hodiny navážou plynule.
+- **Rychlost simulace ×0,1 až ×10** ve stavovém řádku a v nabídce Simulace; stavový řádek ukazuje simulovaný čas.
+- **Krok na další hranu hodin** (Shift+šipka vpravo) a **krok o celou periodu** na další náběžnou hranu (Ctrl+šipka vpravo).
 - **Schránka Ctrl+C / X / V**: kopírování vybraných součástek i s vodiči mezi nimi, vložení k ukazateli myši (vložená část se hned posouvá, klik ji položí); funguje mezi listy i mezi dvěma okny LogicFlow, použité podobvody se přenesou s sebou. Položky Kopírovat, Vyjmout a Vložit i v nabídce Úpravy a v kontextové nabídce.
 - **Kontextová nabídka na pravém tlačítku** podle místa kliknutí: u součástky Přepnout, Frekvence, Počet vstupů, Strana vývodů, Počet bitů, Směr čítání, Otevřít podobvod, popisek, Otočit, Duplikovat, Přesunout, Smazat; u vodiče Vybrat / Smazat celou síť a Smazat úsek; v prázdném místě Přidat součástku sem, Vybrat vše, Celé schéma a ovládání simulace. Tažení pravým tlačítkem dál posouvá pohled. V režimu simulace jsou úpravy zašedlé.
 - Pravé tlačítko i v Hierarchii (Otevřít a Smazat podobvod, Najít ve schématu) a v pravdivostní tabulce (Kopírovat jako text – do Wordu nebo tabulky po sloupcích).

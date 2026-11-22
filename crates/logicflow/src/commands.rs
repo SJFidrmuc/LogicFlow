@@ -169,6 +169,14 @@ pub enum Command {
     ///
     /// [en] Run the simulation (simulation mode, time runs).
     Start,
+    /// Krok na příští hranu hodin (půl periody).
+    ///
+    /// [en] Step to the next clock edge (half a period).
+    StepEdge,
+    /// Krok o celou periodu hodin (na příští náběžnou hranu).
+    ///
+    /// [en] Step by a whole clock period (to the next rising edge).
+    StepCycle,
     /// Zastavit simulaci – zpět do režimu úprav, stav obvodu zůstává.
     ///
     /// [en] Stop the simulation – back to edit mode, the circuit state stays.
@@ -215,7 +223,7 @@ impl Command {
     /// Všechny příkazy (pořadí = pořadí v nápovědě).
     ///
     /// [en] All commands (order = order in the help).
-    pub const ALL: [Command; 28] = [
+    pub const ALL: [Command; 30] = [
         Command::New,
         Command::Open,
         Command::Save,
@@ -239,6 +247,8 @@ impl Command {
         Command::Start,
         Command::RunPause,
         Command::Step,
+        Command::StepEdge,
+        Command::StepCycle,
         Command::Stop,
         Command::ResetSim,
         Command::NextWorkspace,
@@ -286,6 +296,8 @@ impl Command {
             Stop => &[s!(Modifiers::SHIFT, F5)],
             RunPause => &[s!(NONE, Space)],
             Step => &[s!(NONE, ArrowRight)],
+            StepEdge => &[s!(Modifiers::SHIFT, ArrowRight)],
+            StepCycle => &[s!(CMD, ArrowRight)],
             ResetSim => &[s!(CMD, R)],
             NextWorkspace => &[s!(CMD, PageDown)],
             PrevWorkspace => &[s!(CMD, PageUp)],
@@ -366,6 +378,8 @@ impl Command {
                 Start => T::CmdStart,
                 Stop => T::CmdStop,
                 Step => T::Step,
+                StepEdge => T::CmdStepEdge,
+                StepCycle => T::CmdStepCycle,
                 ResetSim => T::ResetSim,
                 NextWorkspace => T::CmdNextWorkspace,
                 PrevWorkspace => T::CmdPrevWorkspace,
@@ -421,6 +435,7 @@ impl Command {
             SelectAll => !project.circuit.components.is_empty(),
             Subcircuit => project.selected_subcircuit().is_some() || project.sheet.is_some(),
             Step => !project.running,
+            StepEdge | StepCycle => !project.running && project.has_clocks(),
             Start => !(project.is_simulating() && project.running),
             Stop => project.is_simulating(),
             _ => true,
@@ -648,6 +663,10 @@ mod tests {
             "Alt+A"
         );
         assert_eq!(Command::Cancel.shortcut().text(Lang::Cs, false), "Esc");
+        assert_eq!(
+            Command::StepCycle.shortcut().text(Lang::Cs, false),
+            "Ctrl+šipka vpravo"
+        );
     }
 
     /// Nápověda (kapitola Klávesové zkratky) uvádí všechny zkratky příkazů v obou jazycích.
