@@ -22,6 +22,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 - Ctrl+Y jako druhá zkratka pro Znovu.
 - Přehled změn a plánu vývoje v tomto souboru (česky a anglicky) – kontrola v CI, poznámky k vydání se z něj doplní samy.
 - Komentáře ve zdrojovém kódu česky i anglicky ve všech souborech; kontrola v CI a export kopie zdrojů s komentáři jen v jednom jazyce (`scripts/komentare.py`).
+- Formát knihoven prvků `.lflib` v jádře (načtení, uložení, kontrola, názvy ve více jazycích, kategorie) – základ pro knihovny ve verzi 0.4; popis formátu a vzorová knihovna v `docs/knihovny`.
 
 ### Opraveno
 - Ctrl+R restartuje simulaci (zkratka byla v nabídce a nápovědě, ale nefungovala).

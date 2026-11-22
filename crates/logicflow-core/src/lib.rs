@@ -25,6 +25,7 @@
 pub mod block;
 pub mod circuit;
 pub mod gate;
+pub mod library;
 pub mod sim;
 pub mod value;
 
@@ -34,6 +35,7 @@ pub use circuit::{
     SubcircuitDef, Wire, WireId,
 };
 pub use gate::GateKind;
+pub use library::{Library, LibraryError, LibraryInfo, LibraryItem};
 pub use sim::Simulator;
 pub use value::LogicValue;
 

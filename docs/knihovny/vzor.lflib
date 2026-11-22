@@ -1,0 +1,765 @@
+{
+  "format": 1,
+  "type": "logicflow-library",
+  "app": "LogicFlow 0.3.1",
+  "library": {
+    "uid": "8a3e6f52-1c4d-4b9e-a7f0-3d2c5b6e9f81",
+    "name": "Vzorová knihovna",
+    "description": "Vzor formátu .lflib: úplná sčítačka 1 bit a 2bitová sčítačka, která ji používá.",
+    "translations": {
+      "en": {
+        "name": "Sample library",
+        "description": "Sample of the .lflib format: a 1-bit full adder and a 2-bit adder that uses it."
+      }
+    },
+    "author": "Stanislav Jan Fidrmuc",
+    "license": "CC BY 4.0",
+    "version": 1,
+    "created": "2026-11-22",
+    "modified": "2026-11-22"
+  },
+  "items": [
+    {
+      "uid": "ce146411-078a-4bdc-8ad0-5b80bbab6fa4",
+      "id": 1,
+      "name": "Úplná sčítačka 1 bit",
+      "category": "arithmetic",
+      "description": "Úplná sčítačka 1 bit se vstupním a výstupním přenosem: S = A ⊕ B ⊕ Cin, Cout = A·B + Cin·(A ⊕ B). Řetězením (Cout → Cin) vznikne vícebitová sčítačka.",
+      "translations": {
+        "en": {
+          "name": "1-bit full adder",
+          "description": "Full adder with carry in and carry out: S = A ⊕ B ⊕ Cin, Cout = A·B + Cin·(A ⊕ B). Chaining (Cout → Cin) gives a multi-bit adder."
+        }
+      },
+      "author": "Stanislav Jan Fidrmuc",
+      "license": "CC BY 4.0",
+      "version": 1,
+      "created": "2026-11-22",
+      "modified": "2026-11-22",
+      "inputs": [
+        "A",
+        "B",
+        "Cin"
+      ],
+      "outputs": [
+        "Cout",
+        "S"
+      ],
+      "circuit": {
+        "components": [
+          {
+            "id": 0,
+            "kind": {
+              "type": "gate",
+              "gate": "Xor",
+              "inputs": 2
+            },
+            "pos": {
+              "x": -10,
+              "y": -10
+            },
+            "rotation": "R0",
+            "label": ""
+          },
+          {
+            "id": 1,
+            "kind": {
+              "type": "gate",
+              "gate": "Xor",
+              "inputs": 2
+            },
+            "pos": {
+              "x": 9,
+              "y": -5
+            },
+            "rotation": "R0",
+            "label": ""
+          },
+          {
+            "id": 2,
+            "kind": {
+              "type": "led"
+            },
+            "pos": {
+              "x": 18,
+              "y": -5
+            },
+            "rotation": "R0",
+            "label": "S"
+          },
+          {
+            "id": 7,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -23,
+              "y": -12
+            },
+            "rotation": "R0",
+            "label": "A"
+          },
+          {
+            "id": 11,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -23,
+              "y": -9
+            },
+            "rotation": "R0",
+            "label": "B"
+          },
+          {
+            "id": 13,
+            "kind": {
+              "type": "gate",
+              "gate": "And",
+              "inputs": 2
+            },
+            "pos": {
+              "x": -2,
+              "y": 2
+            },
+            "rotation": "R0",
+            "label": ""
+          },
+          {
+            "id": 14,
+            "kind": {
+              "type": "gate",
+              "gate": "And",
+              "inputs": 2
+            },
+            "pos": {
+              "x": -2,
+              "y": 9
+            },
+            "rotation": "R0",
+            "label": ""
+          },
+          {
+            "id": 15,
+            "kind": {
+              "type": "gate",
+              "gate": "Or",
+              "inputs": 2
+            },
+            "pos": {
+              "x": 9,
+              "y": 5
+            },
+            "rotation": "R0",
+            "label": ""
+          },
+          {
+            "id": 16,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -23,
+              "y": -4
+            },
+            "rotation": "R0",
+            "label": "Cin"
+          },
+          {
+            "id": 17,
+            "kind": {
+              "type": "led"
+            },
+            "pos": {
+              "x": 18,
+              "y": 5
+            },
+            "rotation": "R0",
+            "label": "Cout"
+          }
+        ],
+        "wires": [
+          {
+            "id": 3,
+            "a": {
+              "x": 12,
+              "y": -5
+            },
+            "b": {
+              "x": 16,
+              "y": -5
+            }
+          },
+          {
+            "id": 4,
+            "a": {
+              "x": -7,
+              "y": -10
+            },
+            "b": {
+              "x": 1,
+              "y": -10
+            }
+          },
+          {
+            "id": 5,
+            "a": {
+              "x": 1,
+              "y": -10
+            },
+            "b": {
+              "x": 1,
+              "y": -6
+            }
+          },
+          {
+            "id": 6,
+            "a": {
+              "x": 1,
+              "y": -6
+            },
+            "b": {
+              "x": 6,
+              "y": -6
+            }
+          },
+          {
+            "id": 8,
+            "a": {
+              "x": -21,
+              "y": -12
+            },
+            "b": {
+              "x": -19,
+              "y": -12
+            }
+          },
+          {
+            "id": 9,
+            "a": {
+              "x": -19,
+              "y": -12
+            },
+            "b": {
+              "x": -19,
+              "y": -11
+            }
+          },
+          {
+            "id": 10,
+            "a": {
+              "x": -19,
+              "y": -11
+            },
+            "b": {
+              "x": -13,
+              "y": -11
+            }
+          },
+          {
+            "id": 12,
+            "a": {
+              "x": -21,
+              "y": -9
+            },
+            "b": {
+              "x": -13,
+              "y": -9
+            }
+          },
+          {
+            "id": 18,
+            "a": {
+              "x": 12,
+              "y": 5
+            },
+            "b": {
+              "x": 16,
+              "y": 5
+            }
+          },
+          {
+            "id": 19,
+            "a": {
+              "x": 1,
+              "y": 2
+            },
+            "b": {
+              "x": 3,
+              "y": 2
+            }
+          },
+          {
+            "id": 20,
+            "a": {
+              "x": 3,
+              "y": 2
+            },
+            "b": {
+              "x": 3,
+              "y": 4
+            }
+          },
+          {
+            "id": 21,
+            "a": {
+              "x": 3,
+              "y": 4
+            },
+            "b": {
+              "x": 6,
+              "y": 4
+            }
+          },
+          {
+            "id": 22,
+            "a": {
+              "x": 1,
+              "y": 9
+            },
+            "b": {
+              "x": 3,
+              "y": 9
+            }
+          },
+          {
+            "id": 23,
+            "a": {
+              "x": 3,
+              "y": 9
+            },
+            "b": {
+              "x": 3,
+              "y": 6
+            }
+          },
+          {
+            "id": 24,
+            "a": {
+              "x": 3,
+              "y": 6
+            },
+            "b": {
+              "x": 6,
+              "y": 6
+            }
+          },
+          {
+            "id": 25,
+            "a": {
+              "x": -21,
+              "y": -4
+            },
+            "b": {
+              "x": 6,
+              "y": -4
+            }
+          },
+          {
+            "id": 26,
+            "a": {
+              "x": -15,
+              "y": -11
+            },
+            "b": {
+              "x": -15,
+              "y": 8
+            }
+          },
+          {
+            "id": 27,
+            "a": {
+              "x": -15,
+              "y": 8
+            },
+            "b": {
+              "x": -5,
+              "y": 8
+            }
+          },
+          {
+            "id": 28,
+            "a": {
+              "x": -16,
+              "y": -9
+            },
+            "b": {
+              "x": -16,
+              "y": 10
+            }
+          },
+          {
+            "id": 29,
+            "a": {
+              "x": -16,
+              "y": 10
+            },
+            "b": {
+              "x": -5,
+              "y": 10
+            }
+          },
+          {
+            "id": 30,
+            "a": {
+              "x": -8,
+              "y": -4
+            },
+            "b": {
+              "x": -8,
+              "y": 3
+            }
+          },
+          {
+            "id": 31,
+            "a": {
+              "x": -8,
+              "y": 3
+            },
+            "b": {
+              "x": -5,
+              "y": 3
+            }
+          },
+          {
+            "id": 32,
+            "a": {
+              "x": -6,
+              "y": -10
+            },
+            "b": {
+              "x": -6,
+              "y": 1
+            }
+          },
+          {
+            "id": 33,
+            "a": {
+              "x": -6,
+              "y": 1
+            },
+            "b": {
+              "x": -5,
+              "y": 1
+            }
+          }
+        ],
+        "next_id": 34
+      }
+    },
+    {
+      "uid": "5f0c2a1e-8d3b-4e6a-9c71-2b4d8e0f6a13",
+      "id": 2,
+      "name": "Sčítačka 2 bity",
+      "category": "arithmetic",
+      "description": "Dvoubitová sčítačka ze dvou úplných sčítaček (přenos Cout první jde do Cin druhé): Cout S1 S0 = A1 A0 + B1 B0 + Cin. Ukázka prvku, který používá jiný prvek téže knihovny.",
+      "translations": {
+        "en": {
+          "name": "2-bit adder",
+          "description": "Two-bit adder made of two full adders (Cout of the first goes to Cin of the second): Cout S1 S0 = A1 A0 + B1 B0 + Cin. Example of an item that uses another item of the same library."
+        }
+      },
+      "author": "Stanislav Jan Fidrmuc",
+      "license": "CC BY 4.0",
+      "version": 1,
+      "created": "2026-11-22",
+      "modified": "2026-11-22",
+      "inputs": [
+        "A0",
+        "A1",
+        "B0",
+        "B1",
+        "Cin"
+      ],
+      "outputs": [
+        "Cout",
+        "S0",
+        "S1"
+      ],
+      "circuit": {
+        "components": [
+          {
+            "id": 0,
+            "kind": {
+              "type": "subcircuit",
+              "id": 1,
+              "inputs": 3,
+              "outputs": 2
+            },
+            "pos": {
+              "x": 0,
+              "y": 0
+            },
+            "rotation": "R0",
+            "label": "P1"
+          },
+          {
+            "id": 1,
+            "kind": {
+              "type": "subcircuit",
+              "id": 1,
+              "inputs": 3,
+              "outputs": 2
+            },
+            "pos": {
+              "x": 0,
+              "y": 12
+            },
+            "rotation": "R0",
+            "label": "P2"
+          },
+          {
+            "id": 2,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -20,
+              "y": -1
+            },
+            "rotation": "R0",
+            "label": "A0"
+          },
+          {
+            "id": 4,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -20,
+              "y": 1
+            },
+            "rotation": "R0",
+            "label": "B0"
+          },
+          {
+            "id": 6,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -20,
+              "y": 3
+            },
+            "rotation": "R0",
+            "label": "Cin"
+          },
+          {
+            "id": 8,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -20,
+              "y": 11
+            },
+            "rotation": "R0",
+            "label": "A1"
+          },
+          {
+            "id": 10,
+            "kind": {
+              "type": "switch",
+              "on": false
+            },
+            "pos": {
+              "x": -20,
+              "y": 13
+            },
+            "rotation": "R0",
+            "label": "B1"
+          },
+          {
+            "id": 12,
+            "kind": {
+              "type": "led"
+            },
+            "pos": {
+              "x": 18,
+              "y": 1
+            },
+            "rotation": "R0",
+            "label": "S0"
+          },
+          {
+            "id": 14,
+            "kind": {
+              "type": "led"
+            },
+            "pos": {
+              "x": 18,
+              "y": 13
+            },
+            "rotation": "R0",
+            "label": "S1"
+          },
+          {
+            "id": 16,
+            "kind": {
+              "type": "led"
+            },
+            "pos": {
+              "x": 18,
+              "y": 11
+            },
+            "rotation": "R0",
+            "label": "Cout"
+          }
+        ],
+        "wires": [
+          {
+            "id": 3,
+            "a": {
+              "x": -18,
+              "y": -1
+            },
+            "b": {
+              "x": -4,
+              "y": -1
+            }
+          },
+          {
+            "id": 5,
+            "a": {
+              "x": -18,
+              "y": 1
+            },
+            "b": {
+              "x": -4,
+              "y": 1
+            }
+          },
+          {
+            "id": 7,
+            "a": {
+              "x": -18,
+              "y": 3
+            },
+            "b": {
+              "x": -4,
+              "y": 3
+            }
+          },
+          {
+            "id": 9,
+            "a": {
+              "x": -18,
+              "y": 11
+            },
+            "b": {
+              "x": -4,
+              "y": 11
+            }
+          },
+          {
+            "id": 11,
+            "a": {
+              "x": -18,
+              "y": 13
+            },
+            "b": {
+              "x": -4,
+              "y": 13
+            }
+          },
+          {
+            "id": 13,
+            "a": {
+              "x": 4,
+              "y": 1
+            },
+            "b": {
+              "x": 16,
+              "y": 1
+            }
+          },
+          {
+            "id": 15,
+            "a": {
+              "x": 4,
+              "y": 13
+            },
+            "b": {
+              "x": 16,
+              "y": 13
+            }
+          },
+          {
+            "id": 17,
+            "a": {
+              "x": 4,
+              "y": 11
+            },
+            "b": {
+              "x": 16,
+              "y": 11
+            }
+          },
+          {
+            "id": 18,
+            "a": {
+              "x": 4,
+              "y": -1
+            },
+            "b": {
+              "x": 8,
+              "y": -1
+            }
+          },
+          {
+            "id": 19,
+            "a": {
+              "x": 8,
+              "y": -1
+            },
+            "b": {
+              "x": 8,
+              "y": 7
+            }
+          },
+          {
+            "id": 20,
+            "a": {
+              "x": 8,
+              "y": 7
+            },
+            "b": {
+              "x": -8,
+              "y": 7
+            }
+          },
+          {
+            "id": 21,
+            "a": {
+              "x": -8,
+              "y": 7
+            },
+            "b": {
+              "x": -8,
+              "y": 15
+            }
+          },
+          {
+            "id": 22,
+            "a": {
+              "x": -8,
+              "y": 15
+            },
+            "b": {
+              "x": -4,
+              "y": 15
+            }
+          }
+        ],
+        "next_id": 23
+      }
+    }
+  ]
+}
