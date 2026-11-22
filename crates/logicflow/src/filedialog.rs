@@ -27,6 +27,10 @@ pub enum Mode {
     ///
     /// [en] Saving a file.
     Save,
+    /// Výběr složky (vybere se složka, ve které okno právě je).
+    ///
+    /// [en] Choosing a folder (the folder the dialog is currently in is chosen).
+    Folder,
 }
 
 /// Výsledek jednoho snímku okna.
@@ -122,7 +126,8 @@ impl FileDialog {
                         let ours = Path::new(&name)
                             .extension()
                             .is_some_and(|x| x.eq_ignore_ascii_case(ProjectFile::EXTENSION));
-                        (is_dir || ours).then_some(Entry { name, is_dir })
+                        let shown = is_dir || (ours && self.mode != Mode::Folder);
+                        shown.then_some(Entry { name, is_dir })
                     })
                     .collect();
                 entries.sort_by(|a, b| {
@@ -182,10 +187,10 @@ impl FileDialog {
         let mut outcome = Outcome::None;
         let title = tr(
             lang,
-            if self.mode == Mode::Open {
-                T::OpenFile
-            } else {
-                T::SaveFile
+            match self.mode {
+                Mode::Open => T::OpenFile,
+                Mode::Save => T::SaveFile,
+                Mode::Folder => T::ChooseFolder,
             },
         );
         let modal = egui::Modal::new(egui::Id::unique("logicflow-file-dialog")).show(ctx, |ui| {
@@ -303,18 +308,21 @@ impl FileDialog {
                         });
                 });
 
-            ui.horizontal(|ui| {
-                ui.label(tr(lang, T::FileName));
-                let r = ui.add(
-                    egui::TextEdit::singleline(&mut self.file_name).desired_width(f32::INFINITY),
-                );
-                if r.lost_focus()
-                    && ui.input(|i| i.key_pressed(egui::Key::Enter))
-                    && let Some(p) = self.target()
-                {
-                    outcome = Outcome::Chosen(p);
-                }
-            });
+            if self.mode != Mode::Folder {
+                ui.horizontal(|ui| {
+                    ui.label(tr(lang, T::FileName));
+                    let r = ui.add(
+                        egui::TextEdit::singleline(&mut self.file_name)
+                            .desired_width(f32::INFINITY),
+                    );
+                    if r.lost_focus()
+                        && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                        && let Some(p) = self.target()
+                    {
+                        outcome = Outcome::Chosen(p);
+                    }
+                });
+            }
             if self.mode == Mode::Save
                 && let Some(p) = self.target()
                 && p.exists()
@@ -332,15 +340,22 @@ impl FileDialog {
             ui.horizontal(|ui| {
                 let ok_text = tr(
                     lang,
-                    if self.mode == Mode::Open {
-                        T::Open
-                    } else {
-                        T::Save
+                    match self.mode {
+                        Mode::Open => T::Open,
+                        Mode::Save => T::Save,
+                        Mode::Folder => T::ChooseThisFolder,
                     },
                 );
-                let ok = ui.add_enabled(self.target().is_some(), egui::Button::new(ok_text));
+                // Ve výběru složky se vybere složka, ve které okno právě je.
+                // [en] When choosing a folder, the folder the dialog is in is chosen.
+                let target = if self.mode == Mode::Folder {
+                    Some(self.dir.clone())
+                } else {
+                    self.target()
+                };
+                let ok = ui.add_enabled(target.is_some(), egui::Button::new(ok_text));
                 if ok.clicked()
-                    && let Some(p) = self.target()
+                    && let Some(p) = target
                 {
                     outcome = Outcome::Chosen(p);
                 }
@@ -386,6 +401,19 @@ mod tests {
         );
         assert!(d.create_folder("a/b", Lang::Cs).is_err());
         assert!(d.create_folder("  ", Lang::Cs).is_err());
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn folder_mode_lists_only_folders() {
+        let base = std::env::temp_dir().join(format!("lf-dialog-slozky-{}", std::process::id()));
+        std::fs::create_dir_all(base.join("Knihovny")).unwrap();
+        std::fs::write(base.join("obvod.logicflow"), "{}").unwrap();
+        let d = FileDialog::new(Mode::Folder, Some(base.clone()), "");
+        let names: Vec<&str> = d.entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["Knihovny"]);
+        let d = FileDialog::new(Mode::Open, Some(base.clone()), "");
+        assert_eq!(d.entries.len(), 2);
         std::fs::remove_dir_all(&base).ok();
     }
 

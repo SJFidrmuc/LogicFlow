@@ -43,8 +43,8 @@
   <text x="580" y="124" class="s" text-anchor="middle">každý snímek (~60×/s) se celé rozhraní znovu nakreslí (okamžitý režim)</text>
 
   <rect x="970" y="80" width="380" height="60" rx="10" class="fi"/>
-  <text x="1160" y="104" class="h" text-anchor="middle">Nastavení (eframe storage)</text>
-  <text x="1160" y="124" class="s" text-anchor="middle">jazyk, styl značek, rozložení okna</text>
+  <text x="1160" y="104" class="h" text-anchor="middle">Nastavení logicflow.toml (settings.rs)</text>
+  <text x="1160" y="124" class="s" text-anchor="middle">jazyk, značky, autor, složky knihoven · rozložení: eframe</text>
 
   <!-- Skupina aplikace -->
   <rect x="30" y="165" width="820" height="595" rx="14" class="grp"/>

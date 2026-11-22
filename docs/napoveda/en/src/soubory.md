@@ -28,7 +28,18 @@
 
 - Switch the **language** with the CS / EN buttons in the top right corner or in **View → Language**. The change applies immediately, without a restart.
 - Choose the **symbol style** (European IEC 60617-12 or American ANSI/IEEE) in **View → Symbols**.
-- On first start both follow your system: Czech in Czech and Slovak environments, English otherwise; American symbols in a US environment. The program remembers your manual choice.
+- On first start both follow your system: Czech in Czech and Slovak environments, English otherwise; American symbols in a US environment. The program remembers your manual choice in the settings file.
+
+## Settings
+
+The **Edit → Settings…** window gathers the personal settings. The program keeps them in the settings file.
+
+- **General:** language, symbol style and allowing edits while simulating (the same options as in the menus).
+- **Author and licence:** your name and the default licence (CC BY 4.0). They are used for elements exported to a library and in circuit information.
+- **Libraries:** the personal libraries folder (default `Documents/LogicFlow/Knihovny`) and **shared folders** – folders on the network, on OneDrive or of a club whose libraries appear in the Component library. For a shared folder, **read-only** means the program never writes into it. An unavailable folder (network disconnected) is shown as a warning in the library.
+- **The settings file** is readable text `logicflow.toml`: on Windows in `%APPDATA%\LogicFlow` (with a roaming profile it follows you to other computers), on macOS in `~/Library/Application Support/LogicFlow`, on Linux and Raspberry Pi in `~/.config/logicflow`. The **Open settings folder** button shows it in the file manager.
+- The file can be edited by hand. If the program cannot read it, it keeps it as `logicflow.toml.bak` and uses the default settings.
+- **Restore default settings…** (with confirmation) sets language and symbols from the system again and clears the author name, licence and library folders.
 
 ## Help menu
 

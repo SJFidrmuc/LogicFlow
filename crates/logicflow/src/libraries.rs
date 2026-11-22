@@ -1,23 +1,24 @@
-//! Knihovny prvků dostupné v programu: vestavěná výuková knihovna a osobní
-//! knihovny ze složky `Dokumenty/LogicFlow/Knihovny`.
+//! Knihovny prvků dostupné v programu: vestavěná výuková knihovna, osobní
+//! knihovny (výchozí složka `Dokumenty/LogicFlow/Knihovny`) a sdílené složky
+//! ze souboru s nastavením.
 //!
 //! Toto je jediné místo, kde program čte knihovny ze souborů (viz CONTRIBUTING →
-//! Přenositelnost); zbytek programu pracuje s načtenými [`Library`]. Sdílené
-//! složky přibudou se souborem s nastavením, kde se budou pamatovat.
+//! Přenositelnost); zbytek programu pracuje s načtenými [`Library`].
 //!
-//! [en] Element libraries available in the program: the built-in teaching library
-//! and personal libraries from the folder `Documents/LogicFlow/Knihovny`.
+//! [en] Element libraries available in the program: the built-in teaching library,
+//! personal libraries (default folder `Documents/LogicFlow/Knihovny`) and shared
+//! folders from the settings file.
 //!
 //! This is the only place where the program reads libraries from files (see
 //! CONTRIBUTING → Portability); the rest of the program works with the loaded
-//! [`Library`] values. Shared folders will come with the settings file, where they
-//! will be remembered.
+//! [`Library`] values.
 
 use std::path::{Path, PathBuf};
 
 use logicflow_core::library::{CATEGORIES, Library, LibraryError, LibraryItem, builtin_category};
 
-use crate::i18n::Lang;
+use crate::i18n::{Lang, T, tr};
+use crate::settings::{Settings, SharedFolder};
 
 /// Vestavěná výuková knihovna „Číslicová technika“ (vložená při sestavení).
 ///
@@ -42,6 +43,19 @@ pub enum Source {
     ///
     /// [en] A file in the personal libraries folder.
     Personal(PathBuf),
+    /// Soubor ve sdílené složce knihoven.
+    ///
+    /// [en] A file in a shared library folder.
+    Shared {
+        /// Cesta k souboru.
+        ///
+        /// [en] Path to the file.
+        file: PathBuf,
+        /// Složka je jen pro čtení.
+        ///
+        /// [en] The folder is read-only.
+        read_only: bool,
+    },
 }
 
 /// Načtená knihovna a její zdroj.
@@ -72,6 +86,10 @@ pub enum Problem {
     ///
     /// [en] The content is not a valid library.
     Library(LibraryError),
+    /// Sdílená složka není dostupná (síť, odpojený disk).
+    ///
+    /// [en] A shared folder is not available (network, disconnected drive).
+    Unavailable,
 }
 
 impl Problem {
@@ -82,6 +100,7 @@ impl Problem {
         match self {
             Self::Io(e) => e.clone(),
             Self::Library(e) => e.text(lang.code()),
+            Self::Unavailable => tr(lang, T::LibUnavailable).to_owned(),
         }
     }
 }
@@ -103,31 +122,53 @@ pub struct Libraries {
     ///
     /// [en] Personal libraries folder (`None` when the documents folder cannot be found).
     pub folder: Option<PathBuf>,
+    /// Sdílené složky knihoven z nastavení.
+    ///
+    /// [en] Shared library folders from the settings.
+    pub shared: Vec<SharedFolder>,
 }
 
 impl Libraries {
-    /// Načte vestavěnou knihovnu a knihovny z osobní složky.
+    /// Načte vestavěnou knihovnu a knihovny ze složek podle nastavení.
     ///
-    /// [en] Loads the built-in library and the libraries from the personal folder.
-    pub fn load() -> Self {
-        let mut libs = Self {
-            folder: personal_folder(),
-            ..Self::default()
-        };
-        libs.reload();
+    /// [en] Loads the built-in library and the libraries from the folders in the settings.
+    pub fn load(settings: &Settings) -> Self {
+        let mut libs = Self::default();
+        libs.configure(settings);
         libs
     }
 
-    /// Načte knihovny znovu (po změně souborů ve složce).
+    /// Převezme složky z nastavení a knihovny načte znovu.
     ///
-    /// [en] Reloads the libraries (after the files in the folder changed).
+    /// [en] Takes the folders from the settings and reloads the libraries.
+    pub fn configure(&mut self, settings: &Settings) {
+        self.folder = settings.personal_folder();
+        self.shared = settings.shared_libraries.clone();
+        self.reload();
+    }
+
+    /// Načte knihovny znovu (po změně souborů ve složkách).
+    ///
+    /// [en] Reloads the libraries (after the files in the folders changed).
     pub fn reload(&mut self) {
         self.list = vec![builtin()];
         self.problems.clear();
         if let Some(dir) = &self.folder {
-            let (list, problems) = read_folder(dir);
+            let (list, problems) = read_folder(dir, Source::Personal);
             self.list.extend(list);
-            self.problems = problems;
+            self.problems.extend(problems);
+        }
+        for shared in &self.shared {
+            if !shared.path.is_dir() {
+                self.problems
+                    .push((shared.path.display().to_string(), Problem::Unavailable));
+                continue;
+            }
+            let read_only = shared.read_only;
+            let (list, problems) =
+                read_folder(&shared.path, |file| Source::Shared { file, read_only });
+            self.list.extend(list);
+            self.problems.extend(problems);
         }
     }
 }
@@ -142,12 +183,17 @@ pub fn builtin() -> Loaded {
     }
 }
 
-/// Načte všechny soubory `.lflib` ve složce (seřazené podle názvu). Chybějící
-/// složka není chyba – osobní knihovny zatím nejsou.
+/// Načte všechny soubory `.lflib` ve složce (seřazené podle názvu); `source` určí
+/// zdroj podle cesty k souboru. Chybějící složka není chyba – osobní knihovny
+/// zatím nejsou.
 ///
-/// [en] Loads all `.lflib` files in the folder (sorted by name). A missing folder is
-/// not an error – there are no personal libraries yet.
-pub fn read_folder(dir: &Path) -> (Vec<Loaded>, Vec<(String, Problem)>) {
+/// [en] Loads all `.lflib` files in the folder (sorted by name); `source` gives the
+/// source from the file path. A missing folder is not an error – there are no
+/// personal libraries yet.
+pub fn read_folder(
+    dir: &Path,
+    source: impl Fn(PathBuf) -> Source,
+) -> (Vec<Loaded>, Vec<(String, Problem)>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return (Vec::new(), Vec::new());
     };
@@ -171,7 +217,7 @@ pub fn read_folder(dir: &Path) -> (Vec<Loaded>, Vec<(String, Problem)>) {
             Ok(text) => match Library::from_json(&text) {
                 Ok(library) => list.push(Loaded {
                     library,
-                    source: Source::Personal(path),
+                    source: source(path),
                 }),
                 Err(e) => problems.push((name, Problem::Library(e))),
             },
@@ -181,51 +227,21 @@ pub fn read_folder(dir: &Path) -> (Vec<Loaded>, Vec<(String, Problem)>) {
     (list, problems)
 }
 
-/// Složka dokumentů uživatele: v Linuxu podle `user-dirs.dirs` (např. `~/Dokumenty`),
-/// jinde `Documents` v domovské složce.
+/// Složka dokumentů uživatele podle systému – ve Windows přes známé složky (funguje
+/// i přesměrování Dokumentů na síť), v Linuxu podle `user-dirs.dirs` (např.
+/// `~/Dokumenty`); záložně `Documents` v domovské složce.
 ///
-/// [en] The user's documents folder: on Linux according to `user-dirs.dirs` (e.g.
-/// `~/Dokumenty`), elsewhere `Documents` in the home folder.
+/// [en] The user's documents folder according to the system – on Windows via known
+/// folders (redirecting Documents to the network works too), on Linux according to
+/// `user-dirs.dirs` (e.g. `~/Dokumenty`); falling back to `Documents` in the home folder.
 pub fn documents_dir() -> Option<PathBuf> {
-    let home = std::env::home_dir()?;
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        let config = std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| home.join(".config"));
-        if let Ok(text) = std::fs::read_to_string(config.join("user-dirs.dirs"))
-            && let Some(dir) = parse_user_dirs(&text, &home)
-        {
-            return Some(dir);
-        }
-    }
-    Some(home.join("Documents"))
+    dirs::document_dir().or_else(|| std::env::home_dir().map(|h| h.join("Documents")))
 }
 
-/// Složka dokumentů ze souboru `user-dirs.dirs` (řádek `XDG_DOCUMENTS_DIR="$HOME/…"`).
-/// Hodnota rovná domovské složce znamená „nepoužívá se“.
+/// Výchozí složka osobních knihoven: `Dokumenty/LogicFlow/Knihovny`.
 ///
-/// [en] Documents folder from the `user-dirs.dirs` file (line `XDG_DOCUMENTS_DIR="$HOME/…"`).
-/// A value equal to the home folder means “not used”.
-pub fn parse_user_dirs(text: &str, home: &Path) -> Option<PathBuf> {
-    let value = text
-        .lines()
-        .map(str::trim)
-        .find_map(|l| l.strip_prefix("XDG_DOCUMENTS_DIR="))?
-        .trim()
-        .trim_matches('"');
-    let path = match value.strip_prefix("$HOME") {
-        Some(rest) => home.join(rest.trim_start_matches('/')),
-        None if value.starts_with('/') => PathBuf::from(value),
-        None => return None,
-    };
-    (path != home).then_some(path)
-}
-
-/// Složka osobních knihoven: `Dokumenty/LogicFlow/Knihovny`.
-///
-/// [en] Personal libraries folder: `Documents/LogicFlow/Knihovny`.
-pub fn personal_folder() -> Option<PathBuf> {
+/// [en] Default personal libraries folder: `Documents/LogicFlow/Knihovny`.
+pub fn default_personal_folder() -> Option<PathBuf> {
     documents_dir().map(|d| PERSONAL_SUBDIR.iter().fold(d, |p, s| p.join(s)))
 }
 
@@ -247,6 +263,28 @@ pub fn open_folder(dir: &Path) -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|e| e.to_string())
+}
+
+/// Klíč požadavku na otevření okna Nastavení (z panelu knihoven).
+///
+/// [en] Key of the request to open the Settings window (from the library panel).
+fn settings_request_id() -> egui::Id {
+    egui::Id::unique("logicflow-open-settings")
+}
+
+/// Požádá hlavní okno o otevření Nastavení (tlačítko Složky knihoven… v panelu).
+///
+/// [en] Asks the main window to open the Settings (the Library folders… button in the panel).
+pub fn request_settings(ctx: &egui::Context) {
+    ctx.data_mut(|d| d.insert_temp(settings_request_id(), true));
+}
+
+/// Vyzvedne požadavek na otevření Nastavení.
+///
+/// [en] Takes the request to open the Settings.
+pub fn take_settings_request(ctx: &egui::Context) -> bool {
+    ctx.data_mut(|d| d.remove_temp::<bool>(settings_request_id()))
+        .unwrap_or(false)
 }
 
 /// Prvky knihovny seskupené podle kategorie: vestavěné kategorie v pořadí
@@ -304,25 +342,6 @@ mod tests {
     }
 
     #[test]
-    fn user_dirs() {
-        let home = Path::new("/home/jan");
-        let text =
-            "# komentář\nXDG_DESKTOP_DIR=\"$HOME/Plocha\"\nXDG_DOCUMENTS_DIR=\"$HOME/Dokumenty\"\n";
-        assert_eq!(
-            parse_user_dirs(text, home),
-            Some(PathBuf::from("/home/jan/Dokumenty"))
-        );
-        assert_eq!(
-            parse_user_dirs("XDG_DOCUMENTS_DIR=\"/data/doc\"", home),
-            Some(PathBuf::from("/data/doc"))
-        );
-        // Složka rovná domovské = nepoužívá se; chybějící řádek = nic.
-        // [en] A folder equal to home = not used; a missing line = nothing.
-        assert_eq!(parse_user_dirs("XDG_DOCUMENTS_DIR=\"$HOME/\"", home), None);
-        assert_eq!(parse_user_dirs("XDG_MUSIC_DIR=\"$HOME/Hudba\"", home), None);
-    }
-
-    #[test]
     fn folder_with_good_and_bad_files() {
         let dir = std::env::temp_dir().join(format!("logicflow-knihovny-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -330,7 +349,7 @@ mod tests {
         std::fs::write(dir.join("b-vzor.lflib"), vzor).unwrap();
         std::fs::write(dir.join("a-vadna.LFLIB"), "{ nic }").unwrap();
         std::fs::write(dir.join("poznamky.txt"), "jiný soubor").unwrap();
-        let (list, problems) = read_folder(&dir);
+        let (list, problems) = read_folder(&dir, Source::Personal);
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].library.items.len(), 2);
         assert!(matches!(&list[0].source, Source::Personal(p) if p.ends_with("b-vzor.lflib")));
@@ -340,7 +359,40 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
         // Chybějící složka: žádné knihovny ani chyby.
         // [en] Missing folder: no libraries and no errors.
-        let (list, problems) = read_folder(&dir);
+        let (list, problems) = read_folder(&dir, Source::Personal);
         assert!(list.is_empty() && problems.is_empty());
+    }
+
+    #[test]
+    fn shared_folders_from_settings() {
+        let base = std::env::temp_dir().join(format!("logicflow-sdilene-{}", std::process::id()));
+        let shared = base.join("sdilena");
+        std::fs::create_dir_all(&shared).unwrap();
+        let vzor = include_str!("../../../docs/knihovny/vzor.lflib");
+        std::fs::write(shared.join("vzor.lflib"), vzor).unwrap();
+        let mut settings = Settings::for_locale(Some("cs-CZ"));
+        settings.personal_libraries = Some(base.join("osobni-neexistuje"));
+        settings.shared_libraries = vec![
+            SharedFolder {
+                path: shared.clone(),
+                read_only: true,
+            },
+            SharedFolder {
+                path: base.join("odpojena"),
+                read_only: false,
+            },
+        ];
+        let libs = Libraries::load(&settings);
+        // Vestavěná + jedna ze sdílené složky; nedostupná složka je problém.
+        // [en] Built-in + one from the shared folder; an unavailable folder is a problem.
+        assert_eq!(libs.list.len(), 2);
+        assert!(matches!(
+            &libs.list[1].source,
+            Source::Shared { read_only: true, file } if file.ends_with("vzor.lflib")
+        ));
+        assert_eq!(libs.problems.len(), 1);
+        assert!(matches!(libs.problems[0].1, Problem::Unavailable));
+        assert_eq!(libs.folder, Some(base.join("osobni-neexistuje")));
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }

@@ -27,8 +27,9 @@ Ready-made circuits are in the **Component library** area under **Element librar
 - Insert an element like a component: click it, then click in the schematic. It appears at the mouse pointer and a click drops it.
 - An inserted element is a **project subcircuit** (a copy). Open it with Tab and edit it; it is saved with the project. The elements it uses (e.g. the full adders in the 4-bit adder) are inserted with it.
 - Below the chosen element you see its description, pins, author and licence.
-- **Personal libraries** are `.lflib` files in the folder `Documents/LogicFlow/Knihovny`. The **Open folder** button creates and opens it; after copying files there click **Reload**.
+- **Personal libraries** are `.lflib` files in the folder `Documents/LogicFlow/Knihovny`. The **Open folder** button creates and opens it; after copying files there click **Reload**. Choose a different folder in **Edit → Settings…** (button **Library folders…**).
+- **Shared folders** (network, OneDrive, club) are added in **Edit → Settings… → Libraries**; their libraries are labelled **Shared folder**.
 
-> **Coming soon:** exporting a subcircuit into a library, shared library folders and school libraries.
+> **Coming soon:** exporting a subcircuit into a library and school libraries.
 
 > **Ready-made example:** File → Examples → Full adder from two subcircuits.
