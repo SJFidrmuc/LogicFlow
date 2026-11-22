@@ -31,9 +31,13 @@ permissions:
   contents: write
   actions: read
 
+# Běhy za sebou, žádný se neruší: jinak by starší commit, jehož CI doběhlo později,
+# zrušil běh pro novější commit.
+# [en] Runs one after another, none is cancelled: otherwise an older commit whose CI
+# finished later would cancel the run for a newer commit.
 concurrency:
   group: prubezne
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   prubezne:
@@ -47,20 +51,31 @@ jobs:
       REPO: ${{ github.repository }}
     steps:
       - name: Které CI
+        # Vždy poslední úspěšné CI na main. Při spuštění po CI navíc jen tehdy, je-li
+        # to současný vrchol main – CI staršího commitu (např. při sloučení dvou PR
+        # rychle za sebou) nic nepřepíše; novější commit má vlastní běh.
+        # [en] Always the last successful CI on main. When triggered by CI, only if it
+        # is the current head of main – CI of an older commit (e.g. two PRs merged in
+        # quick succession) overwrites nothing; the newer commit has its own run.
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "RUN_ID=${{ github.event.workflow_run.id }}" >> "$GITHUB_ENV"
-            echo "SHA=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
-          else
-            gh run list --repo "$REPO" --workflow ci.yml --branch main --status success \
-              --limit 1 --json databaseId,headSha --jq '.[0] | "RUN_ID=\(.databaseId)\nSHA=\(.headSha)"' >> "$GITHUB_ENV"
+          gh run list --repo "$REPO" --workflow ci.yml --branch main --event push \
+            --status success --limit 1 --json databaseId,headSha \
+            --jq '.[0] | "RUN_ID=\(.databaseId)\nSHA=\(.headSha)"' >> "$GITHUB_ENV"
+          source "$GITHUB_ENV"
+          head=$(gh api "repos/$REPO/commits/main" --jq .sha)
+          if [ "${{ github.event_name }}" = "workflow_run" ] && [ "$SHA" != "$head" ]; then
+            echo "::notice::CI pro vrchol main (${head:0:7}) ještě neskončilo úspěšně – přeskočeno."
+            echo "SKIP=1" >> "$GITHUB_ENV"
           fi
       - uses: actions/checkout@v7
+        if: env.SKIP != '1'
         with:
           ref: ${{ env.SHA }}
       - name: Programy z CI
+        if: env.SKIP != '1'
         run: gh run download "$RUN_ID" --repo "$REPO" --dir ci
       - name: Balíčky
+        if: env.SKIP != '1'
         run: |
           set -euo pipefail
           short="${SHA:0:7}"
@@ -97,6 +112,7 @@ jobs:
           zip -qr "dist/$name.zip" "$name"
           ls -l dist
       - name: Poznámky
+        if: env.SKIP != '1'
         run: |
           {
             echo "**Průběžné sestavení z větve main** – commit \`${SHA:0:7}\`, $(date -u +%Y-%m-%d)."
@@ -118,6 +134,7 @@ jobs:
         # [en] The old release and tag are deleted and recreated on the new commit
         # (the download links …/releases/download/prubezne/… stay the same). A release
         # created with this token does not trigger the release workflow; it also skips it.
+        if: env.SKIP != '1'
         run: |
           gh release delete prubezne --repo "$REPO" --cleanup-tag --yes || true
           gh release create prubezne dist/* --repo "$REPO" --target "$SHA" \
