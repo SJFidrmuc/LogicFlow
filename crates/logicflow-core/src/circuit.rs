@@ -1548,6 +1548,137 @@ pub fn sync_instances(circuit: &mut Circuit, defs: &[SubcircuitDef]) -> bool {
     changed
 }
 
+/// Informace o obvodu uložené v souboru: název, autoři, popis, licence, škola,
+/// data vytvoření a poslední úpravy. Všechna pole jsou nepovinná; prázdná se do
+/// souboru nezapisují. Klíče odpovídají souborům online knihovny obvodů.
+///
+/// [en] Circuit information stored in the file: title, authors, description, licence,
+/// school, creation and last modification dates. All fields are optional; empty ones
+/// are not written to the file. The keys match the files of the online circuit library.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct CircuitInfo {
+    /// Název obvodu.
+    ///
+    /// [en] Circuit title.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    /// Autoři (první je původní autor, další spoluautoři).
+    ///
+    /// [en] Authors (the first one is the original author, the others are co-authors).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<String>,
+    /// Popis – co obvod dělá, k čemu slouží.
+    ///
+    /// [en] Description – what the circuit does, what it is for.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// Licence, např. „CC BY 4.0“ nebo „neuvedeno“.
+    ///
+    /// [en] Licence, e.g. "CC BY 4.0" or "not specified".
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub license: String,
+    /// Škola, třída nebo kroužek (nepovinné).
+    ///
+    /// [en] School, class or club (optional).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub school: String,
+    /// Datum vytvoření (RRRR-MM-DD).
+    ///
+    /// [en] Creation date (YYYY-MM-DD).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub created: String,
+    /// Datum poslední úpravy (RRRR-MM-DD).
+    ///
+    /// [en] Date of the last modification (YYYY-MM-DD).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub modified: String,
+    /// Verze programu, ve které obvod vznikl.
+    ///
+    /// [en] Program version in which the circuit was created.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub app_version: String,
+    /// Klíče, které tato verze nezná (z novější verze programu nebo z online
+    /// knihovny) – při uložení se zachovají beze změny.
+    ///
+    /// [en] Keys this version does not know (from a newer program version or from the
+    /// online library) – kept unchanged on saving.
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl CircuitInfo {
+    /// Nejsou vyplněné žádné informace? (Pak se část `info` do souboru nezapíše.)
+    ///
+    /// [en] Is no information filled in? (Then the `info` part is not written to the file.)
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// Je `name` mezi autory? Porovnává se bez mezer na okrajích.
+    ///
+    /// [en] Is `name` among the authors? Compared without surrounding spaces.
+    pub fn has_author(&self, name: &str) -> bool {
+        let name = name.trim();
+        self.authors.iter().any(|a| a.trim() == name)
+    }
+
+    /// Přidá autora na konec seznamu (spoluautor), pokud tam ještě není.
+    /// Vrátí `true`, pokud se seznam změnil.
+    ///
+    /// [en] Adds an author to the end of the list (co-author) unless already there.
+    /// Returns `true` if the list changed.
+    pub fn add_author(&mut self, name: &str) -> bool {
+        let name = name.trim();
+        if name.is_empty() || self.has_author(name) {
+            return false;
+        }
+        self.authors.push(name.to_owned());
+        true
+    }
+
+    /// Autoři oddělení čárkou.
+    ///
+    /// [en] Authors separated by commas.
+    pub fn authors_text(&self) -> String {
+        self.authors.join(", ")
+    }
+
+    /// Zapíše datum uložení `today` jako poslední úpravu; u obvodu bez data
+    /// vytvoření doplní i datum vytvoření a verzi programu.
+    ///
+    /// [en] Records the save date `today` as the last modification; for a circuit
+    /// without a creation date it also fills in the creation date and the program version.
+    pub fn stamp(&mut self, today: &str) {
+        if self.created.is_empty() {
+            self.created = today.to_owned();
+            if self.app_version.is_empty() {
+                self.app_version = crate::VERSION.to_owned();
+            }
+        }
+        self.modified = today.to_owned();
+    }
+
+    /// Kalendářní datum RRRR-MM-DD (UTC) z počtu sekund od 1. 1. 1970. Systémový čas
+    /// zjistí aplikace – jádro s ním nepracuje.
+    ///
+    /// [en] Calendar date YYYY-MM-DD (UTC) from seconds since 1 Jan 1970. The application
+    /// gets the system time – the core does not touch it.
+    pub fn date_from_unix(secs: u64) -> String {
+        // Převod dní na gregoriánské datum (H. Hinnant, „civil_from_days“).
+        // [en] Days to a Gregorian date (H. Hinnant, "civil_from_days").
+        let z = (secs / 86_400) as i64 + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z.rem_euclid(146_097);
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = doy - (153 * mp + 2) / 5 + 1;
+        let month = if mp < 10 { mp + 3 } else { mp - 9 };
+        let year = yoe + era * 400 + i64::from(month <= 2);
+        format!("{year:04}-{month:02}-{day:02}")
+    }
+}
+
 /// Formát souboru projektu `.logicflow`.
 ///
 /// [en] Format of the `.logicflow` project file.
@@ -1561,6 +1692,11 @@ pub struct ProjectFile {
     ///
     /// [en] Name and version of the application that saved the file.
     pub app: String,
+    /// Informace o obvodu (od verze 0.4; chybí-li, jsou prázdné).
+    ///
+    /// [en] Circuit information (since version 0.4; empty when missing).
+    #[serde(default, skip_serializing_if = "CircuitInfo::is_empty")]
+    pub info: CircuitInfo,
     /// Hlavní obvod.
     ///
     /// [en] Main circuit.
@@ -1582,23 +1718,37 @@ impl ProjectFile {
     /// [en] File extension.
     pub const EXTENSION: &'static str = "logicflow";
 
-    /// Uloží obvod a podobvody jako formátovaný JSON.
+    /// Uloží obvod a podobvody jako formátovaný JSON (bez informací o obvodu –
+    /// např. pro schránku).
     ///
-    /// [en] Saves the circuit and subcircuits as formatted JSON.
+    /// [en] Saves the circuit and subcircuits as formatted JSON (without circuit
+    /// information – e.g. for the clipboard).
     pub fn to_json(circuit: &Circuit, subcircuits: &[SubcircuitDef]) -> String {
+        Self::to_json_with_info(&CircuitInfo::default(), circuit, subcircuits)
+    }
+
+    /// Uloží informace o obvodu, obvod a podobvody jako formátovaný JSON.
+    ///
+    /// [en] Saves the circuit information, the circuit and subcircuits as formatted JSON.
+    pub fn to_json_with_info(
+        info: &CircuitInfo,
+        circuit: &Circuit,
+        subcircuits: &[SubcircuitDef],
+    ) -> String {
         let file = ProjectFile {
             format: Self::FORMAT,
             app: format!("LogicFlow {}", crate::VERSION),
+            info: info.clone(),
             circuit: circuit.clone(),
             subcircuits: subcircuits.to_vec(),
         };
         serde_json::to_string_pretty(&file).expect("serializace obvodu nemůže selhat")
     }
 
-    /// Načte obvod a podobvody z JSON; odmítne soubor z novější verze formátu.
+    /// Přečte celý soubor; odmítne soubor z novější verze formátu.
     ///
-    /// [en] Loads the circuit and subcircuits from JSON; rejects a file in a newer format version.
-    pub fn from_json(text: &str) -> Result<(Circuit, Vec<SubcircuitDef>), String> {
+    /// [en] Reads the whole file; rejects a file in a newer format version.
+    pub fn parse(text: &str) -> Result<ProjectFile, String> {
         let file: ProjectFile = serde_json::from_str(text).map_err(|e| e.to_string())?;
         if file.format > Self::FORMAT {
             return Err(format!(
@@ -1607,13 +1757,103 @@ impl ProjectFile {
                 Self::FORMAT
             ));
         }
+        Ok(file)
+    }
+
+    /// Načte obvod a podobvody z JSON; odmítne soubor z novější verze formátu.
+    ///
+    /// [en] Loads the circuit and subcircuits from JSON; rejects a file in a newer format version.
+    pub fn from_json(text: &str) -> Result<(Circuit, Vec<SubcircuitDef>), String> {
+        let file = Self::parse(text)?;
         Ok((file.circuit, file.subcircuits))
+    }
+
+    /// Jen informace o obvodu – pro náhled v okně pro otevření souboru (obvod se
+    /// nesestavuje). `None`, pokud soubor nejde přečíst.
+    ///
+    /// [en] Only the circuit information – for the preview in the open dialog (the
+    /// circuit is not built). `None` if the file cannot be read.
+    pub fn read_info(text: &str) -> Option<CircuitInfo> {
+        /// Soubor, ze kterého se čte jen část `info`.
+        ///
+        /// [en] File of which only the `info` part is read.
+        #[derive(Deserialize)]
+        struct InfoOnly {
+            /// Informace o obvodu.
+            ///
+            /// [en] Circuit information.
+            #[serde(default)]
+            info: CircuitInfo,
+        }
+        serde_json::from_str::<InfoOnly>(text).ok().map(|f| f.info)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn info_roundtrip_and_unknown_keys() {
+        // Soubor z online knihovny + klíč z budoucí verze.
+        // [en] File from the online library + a key from a future version.
+        let text = r#"{"format":1,"app":"LogicFlow 0.3.0",
+            "info":{"title":"Poloviční sčítačka","authors":["Mgr. Stanislav Jan Fidrmuc"],
+            "description":"S = A xor B","license":"CC BY 4.0","created":"2026-11-20",
+            "app_version":"0.3.0","tags":["sčítačka"]},
+            "circuit":{"components":[],"wires":[]}}"#;
+        let f = ProjectFile::parse(text).unwrap();
+        assert_eq!(f.info.title, "Poloviční sčítačka");
+        assert!(f.info.has_author(" Mgr. Stanislav Jan Fidrmuc "));
+        assert_eq!(f.info.extra.len(), 1);
+        let out = ProjectFile::to_json_with_info(&f.info, &f.circuit, &f.subcircuits);
+        // `info` je hned za `app`, neznámý klíč zůstal.
+        // [en] `info` follows `app` right away, the unknown key stayed.
+        assert!(out.find("\"app\"").unwrap() < out.find("\"info\"").unwrap());
+        assert!(out.find("\"info\"").unwrap() < out.find("\"circuit\"").unwrap());
+        let again = ProjectFile::parse(&out).unwrap();
+        assert_eq!(again.info, f.info);
+        assert_eq!(ProjectFile::read_info(&out), Some(f.info));
+    }
+
+    #[test]
+    fn empty_info_is_not_written() {
+        let out = ProjectFile::to_json(&Circuit::default(), &[]);
+        assert!(!out.contains("\"info\""));
+        // Starší soubor bez `info` – prázdné informace.
+        // [en] Older file without `info` – empty information.
+        assert!(ProjectFile::parse(&out).unwrap().info.is_empty());
+        assert_eq!(ProjectFile::read_info("nesmysl"), None);
+    }
+
+    #[test]
+    fn info_authors_and_stamp() {
+        let mut i = CircuitInfo::default();
+        assert!(!i.add_author("  "));
+        assert!(i.add_author("Eva Nová"));
+        assert!(!i.add_author(" Eva Nová"));
+        assert!(i.add_author("Jan"));
+        assert_eq!(i.authors_text(), "Eva Nová, Jan");
+        i.stamp("2026-11-22");
+        assert_eq!(
+            (i.created.as_str(), i.modified.as_str()),
+            ("2026-11-22", "2026-11-22")
+        );
+        assert_eq!(i.app_version, crate::VERSION);
+        i.stamp("2027-01-05");
+        assert_eq!(
+            (i.created.as_str(), i.modified.as_str()),
+            ("2026-11-22", "2027-01-05")
+        );
+    }
+
+    #[test]
+    fn date_from_unix() {
+        assert_eq!(CircuitInfo::date_from_unix(0), "1970-01-01");
+        assert_eq!(CircuitInfo::date_from_unix(951_782_400), "2000-02-29");
+        assert_eq!(CircuitInfo::date_from_unix(1_795_305_600), "2026-11-22");
+        assert_eq!(CircuitInfo::date_from_unix(4_107_542_399), "2100-02-28");
+    }
 
     #[test]
     fn extract_takes_wires_between_selected() {
