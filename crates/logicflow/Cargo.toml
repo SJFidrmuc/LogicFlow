@@ -16,3 +16,5 @@ egui_tiles.workspace = true
 serde.workspace = true
 sys-locale.workspace = true
 web-time.workspace = true
+dirs.workspace = true
+toml.workspace = true

@@ -29,8 +29,9 @@ Hotová zapojení najdete v oblasti **Knihovna součástek** pod nadpisem **Knih
 - Prvek vložíte stejně jako součástku: klikněte na něj a pak do schématu. Objeví se u ukazatele myši a kliknutím ho položíte.
 - Vložený prvek je **podobvod projektu** (kopie). Tabem ho otevřete, upravíte a uloží se s projektem. Prvky, které používá (např. úplné sčítačky ve 4bitové sčítačce), se vloží s ním.
 - Pod vybraným prvkem uvidíte jeho popis, vývody, autora a licenci.
-- **Osobní knihovny** jsou soubory `.lflib` ve složce `Dokumenty/LogicFlow/Knihovny`. Tlačítko **Otevřít složku** ji vytvoří a otevře, po zkopírování souborů klikněte na **Načíst znovu**.
+- **Osobní knihovny** jsou soubory `.lflib` ve složce `Dokumenty/LogicFlow/Knihovny`. Tlačítko **Otevřít složku** ji vytvoří a otevře, po zkopírování souborů klikněte na **Načíst znovu**. Jinou složku zvolíte v **Úpravy → Nastavení…** (tlačítko **Složky knihoven…**).
+- **Sdílené složky** (síť, OneDrive, kroužek) přidáte v **Úpravy → Nastavení… → Knihovny**; jejich knihovny se ukážou s označením **Sdílená složka**.
 
-> **Připravuje se:** export podobvodu do knihovny, sdílené složky knihoven a školní knihovny.
+> **Připravuje se:** export podobvodu do knihovny a školní knihovny.
 
 > **Hotový příklad:** Soubor → Příklady → Úplná sčítačka ze dvou podobvodů.

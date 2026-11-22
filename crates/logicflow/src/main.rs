@@ -18,6 +18,7 @@ mod panels;
 mod panes;
 mod project;
 mod schematic;
+mod settings;
 mod symbols;
 mod theme;
 mod timing;

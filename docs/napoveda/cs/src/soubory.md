@@ -30,7 +30,18 @@ V nabídce **Soubor → Příklady** je 9 hotových obvodů. Příklad se otevř
 
 - **Jazyk** přepnete tlačítky CS / EN vpravo nahoře nebo v nabídce **Zobrazit → Jazyk**. Změna platí hned, bez restartu.
 - **Styl značek** (evropské podle ČSN EN 60617-12, nebo americké ANSI/IEEE) zvolíte v **Zobrazit → Značky**.
-- Při prvním spuštění se obojí nastaví podle systému: čeština v českém a slovenském prostředí, jinak angličtina; americké značky v americkém prostředí. Vaši ruční volbu si program pamatuje.
+- Při prvním spuštění se obojí nastaví podle systému: čeština v českém a slovenském prostředí, jinak angličtina; americké značky v americkém prostředí. Vaši ruční volbu si program pamatuje v souboru s nastavením.
+
+## Nastavení
+
+Okno **Úpravy → Nastavení…** sdružuje osobní nastavení. Program si ho pamatuje v souboru s nastavením.
+
+- **Obecné:** jazyk, styl značek a povolení úprav za běhu simulace (stejné volby jako v nabídkách).
+- **Autor a licence:** vaše jméno a výchozí licence (CC BY 4.0). Použijí se u prvků exportovaných do knihovny a v informacích o obvodu.
+- **Knihovny:** složka osobních knihoven (výchozí `Dokumenty/LogicFlow/Knihovny`) a **sdílené složky** – složky na síti, na OneDrivu nebo kroužku, jejichž knihovny uvidíte v Knihovně součástek. U sdílené složky volba **jen pro čtení** znamená, že do ní program nic nezapíše. Nedostupná složka (odpojená síť) se v knihovně ukáže jako upozornění.
+- **Soubor s nastavením** je čitelný text `logicflow.toml`: ve Windows `%APPDATA%\LogicFlow` (s cestovním profilem se přenáší na další počítače), v macOS `~/Library/Application Support/LogicFlow`, v Linuxu a na Raspberry Pi `~/.config/logicflow`. Tlačítko **Otevřít složku s nastavením** ho ukáže ve správci souborů.
+- Soubor jde upravit i ručně. Když ho program nedokáže přečíst, odloží ho jako `logicflow.toml.bak` a použije výchozí nastavení.
+- **Obnovit výchozí nastavení…** (s potvrzením) vrátí jazyk a značky podle systému a smaže jméno autora, licenci i složky knihoven.
 
 ## Nabídka Nápověda
 

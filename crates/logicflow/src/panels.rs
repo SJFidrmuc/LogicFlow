@@ -1016,6 +1016,13 @@ fn element_libraries(
                     .map(|n| n.to_string_lossy())
                     .unwrap_or_default()
             ),
+            Source::Shared { file, read_only } => {
+                let mut t = format!("{} · {}", tr(lang, T::LibShared), file.display());
+                if *read_only {
+                    t.push_str(&format!(" · {}", tr(lang, T::SettingsReadOnly)));
+                }
+                t
+            }
         };
         let title = format!("{} ({})", lib.info.display_name(code), lib.items.len());
         egui::CollapsingHeader::new(title)
@@ -1078,6 +1085,9 @@ fn element_libraries(
                 }
                 if ui.button(tr(lang, T::LibReload)).clicked() {
                     libs.reload();
+                }
+                if ui.button(tr(lang, T::LibSettingsButton)).clicked() {
+                    libraries::request_settings(ui.ctx());
                 }
             });
             if !libs

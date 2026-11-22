@@ -271,6 +271,40 @@ pub enum T {
     LibVersion,
     LibProblem,
     LibNoMatch,
+    // Nastavení
+    // [en] Settings
+    LibShared,
+    LibUnavailable,
+    LibSettingsButton,
+    SettingsMenu,
+    SettingsTitle,
+    SettingsGeneral,
+    SettingsAuthorSection,
+    SettingsAuthor,
+    SettingsAuthorHint,
+    SettingsAuthorNote,
+    SettingsLicense,
+    LicenseNone,
+    SettingsLibraries,
+    SettingsPersonalFolder,
+    SettingsChange,
+    SettingsDefault,
+    SettingsShared,
+    SettingsSharedNote,
+    SettingsReadOnly,
+    SettingsRemove,
+    SettingsAddShared,
+    SettingsNoShared,
+    SettingsFile,
+    SettingsOpenFolder,
+    SettingsReset,
+    SettingsResetConfirm,
+    SettingsResetYes,
+    SettingsBroken,
+    SettingsSaveFailed,
+    SettingsNoPath,
+    ChooseFolder,
+    ChooseThisFolder,
     // Stavový řádek
     // [en] Status bar
     Running,
@@ -513,6 +547,46 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             LibVersion => "verze",
             LibProblem => "Nepodařilo se načíst",
             LibNoMatch => "Žádný prvek neodpovídá hledání.",
+            LibShared => "Sdílená složka",
+            LibUnavailable => "složka není dostupná",
+            LibSettingsButton => "Složky knihoven…",
+            SettingsMenu => "Nastavení…",
+            SettingsTitle => "Nastavení",
+            SettingsGeneral => "Obecné",
+            SettingsAuthorSection => "Autor a licence",
+            SettingsAuthor => "Jméno autora",
+            SettingsAuthorHint => "např. Mgr. Jan Novák",
+            SettingsAuthorNote => {
+                "Použije se u prvků exportovaných do knihovny a v informacích o obvodu."
+            }
+            SettingsLicense => "Výchozí licence",
+            LicenseNone => "neuvedeno",
+            SettingsLibraries => "Knihovny",
+            SettingsPersonalFolder => "Osobní knihovny",
+            SettingsChange => "Změnit…",
+            SettingsDefault => "Výchozí",
+            SettingsShared => "Sdílené složky",
+            SettingsSharedNote => {
+                "Složky na síti, na OneDrivu nebo kroužku – knihovny z nich uvidíte v Knihovně součástek."
+            }
+            SettingsReadOnly => "jen pro čtení",
+            SettingsRemove => "Odebrat",
+            SettingsAddShared => "+ Přidat sdílenou složku…",
+            SettingsNoShared => "Žádné sdílené složky.",
+            SettingsFile => "Soubor s nastavením",
+            SettingsOpenFolder => "Otevřít složku s nastavením",
+            SettingsReset => "Obnovit výchozí nastavení…",
+            SettingsResetConfirm => {
+                "Opravdu? Jazyk a značky se nastaví podle systému, jméno autora, licence a složky knihoven se vrátí na výchozí."
+            }
+            SettingsResetYes => "Ano, obnovit",
+            SettingsBroken => {
+                "Soubor s nastavením nešel přečíst, platí výchozí nastavení. Původní soubor je uložený jako logicflow.toml.bak."
+            }
+            SettingsSaveFailed => "Nastavení nejde uložit",
+            SettingsNoPath => "Složku pro nastavení se nepodařilo zjistit – nastavení se neuloží.",
+            ChooseFolder => "Vybrat složku",
+            ChooseThisFolder => "Vybrat tuto složku",
             Running => "Simulace běží",
             Paused => "Simulace pozastavena",
             Unsaved => "neuloženo",
@@ -744,6 +818,48 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             LibVersion => "version",
             LibProblem => "Could not load",
             LibNoMatch => "No element matches the search.",
+            LibShared => "Shared folder",
+            LibUnavailable => "folder is not available",
+            LibSettingsButton => "Library folders…",
+            SettingsMenu => "Settings…",
+            SettingsTitle => "Settings",
+            SettingsGeneral => "General",
+            SettingsAuthorSection => "Author and licence",
+            SettingsAuthor => "Author name",
+            SettingsAuthorHint => "e.g. Jane Smith",
+            SettingsAuthorNote => {
+                "Used for elements exported to a library and in circuit information."
+            }
+            SettingsLicense => "Default licence",
+            LicenseNone => "not specified",
+            SettingsLibraries => "Libraries",
+            SettingsPersonalFolder => "Personal libraries",
+            SettingsChange => "Change…",
+            SettingsDefault => "Default",
+            SettingsShared => "Shared folders",
+            SettingsSharedNote => {
+                "Folders on the network, on OneDrive or of a club – their libraries appear in the Component library."
+            }
+            SettingsReadOnly => "read-only",
+            SettingsRemove => "Remove",
+            SettingsAddShared => "+ Add shared folder…",
+            SettingsNoShared => "No shared folders.",
+            SettingsFile => "Settings file",
+            SettingsOpenFolder => "Open settings folder",
+            SettingsReset => "Restore default settings…",
+            SettingsResetConfirm => {
+                "Really? Language and symbols follow the system again; author name, licence and library folders return to the defaults."
+            }
+            SettingsResetYes => "Yes, restore",
+            SettingsBroken => {
+                "The settings file could not be read, default settings apply. The original file was kept as logicflow.toml.bak."
+            }
+            SettingsSaveFailed => "The settings cannot be saved",
+            SettingsNoPath => {
+                "The settings folder could not be found – settings will not be saved."
+            }
+            ChooseFolder => "Choose folder",
+            ChooseThisFolder => "Choose this folder",
             Running => "Simulation running",
             Paused => "Simulation paused",
             Unsaved => "unsaved",

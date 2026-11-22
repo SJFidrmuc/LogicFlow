@@ -12,6 +12,7 @@ use crate::i18n::{Lang, T, tr};
 use crate::panels::TruthCache;
 use crate::panes::{self, AreaBehavior, Pane, Workspace};
 use crate::project::Project;
+use crate::settings::{self, Settings, SharedFolder};
 use crate::symbols::SymbolStyle;
 use crate::theme::{self, colors};
 use egui::{Key, RichText};
@@ -48,12 +49,14 @@ enum Pending {
     Quit,
 }
 
-/// Osobní nastavení uživatele (ukládá se mezi spuštěními, ne do souboru obvodu).
+/// Nastavení ze starších verzí (do 0.3) uložené v úložišti eframe. Při prvním
+/// spuštění bez souboru s nastavením se převezme, aby uživatel o volby nepřišel.
 ///
-/// [en] The user's personal settings (kept between runs, not in the circuit file).
-#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+/// [en] Settings from older versions (up to 0.3) stored in the eframe storage. On the
+/// first run without a settings file they are taken over so the user keeps them.
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize)]
 #[serde(default)]
-struct Settings {
+struct LegacySettings {
     /// Jazyk rozhraní.
     ///
     /// [en] Interface language.
@@ -62,51 +65,36 @@ struct Settings {
     ///
     /// [en] Symbol style.
     symbols: SymbolStyle,
-    /// Povolit úpravy schématu i v režimu simulace (pro pokročilé, výchozí vypnuto).
+    /// Povolit úpravy za běhu simulace.
     ///
-    /// [en] Allow editing the schematic in simulation mode too (advanced, off by default).
+    /// [en] Allow editing while simulating.
     edit_while_simulating: bool,
 }
 
-/// Klíč nastavení v úložišti eframe.
+/// Klíč starého nastavení v úložišti eframe.
 ///
-/// [en] Settings key in the eframe storage.
+/// [en] Key of the old settings in the eframe storage.
 const SETTINGS_KEY: &str = "settings";
 
-impl Settings {
-    /// Výchozí nastavení podle jazyka systému (např. „cs-CZ“, „en_US.UTF-8“):
-    /// čeština (i pro slovenštinu), jinak angličtina; v americkém prostředí
-    /// americké značky. Uživatel může obojí kdykoli změnit v nabídce Zobrazit.
+/// K čemu se vybírá složka v okně pro soubory.
+///
+/// [en] What a folder is being chosen for in the file dialog.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FolderTarget {
+    /// Složka osobních knihoven.
     ///
-    /// [en] Default settings according to the system language (e.g. “cs-CZ”, “en_US.UTF-8”):
-    /// Czech (also for Slovak), otherwise English; American symbols in an American
-    /// environment. The user can change both at any time in the View menu.
-    fn for_locale(locale: Option<&str>) -> Self {
-        let tag = locale
-            .unwrap_or("")
-            .split('.')
-            .next()
-            .unwrap_or("")
-            .replace('_', "-")
-            .to_ascii_lowercase();
-        let mut parts = tag.split('-');
-        let language = parts.next().unwrap_or("");
-        let region = parts.find(|p| p.len() == 2).unwrap_or("");
-        Self {
-            lang: match language {
-                "cs" | "sk" => Lang::Cs,
-                "" => Lang::Cs,
-                _ => Lang::En,
-            },
-            symbols: if region == "us" {
-                SymbolStyle::Ansi
-            } else {
-                SymbolStyle::Iec
-            },
-            edit_while_simulating: false,
-        }
-    }
+    /// [en] Personal libraries folder.
+    PersonalLibraries,
+    /// Nová sdílená složka knihoven.
+    ///
+    /// [en] A new shared library folder.
+    SharedLibrary,
 }
+
+/// Licence nabízené v nastavení (vlastní jde napsat do pole).
+///
+/// [en] Licences offered in the settings (a custom one can be typed into the field).
+const LICENSE_PRESETS: [&str; 4] = ["CC BY 4.0", "CC BY-SA 4.0", "CC BY-NC 4.0", "CC0 1.0"];
 
 /// Webová stránka projektu.
 ///
@@ -170,10 +158,40 @@ pub struct LogicFlowApp {
     ///
     /// [en] Cached truth table.
     truth_cache: TruthCache,
-    /// Knihovny prvků (vestavěná a osobní).
+    /// Knihovny prvků (vestavěná, osobní a sdílené).
     ///
-    /// [en] Element libraries (built-in and personal).
+    /// [en] Element libraries (built-in, personal and shared).
     libraries: crate::libraries::Libraries,
+    /// Osobní nastavení (jazyk, značky a úpravy za běhu simulace jsou navíc ve vlastních
+    /// polích okna; před uložením se sem přepíšou).
+    ///
+    /// [en] Personal settings (language, symbols and editing while simulating are also in
+    /// the window's own fields; they are copied here before saving).
+    settings: Settings,
+    /// Cesta k souboru s nastavením (`None` = složku nejde zjistit, neukládá se).
+    ///
+    /// [en] Path to the settings file (`None` = the folder cannot be found, not saved).
+    settings_path: Option<PathBuf>,
+    /// Naposledy uložené nastavení (`None` = ještě neuloženo) – ukládá se jen po změně.
+    ///
+    /// [en] Settings saved last (`None` = not saved yet) – saved only after a change.
+    saved_settings: Option<Settings>,
+    /// Chyba při posledním ukládání nastavení.
+    ///
+    /// [en] Error when the settings were saved last.
+    settings_error: Option<String>,
+    /// Je otevřené okno Nastavení?
+    ///
+    /// [en] Is the Settings window open?
+    settings_open: bool,
+    /// Čeká obnovení výchozího nastavení na potvrzení?
+    ///
+    /// [en] Is restoring the default settings waiting for confirmation?
+    settings_reset: bool,
+    /// K čemu se právě vybírá složka.
+    ///
+    /// [en] What a folder is being chosen for at the moment.
+    folder_target: Option<FolderTarget>,
     /// Je otevřené okno O aplikaci?
     ///
     /// [en] Is the About window open?
@@ -225,17 +243,43 @@ impl LogicFlowApp {
     /// [en] Creates the window: loads the settings (from the system on the first run) and opens a file or the first example.
     pub fn new(cc: &eframe::CreationContext<'_>, open: Option<PathBuf>) -> Self {
         theme::apply(&cc.egui_ctx);
-        let settings: Settings = cc
-            .storage
-            .and_then(|s| eframe::get_value(s, SETTINGS_KEY))
-            // První spuštění: jazyk a značky podle nastavení systému.
-            // [en] First run: language and symbols according to the system settings.
-            .unwrap_or_else(|| Settings::for_locale(sys_locale::get_locale().as_deref()));
+        // Výchozí hodnoty podle systému; soubor s nastavením je přepíše.
+        // [en] Defaults according to the system; the settings file overrides them.
+        let defaults = Settings::for_locale(sys_locale::get_locale().as_deref());
+        let settings_path = settings::folder().map(|d| d.join(settings::FILE_NAME));
         let mut error = None;
+        let mut saved_settings = None;
+        let settings = match settings_path
+            .as_deref()
+            .map(|p| settings::load(p, &defaults))
+        {
+            Some(settings::Loaded::Ok(s)) => {
+                saved_settings = Some(s.clone());
+                s
+            }
+            Some(settings::Loaded::Broken(e)) => {
+                error = Some(format!("{}\n{e}", tr(defaults.lang, T::SettingsBroken)));
+                defaults
+            }
+            // První spuštění: převezme se nastavení starší verze z úložiště eframe.
+            // [en] First run: the settings of an older version are taken from the eframe storage.
+            Some(settings::Loaded::Missing) | None => {
+                let mut s = defaults;
+                if let Some(old) = cc
+                    .storage
+                    .and_then(|st| eframe::get_value::<LegacySettings>(st, SETTINGS_KEY))
+                {
+                    s.lang = old.lang;
+                    s.symbols = old.symbols;
+                    s.edit_while_simulating = old.edit_while_simulating;
+                }
+                s
+            }
+        };
         let project = match open.as_deref().map(Project::load) {
             Some(Ok(p)) => p,
             Some(Err(e)) => {
-                error = Some(e);
+                error = Some(error.map_or(e.clone(), |prev| format!("{prev}\n\n{e}")));
                 example_project(0)
             }
             None => example_project(0),
@@ -255,7 +299,14 @@ impl LogicFlowApp {
                 .and_then(|p| p.parent().map(PathBuf::from)),
             project,
             truth_cache: None,
-            libraries: crate::libraries::Libraries::load(),
+            libraries: crate::libraries::Libraries::load(&settings),
+            settings_path,
+            saved_settings,
+            settings_error: None,
+            settings_open: false,
+            settings_reset: false,
+            folder_target: None,
+            settings,
             about_open: false,
             help: HelpWindow::new(),
             file_dialog: None,
@@ -522,6 +573,10 @@ impl LogicFlowApp {
                                 Some(Command::Subcircuit),
                             ],
                         );
+                        ui.separator();
+                        if ui.button(tr(lang, T::SettingsMenu)).clicked() {
+                            self.settings_open = true;
+                        }
                     });
                     ui.menu_button(tr(lang, T::MenuView), |ui| {
                         if ui.button(tr(lang, T::ResetLayout)).clicked() {
@@ -712,6 +767,268 @@ impl LogicFlowApp {
             });
     }
 
+    /// Uloží soubor s nastavením, pokud se nastavení od posledního uložení změnilo.
+    ///
+    /// [en] Saves the settings file if the settings changed since they were saved last.
+    fn save_settings_if_changed(&mut self) {
+        self.settings.lang = self.lang;
+        self.settings.symbols = self.symbols;
+        self.settings.edit_while_simulating = self.edit_while_simulating;
+        if self.saved_settings.as_ref() == Some(&self.settings) {
+            return;
+        }
+        if let Some(path) = &self.settings_path {
+            self.settings_error = settings::save(path, &self.settings).err();
+        }
+        self.saved_settings = Some(self.settings.clone());
+    }
+
+    /// Převezme nastavení (např. po obnovení výchozího) do polí okna a knihoven.
+    ///
+    /// [en] Applies settings (e.g. after restoring the defaults) to the window fields and libraries.
+    fn apply_settings(&mut self, s: Settings) {
+        self.lang = s.lang;
+        self.symbols = s.symbols;
+        self.edit_while_simulating = s.edit_while_simulating;
+        self.settings = s;
+        self.libraries.configure(&self.settings);
+    }
+
+    /// Otevře okno pro výběr složky (pro knihovny).
+    ///
+    /// [en] Opens the dialog for choosing a folder (for libraries).
+    fn choose_folder(&mut self, target: FolderTarget, start: Option<PathBuf>) {
+        self.folder_target = Some(target);
+        self.file_dialog = Some(FileDialog::new(
+            filedialog::Mode::Folder,
+            start
+                .filter(|p| p.is_dir())
+                .or_else(|| self.last_dir.clone()),
+            "",
+        ));
+    }
+
+    /// Vybraná složka z okna pro soubory: osobní nebo nová sdílená složka knihoven.
+    ///
+    /// [en] Folder chosen in the file dialog: personal or a new shared library folder.
+    fn folder_chosen(&mut self, path: PathBuf) {
+        match self.folder_target.take() {
+            Some(FolderTarget::PersonalLibraries) => {
+                self.settings.personal_libraries = Some(path);
+            }
+            Some(FolderTarget::SharedLibrary) => {
+                if !self
+                    .settings
+                    .shared_libraries
+                    .iter()
+                    .any(|f| f.path == path)
+                {
+                    self.settings.shared_libraries.push(SharedFolder {
+                        path,
+                        read_only: true,
+                    });
+                }
+            }
+            None => return,
+        }
+        self.libraries.configure(&self.settings);
+    }
+
+    /// Okno Nastavení: obecné volby, autor a licence, složky knihoven, soubor s nastavením.
+    ///
+    /// [en] Settings window: general options, author and licence, library folders, settings file.
+    fn settings_window(&mut self, ctx: &egui::Context) {
+        if !self.settings_open {
+            return;
+        }
+        let lang = self.lang;
+        let weak = |t: &str| RichText::new(t).small().color(colors::TEXT_WEAK);
+        let before_libs = (
+            self.settings.personal_libraries.clone(),
+            self.settings.shared_libraries.clone(),
+        );
+        let mut open = true;
+        let mut choose: Option<(FolderTarget, Option<PathBuf>)> = None;
+        let mut reset = false;
+        egui::Window::new(tr(lang, T::SettingsTitle))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .default_width(520.0)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.heading(tr(lang, T::SettingsGeneral));
+                egui::Grid::new("settings_general")
+                    .num_columns(2)
+                    .spacing([12.0, 6.0])
+                    .show(ui, |ui| {
+                        ui.label(tr(lang, T::Language));
+                        ui.horizontal(|ui| {
+                            ui.radio_value(&mut self.lang, Lang::Cs, "Čeština");
+                            ui.radio_value(&mut self.lang, Lang::En, "English");
+                        });
+                        ui.end_row();
+                        ui.label(tr(lang, T::Symbols));
+                        ui.horizontal(|ui| {
+                            ui.radio_value(
+                                &mut self.symbols,
+                                SymbolStyle::Iec,
+                                tr(lang, T::SymbolsIec),
+                            );
+                            ui.radio_value(
+                                &mut self.symbols,
+                                SymbolStyle::Ansi,
+                                tr(lang, T::SymbolsAnsi),
+                            );
+                        });
+                        ui.end_row();
+                    });
+                ui.checkbox(
+                    &mut self.edit_while_simulating,
+                    tr(lang, T::EditWhileSimulating),
+                );
+
+                ui.add_space(8.0);
+                ui.heading(tr(lang, T::SettingsAuthorSection));
+                egui::Grid::new("settings_author")
+                    .num_columns(2)
+                    .spacing([12.0, 6.0])
+                    .show(ui, |ui| {
+                        ui.label(tr(lang, T::SettingsAuthor));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.settings.author)
+                                .hint_text(tr(lang, T::SettingsAuthorHint))
+                                .desired_width(280.0),
+                        );
+                        ui.end_row();
+                        ui.label(tr(lang, T::SettingsLicense));
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.settings.license)
+                                    .desired_width(160.0),
+                            );
+                            egui::ComboBox::from_id_salt("settings_license")
+                                .selected_text("")
+                                .width(24.0)
+                                .show_ui(ui, |ui| {
+                                    for l in LICENSE_PRESETS
+                                        .into_iter()
+                                        .chain([tr(lang, T::LicenseNone)])
+                                    {
+                                        if ui
+                                            .selectable_label(self.settings.license == l, l)
+                                            .clicked()
+                                        {
+                                            self.settings.license = l.to_owned();
+                                        }
+                                    }
+                                });
+                        });
+                        ui.end_row();
+                    });
+                ui.label(weak(tr(lang, T::SettingsAuthorNote)));
+
+                ui.add_space(8.0);
+                ui.heading(tr(lang, T::SettingsLibraries));
+                ui.label(tr(lang, T::SettingsPersonalFolder));
+                let personal = self.settings.personal_folder();
+                ui.label(weak(&personal.as_ref().map_or_else(
+                    || tr(lang, T::LibNoFolder).to_owned(),
+                    |p| p.display().to_string(),
+                )));
+                ui.horizontal(|ui| {
+                    if ui.button(tr(lang, T::SettingsChange)).clicked() {
+                        choose = Some((FolderTarget::PersonalLibraries, personal.clone()));
+                    }
+                    if ui
+                        .add_enabled(
+                            self.settings.personal_libraries.is_some(),
+                            egui::Button::new(tr(lang, T::SettingsDefault)),
+                        )
+                        .clicked()
+                    {
+                        self.settings.personal_libraries = None;
+                    }
+                });
+                ui.add_space(4.0);
+                ui.label(tr(lang, T::SettingsShared));
+                ui.label(weak(tr(lang, T::SettingsSharedNote)));
+                let mut remove = None;
+                for (i, f) in self.settings.shared_libraries.iter_mut().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut f.read_only, tr(lang, T::SettingsReadOnly));
+                        if ui.button(tr(lang, T::SettingsRemove)).clicked() {
+                            remove = Some(i);
+                        }
+                        ui.label(f.path.display().to_string());
+                    });
+                }
+                if let Some(i) = remove {
+                    self.settings.shared_libraries.remove(i);
+                }
+                if self.settings.shared_libraries.is_empty() {
+                    ui.label(weak(tr(lang, T::SettingsNoShared)));
+                }
+                if ui.button(tr(lang, T::SettingsAddShared)).clicked() {
+                    choose = Some((FolderTarget::SharedLibrary, None));
+                }
+
+                ui.add_space(8.0);
+                ui.separator();
+                ui.label(tr(lang, T::SettingsFile));
+                match &self.settings_path {
+                    Some(p) => ui.label(weak(&p.display().to_string())),
+                    None => ui.label(weak(tr(lang, T::SettingsNoPath))),
+                };
+                if let Some(e) = &self.settings_error {
+                    ui.label(
+                        RichText::new(format!("{}: {e}", tr(lang, T::SettingsSaveFailed)))
+                            .small()
+                            .color(theme::signal_color(logicflow_core::LogicValue::X)),
+                    );
+                }
+                ui.horizontal(|ui| {
+                    if let Some(dir) = self.settings_path.as_ref().and_then(|p| p.parent())
+                        && ui.button(tr(lang, T::SettingsOpenFolder)).clicked()
+                        && let Err(e) = crate::libraries::open_folder(dir)
+                    {
+                        self.settings_error = Some(e);
+                    }
+                    if !self.settings_reset && ui.button(tr(lang, T::SettingsReset)).clicked() {
+                        self.settings_reset = true;
+                    }
+                });
+                if self.settings_reset {
+                    ui.label(tr(lang, T::SettingsResetConfirm));
+                    ui.horizontal(|ui| {
+                        if ui.button(tr(lang, T::SettingsResetYes)).clicked() {
+                            reset = true;
+                            self.settings_reset = false;
+                        }
+                        if ui.button(tr(lang, T::Cancel)).clicked() {
+                            self.settings_reset = false;
+                        }
+                    });
+                }
+            });
+        if !open {
+            self.settings_open = false;
+            self.settings_reset = false;
+        }
+        if reset {
+            self.apply_settings(Settings::for_locale(sys_locale::get_locale().as_deref()));
+        } else if (
+            self.settings.personal_libraries.clone(),
+            self.settings.shared_libraries.clone(),
+        ) != before_libs
+        {
+            self.libraries.configure(&self.settings);
+        }
+        if let Some((target, start)) = choose {
+            self.choose_folder(target, start);
+        }
+    }
+
     /// Okna a dialogy: soubory, potvrzení neuložených změn, chyby, O aplikaci, nápověda.
     ///
     /// [en] Windows and dialogs: files, confirming unsaved changes, errors, About, help.
@@ -725,12 +1042,14 @@ impl LogicFlowApp {
                 filedialog::Outcome::Cancel => {
                     self.file_dialog = None;
                     self.after_save = None;
+                    self.folder_target = None;
                 }
                 filedialog::Outcome::Chosen(path) => {
                     self.last_dir = Some(dialog.dir().to_path_buf());
                     let mode = dialog.mode;
                     self.file_dialog = None;
                     match mode {
+                        filedialog::Mode::Folder => self.folder_chosen(path),
                         filedialog::Mode::Open => match Project::load(&path) {
                             Ok(p) => self.replace_project(p),
                             Err(e) => self.error = Some(format!("{}\n{e}", path.display())),
@@ -800,6 +1119,8 @@ impl LogicFlowApp {
                 }
             });
         }
+
+        self.settings_window(ctx);
 
         let mut open = self.about_open;
         egui::Window::new(tr(lang, T::About))
@@ -933,18 +1254,6 @@ fn example_project(i: usize) -> Project {
 }
 
 impl eframe::App for LogicFlowApp {
-    /// Uloží nastavení (jazyk, značky) do úložiště eframe.
-    ///
-    /// [en] Saves the settings (language, symbols) to the eframe storage.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        let settings = Settings {
-            lang: self.lang,
-            symbols: self.symbols,
-            edit_while_simulating: self.edit_while_simulating,
-        };
-        eframe::set_value(storage, SETTINGS_KEY, &settings);
-    }
-
     /// Tab slouží ke vstupu do podobvodu a zpět (jako v Blenderu). Mimo textová pole
     /// ho proto egui nedostane – jinak by jím přesouvalo fokus mezi tlačítky.
     ///
@@ -1068,8 +1377,12 @@ impl eframe::App for LogicFlowApp {
             self.project.stop_simulation();
         }
         self.sync_workspace_mode();
+        if crate::libraries::take_settings_request(&ctx) {
+            self.settings_open = true;
+        }
         self.dialogs(&ctx);
         self.update_title(&ctx);
+        self.save_settings_if_changed();
     }
 }
 
@@ -1102,25 +1415,5 @@ mod tests {
         // [en] F5 on the Design workspace: the rule changes neither the workspace nor the mode.
         let s = workspace_rule(0, 0, 0, sim, true);
         assert_eq!((s.workspace, s.mode), (0, None));
-    }
-
-    #[test]
-    fn defaults_follow_system_locale() {
-        let s = Settings::for_locale(Some("cs-CZ"));
-        assert_eq!((s.lang, s.symbols), (Lang::Cs, SymbolStyle::Iec));
-        let s = Settings::for_locale(Some("sk_SK.UTF-8"));
-        assert_eq!(s.lang, Lang::Cs);
-        let s = Settings::for_locale(Some("en-US"));
-        assert_eq!((s.lang, s.symbols), (Lang::En, SymbolStyle::Ansi));
-        let s = Settings::for_locale(Some("en_GB.UTF-8"));
-        assert_eq!((s.lang, s.symbols), (Lang::En, SymbolStyle::Iec));
-        let s = Settings::for_locale(Some("de-DE"));
-        assert_eq!((s.lang, s.symbols), (Lang::En, SymbolStyle::Iec));
-        let s = Settings::for_locale(Some("zh-Hans-US"));
-        assert_eq!(s.symbols, SymbolStyle::Ansi);
-        // Neznámé prostředí: čeština a evropské značky.
-        // [en] Unknown environment: Czech and European symbols.
-        let s = Settings::for_locale(None);
-        assert_eq!((s.lang, s.symbols), (Lang::Cs, SymbolStyle::Iec));
     }
 }
