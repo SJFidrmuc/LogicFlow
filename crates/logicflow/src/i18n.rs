@@ -25,6 +25,18 @@ pub enum Lang {
     En,
 }
 
+impl Lang {
+    /// Kód jazyka ISO 639-1 (`"cs"`, `"en"`) – podle něj se vybírají překlady názvů prvků knihoven.
+    ///
+    /// [en] ISO 639-1 language code (`"cs"`, `"en"`) – used to pick translations of library element names.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Cs => "cs",
+            Self::En => "en",
+        }
+    }
+}
+
 /// Klíče textů v rozhraní.
 ///
 /// [en] Keys of interface texts.
@@ -241,6 +253,24 @@ pub enum T {
     CtxOpen,
     CtxFind,
     CopyAsText,
+    // Knihovny prvků
+    // [en] Element libraries
+    LibSection,
+    LibHint,
+    LibBuiltin,
+    LibPersonal,
+    LibFolder,
+    LibOpenFolder,
+    LibReload,
+    LibEmpty,
+    LibNoFolder,
+    LibInputs,
+    LibOutputs,
+    LibAuthor,
+    LibLicense,
+    LibVersion,
+    LibProblem,
+    LibNoMatch,
     // Stavový řádek
     // [en] Status bar
     Running,
@@ -465,6 +495,24 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             CtxOpen => "Otevřít",
             CtxFind => "Najít ve schématu",
             CopyAsText => "Kopírovat jako text",
+            LibSection => "Knihovny prvků",
+            LibHint => "Klikněte na prvek a pak do schématu – vloží se jako podobvod.",
+            LibBuiltin => "Vestavěná knihovna · jen pro čtení",
+            LibPersonal => "Osobní knihovna",
+            LibFolder => "Složka osobních knihoven",
+            LibOpenFolder => "Otevřít složku",
+            LibReload => "Načíst znovu",
+            LibEmpty => {
+                "Své knihovny (.lflib) zkopírujte do této složky a klikněte na Načíst znovu."
+            }
+            LibNoFolder => "Složku dokumentů se nepodařilo najít.",
+            LibInputs => "Vstupy",
+            LibOutputs => "Výstupy",
+            LibAuthor => "Autor",
+            LibLicense => "Licence",
+            LibVersion => "verze",
+            LibProblem => "Nepodařilo se načíst",
+            LibNoMatch => "Žádný prvek neodpovídá hledání.",
             Running => "Simulace běží",
             Paused => "Simulace pozastavena",
             Unsaved => "neuloženo",
@@ -678,6 +726,24 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             CtxOpen => "Open",
             CtxFind => "Find in schematic",
             CopyAsText => "Copy as text",
+            LibSection => "Element libraries",
+            LibHint => {
+                "Click an element, then click in the schematic – it is inserted as a subcircuit."
+            }
+            LibBuiltin => "Built-in library · read-only",
+            LibPersonal => "Personal library",
+            LibFolder => "Personal libraries folder",
+            LibOpenFolder => "Open folder",
+            LibReload => "Reload",
+            LibEmpty => "Copy your libraries (.lflib) into this folder and click Reload.",
+            LibNoFolder => "The documents folder could not be found.",
+            LibInputs => "Inputs",
+            LibOutputs => "Outputs",
+            LibAuthor => "Author",
+            LibLicense => "Licence",
+            LibVersion => "version",
+            LibProblem => "Could not load",
+            LibNoMatch => "No element matches the search.",
             Running => "Simulation running",
             Paused => "Simulation paused",
             Unsaved => "unsaved",

@@ -155,6 +155,10 @@ pub struct AreaBehavior<'a> {
     ///
     /// [en] Cached truth table (recomputed when the circuit changes).
     pub truth_cache: &'a mut TruthCache,
+    /// Knihovny prvků (pro Knihovnu součástek).
+    ///
+    /// [en] Element libraries (for the Component library).
+    pub libraries: &'a mut crate::libraries::Libraries,
     /// Jazyk rozhraní.
     ///
     /// [en] Interface language.
@@ -254,7 +258,9 @@ impl Behavior<Pane> for AreaBehavior<'_> {
             EditorKind::Timing => timing::ui(ui, p, lang),
             EditorKind::Properties => panels::properties(ui, p, lang),
             EditorKind::Hierarchy => panels::hierarchy(ui, p, lang),
-            EditorKind::Library => panels::library(ui, &mut pane.search, p, lang),
+            EditorKind::Library => {
+                panels::library(ui, &mut pane.search, p, self.libraries, lang);
+            }
             EditorKind::TruthTable => panels::truth_table(ui, p, self.truth_cache, lang),
             EditorKind::Memory => panels::memory(ui, lang),
             EditorKind::Help => crate::help::area(ui, &mut pane.help_section, lang),

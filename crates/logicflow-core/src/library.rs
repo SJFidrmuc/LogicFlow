@@ -748,15 +748,22 @@ impl Library {
     /// Text pro vložení prvku do projektu: stejný tvar jako schránka (soubor
     /// `.logicflow` s jednou instancí prvku a definicemi všech potřebných prvků),
     /// takže se vloží stejně jako Ctrl+V – podobvody se sloučí s těmi, které
-    /// projekt už má. `None`, když prvek v knihovně není.
+    /// projekt už má. Podobvody dostanou názvy v jazyce `lang` (jinak hlavní).
+    /// `None`, když prvek v knihovně není.
     ///
     /// [en] Text for inserting an item into a project: the same shape as the
     /// clipboard (a `.logicflow` file with one instance of the item and the
     /// definitions of all needed items), so it is inserted just like Ctrl+V –
-    /// subcircuits are merged with those the project already has. `None` when the
-    /// item is not in the library.
-    pub fn insertion_text(&self, uid: &str) -> Option<String> {
-        let defs = self.item_with_dependencies(uid)?;
+    /// subcircuits are merged with those the project already has. The subcircuits
+    /// get their names in the language `lang` (otherwise the main ones). `None` when
+    /// the item is not in the library.
+    pub fn insertion_text(&self, uid: &str, lang: &str) -> Option<String> {
+        let mut defs = self.item_with_dependencies(uid)?;
+        for d in &mut defs {
+            if let Some(i) = self.items.iter().find(|i| i.id == d.id) {
+                d.name = i.display_name(lang).to_owned();
+            }
+        }
         let item = self.item(uid)?;
         let mut circuit = Circuit::default();
         circuit.add_component(item.def().kind(), Point::new(0, 0));
@@ -910,7 +917,8 @@ mod tests {
         );
         // Text pro vložení je obvod s jednou instancí a definicemi (jako schránka).
         // [en] The insertion text is a circuit with one instance and definitions (like the clipboard).
-        let (c, defs) = ProjectFile::from_json(&lib.insertion_text(ADDER_2BIT).unwrap()).unwrap();
+        let (c, defs) =
+            ProjectFile::from_json(&lib.insertion_text(ADDER_2BIT, "cs").unwrap()).unwrap();
         assert_eq!(c.components.len(), 1);
         assert_eq!(
             c.components[0].kind,
@@ -921,6 +929,12 @@ mod tests {
             }
         );
         assert_eq!(defs, deps);
+        // V angličtině dostanou podobvody anglické názvy.
+        // [en] In English the subcircuits get English names.
+        let (_, defs) =
+            ProjectFile::from_json(&lib.insertion_text(ADDER_2BIT, "en").unwrap()).unwrap();
+        let names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
+        assert_eq!(names, ["1-bit full adder", "2-bit adder"]);
     }
 
     #[test]

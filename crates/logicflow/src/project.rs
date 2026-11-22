@@ -230,6 +230,12 @@ pub struct Project {
     ///
     /// [en] Component chosen in the library that is to be placed in the schematic.
     pub pending_place: Option<ComponentKind>,
+    /// Prvek knihovny vybraný k vložení: identita prvku a text ve tvaru schránky
+    /// (vloží se stejně jako Ctrl+V u ukazatele myši).
+    ///
+    /// [en] Library element chosen for insertion: the element's identity and text in
+    /// clipboard form (inserted like Ctrl+V at the mouse pointer).
+    pub pending_paste: Option<(String, String)>,
 }
 
 impl Project {
@@ -268,6 +274,7 @@ impl Project {
             time: 0.0,
             signals: Vec::new(),
             pending_place: None,
+            pending_paste: None,
             focus_request: None,
         };
         p.record_signals();
@@ -462,6 +469,7 @@ impl Project {
         self.redo.clear();
         self.selection.clear();
         self.pending_place = None;
+        self.pending_paste = None;
         match target {
             None => {
                 let stash = self.main_stash.take().expect("hlavní obvod je uložený");

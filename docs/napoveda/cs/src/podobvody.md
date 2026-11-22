@@ -21,4 +21,16 @@ Podobvod je samostatný obvod, který vložíte do jiného jako jednu součástk
 - Simulace zachovává zpoždění hradel i uvnitř podobvodů a každá instance má vlastní stav (např. vlastní klopné obvody).
 - Celý projekt včetně všech podobvodů se ukládá do jednoho souboru.
 
+## Knihovny prvků
+
+Hotová zapojení najdete v oblasti **Knihovna součástek** pod nadpisem **Knihovny prvků**. Prvky jsou rozdělené podle kategorií (Kombinační obvody, Aritmetika, Sekvenční obvody…) a hledání je najde podle názvu i kategorie.
+
+- **Vestavěná knihovna „Číslicová technika – výukové prvky“** obsahuje 36 zapojení běžných úloh: hradla z NAND a NOR, multiplexory, dekodér, komparátory, převodníky Grayova kódu, sčítačky a odčítačky, klopné obvody, čítače, registry, alarm a semafor.
+- Prvek vložíte stejně jako součástku: klikněte na něj a pak do schématu. Objeví se u ukazatele myši a kliknutím ho položíte.
+- Vložený prvek je **podobvod projektu** (kopie). Tabem ho otevřete, upravíte a uloží se s projektem. Prvky, které používá (např. úplné sčítačky ve 4bitové sčítačce), se vloží s ním.
+- Pod vybraným prvkem uvidíte jeho popis, vývody, autora a licenci.
+- **Osobní knihovny** jsou soubory `.lflib` ve složce `Dokumenty/LogicFlow/Knihovny`. Tlačítko **Otevřít složku** ji vytvoří a otevře, po zkopírování souborů klikněte na **Načíst znovu**.
+
+> **Připravuje se:** export podobvodu do knihovny, sdílené složky knihoven a školní knihovny.
+
 > **Hotový příklad:** Soubor → Příklady → Úplná sčítačka ze dvou podobvodů.
