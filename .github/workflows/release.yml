@@ -189,9 +189,13 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      # Skript archivu z výchozí větve, ne z tagu: i při dodatečném sestavení
+      # starší verze (bez scripts/archiv.py) se archiv vytvoří. Nápověda je z tagu.
+      # [en] The archive script from the default branch, not from the tag: the archive
+      # is created even when rebuilding an older version (without scripts/archiv.py).
+      # The help comes from the tag.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.TAG }}
           path: zdroj
       - uses: actions/download-artifact@v8
         with:
@@ -203,9 +207,7 @@ jobs:
           unzip -q "LogicFlow-${TAG#v}-napoveda-html.zip"
           mv "LogicFlow-${TAG#v}-napoveda-html" site
           gh api "repos/${{ github.repository }}/releases" --paginate --slurp > vydani.json
-          if [ -f zdroj/scripts/archiv.py ]; then
-            python3 zdroj/scripts/archiv.py html vydani.json site/vydani
-          fi
+          python3 zdroj/scripts/archiv.py html vydani.json site/vydani
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site

@@ -114,7 +114,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 - Finer setting of the clock frequency and simulation speed, stepping by one edge.
 - **VCC and GND** power supply with symbols.
 - Author, licence and description stored in the circuit file.
-- LED colour, importing a finished circuit as a subcircuit.
+- LED colour and a two-pin LED (anode, cathode), importing a finished circuit as a subcircuit.
 - Settings file in the home folder, **School edition** (classroom settings, Classroom administration).
 - Language packs, in-program help directly from Markdown.
 - Light theme (projector, printing), exporting a schematic image as PNG / SVG.
@@ -126,12 +126,14 @@ Approximate – the order and content may change. The detailed plan is kept by t
 - ROM, RAM and EEPROM memories with a hex editor.
 - Toolbar with icons in two forms: compact, and large icons with tabs (touch, projector).
 - Subcircuit interface pads (subcircuit inputs and outputs with a name and order, later also bus pads).
+- **Matrix circuits:** 4×4 and 3×4 matrix keypad, 5×7 and 8×8 dot-matrix LED display with afterglow (scanning and display multiplexing).
 
 ### 0.6 (2027)
 - VHDL export.
 
 ### 0.7 (2027)
 - 74xx series chips (DIP package with VCC and GND pins), PDF manual, sample exercises.
+- Two-pin button and switch, pull-up resistor, open-collector outputs.
 
 ### 1.0 (September 2027)
 - Version for teaching.
