@@ -30,6 +30,8 @@ jobs:
       - run: python3 scripts/komentare.py kontrola
       # Přehled změn CHANGELOG.md / CHANGELOG.en.md (CONTRIBUTING.md → Vydání nové verze).
       - run: python3 scripts/zmeny.py kontrola
+      # Archiv verzí a průběžné sestavení (CONTRIBUTING.md → Vydání nové verze).
+      - run: python3 scripts/archiv.py test
       # Přenositelnost na web (CONTRIBUTING.md → Přenositelnost): aplikace používá
       # web_time místo std::time (std::time::Instant::now() ve WebAssembly spadne).
       - name: Přenositelnost – čas přes web_time
