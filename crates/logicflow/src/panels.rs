@@ -1315,7 +1315,11 @@ const SEVEN_SEG: [u8; 16] = [
 pub fn memory(ui: &mut Ui, lang: Lang) {
     padded(ui, |ui| {
         ui.label(RichText::new("ROM 16 × 8 – dekodér pro sedmisegmentovku").strong());
-        ui.label(weak(&format!("{} 0.5", tr(lang, T::ComingIn))));
+        ui.label(weak(&format!(
+            "{} {}",
+            tr(lang, T::ComingIn),
+            crate::catalog::MEMORY_VERSION
+        )));
         ui.add_space(6.0);
         egui::Grid::new("mem")
             .striped(true)
