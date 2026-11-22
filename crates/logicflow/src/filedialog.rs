@@ -11,7 +11,7 @@
 use crate::i18n::{Lang, T, tr};
 use crate::theme::colors;
 use egui::RichText;
-use logicflow_core::ProjectFile;
+use logicflow_core::{CircuitInfo, ProjectFile};
 use std::path::{Path, PathBuf};
 
 /// Účel okna.
@@ -79,6 +79,12 @@ pub struct FileDialog {
     ///
     /// [en] Name of the new folder being typed (`None` = the field is not open).
     new_folder: Option<String>,
+    /// Náhled informací o vybraném souboru (při otevírání): soubor a jeho informace
+    /// (`None` = soubor nejde přečíst).
+    ///
+    /// [en] Preview of the information about the chosen file (when opening): the file
+    /// and its information (`None` = the file cannot be read).
+    preview: Option<(PathBuf, Option<CircuitInfo>)>,
 }
 
 /// Domovská složka uživatele (záložně aktuální složka).
@@ -103,6 +109,7 @@ impl FileDialog {
             entries: Vec::new(),
             error: None,
             new_folder: None,
+            preview: None,
         };
         let dir = d.dir.clone();
         d.navigate(&dir);
@@ -323,6 +330,9 @@ impl FileDialog {
                     }
                 });
             }
+            if self.mode == Mode::Open {
+                self.show_preview(ui, lang);
+            }
             if self.mode == Mode::Save
                 && let Some(p) = self.target()
                 && p.exists()
@@ -368,6 +378,65 @@ impl FileDialog {
             outcome = Outcome::Cancel;
         }
         outcome
+    }
+
+    /// Náhled informací o vybraném obvodu (název, autoři, licence, popis, data);
+    /// soubor se přečte jen při změně výběru.
+    ///
+    /// [en] Preview of the information about the chosen circuit (title, authors,
+    /// licence, description, dates); the file is read only when the choice changes.
+    fn show_preview(&mut self, ui: &mut egui::Ui, lang: Lang) {
+        let Some(path) = self.target().filter(|p| p.is_file()) else {
+            self.preview = None;
+            return;
+        };
+        if self.preview.as_ref().is_none_or(|(p, _)| *p != path) {
+            let info = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|t| ProjectFile::read_info(&t));
+            self.preview = Some((path, info));
+        }
+        let Some((_, info)) = &self.preview else {
+            return;
+        };
+        let weak = |t: &str| RichText::new(t).small().color(colors::TEXT_WEAK);
+        egui::Frame::new()
+            .fill(colors::PANEL)
+            .corner_radius(4)
+            .inner_margin(6)
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                match info {
+                    Some(i) if !i.is_empty() => {
+                        if !i.title.is_empty() {
+                            ui.label(RichText::new(&i.title).strong());
+                        }
+                        let byline: Vec<String> =
+                            [i.authors_text(), i.license.clone(), i.school.clone()]
+                                .into_iter()
+                                .filter(|t| !t.is_empty())
+                                .collect();
+                        if !byline.is_empty() {
+                            ui.label(weak(&byline.join("  ·  ")));
+                        }
+                        if !i.description.is_empty() {
+                            ui.label(&i.description);
+                        }
+                        let dates: Vec<String> =
+                            [(T::InfoCreated, &i.created), (T::InfoModified, &i.modified)]
+                                .into_iter()
+                                .filter(|(_, d)| !d.is_empty())
+                                .map(|(k, d)| format!("{}: {d}", tr(lang, k)))
+                                .collect();
+                        if !dates.is_empty() {
+                            ui.label(weak(&dates.join("  ·  ")));
+                        }
+                    }
+                    _ => {
+                        ui.label(weak(tr(lang, T::InfoNone)));
+                    }
+                }
+            });
     }
 
     /// Aktuální složka.

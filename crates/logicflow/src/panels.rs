@@ -711,11 +711,70 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
     ui.add_space(4.0);
 }
 
+/// Informace o obvodu nahoře v Hierarchii: název, autoři a licence, popis v tooltipu.
+/// Kliknutím (i pravým tlačítkem) se otevře okno Vlastnosti obvodu.
+///
+/// [en] Circuit information at the top of the Hierarchy: title, authors and licence,
+/// description in the tooltip. A click (also with the right button) opens the
+/// Circuit properties window.
+fn circuit_info(ui: &mut Ui, project: &mut Project, lang: Lang) {
+    let info = &project.info;
+    let byline = [info.authors_text(), info.license.clone()]
+        .into_iter()
+        .filter(|t| !t.is_empty())
+        .collect::<Vec<_>>()
+        .join("  ·  ");
+    let mut text = egui::text::LayoutJob::default();
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let small = egui::TextStyle::Small.resolve(ui.style());
+    if info.title.is_empty() && byline.is_empty() {
+        text.append(
+            tr(lang, T::InfoNone),
+            0.0,
+            egui::TextFormat::simple(small, colors::TEXT_WEAK),
+        );
+    } else {
+        if !info.title.is_empty() {
+            text.append(
+                &info.title,
+                0.0,
+                egui::TextFormat::simple(font, ui.visuals().strong_text_color()),
+            );
+        }
+        if !byline.is_empty() {
+            let sep = if info.title.is_empty() { "" } else { "\n" };
+            text.append(
+                &format!("{sep}{byline}"),
+                0.0,
+                egui::TextFormat::simple(small, colors::TEXT_WEAK),
+            );
+        }
+    }
+    let mut r = ui
+        .add(egui::Button::new(text).frame(false).wrap())
+        .on_hover_text(tr(lang, T::PropsMenu));
+    if !info.description.is_empty() {
+        r = r.on_hover_text(info.description.clone());
+    }
+    let mut open = r.clicked();
+    r.context_menu(|ui| {
+        if ui.button(tr(lang, T::PropsMenu)).clicked() {
+            open = true;
+            ui.close();
+        }
+    });
+    if open {
+        project.properties_request = true;
+    }
+    ui.add_space(4.0);
+}
+
 /// Panel Hierarchie: listy projektu a součástky právě upravovaného listu.
 ///
 /// [en] Hierarchy panel: project sheets and components of the sheet being edited.
 pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
     padded(ui, |ui| {
+        circuit_info(ui, project, lang);
         sheets(ui, project, lang);
         let name = project
             .sheet_name()

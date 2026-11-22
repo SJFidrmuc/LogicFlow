@@ -17,7 +17,7 @@ use crate::symbols::SymbolStyle;
 use crate::theme::{self, colors};
 use egui::{Key, RichText};
 use egui_tiles::Tree;
-use logicflow_core::Circuit;
+use logicflow_core::CircuitInfo;
 use std::path::PathBuf;
 use std::time::Duration;
 // Instant z web-time: v nativním programu je to std::time::Instant, ve webové verzi
@@ -184,6 +184,10 @@ pub struct LogicFlowApp {
     ///
     /// [en] Is the Settings window open?
     settings_open: bool,
+    /// Rozpracované informace v okně Vlastnosti obvodu (`None` = okno je zavřené).
+    ///
+    /// [en] Information being edited in the Circuit properties window (`None` = the window is closed).
+    properties: Option<CircuitInfo>,
     /// Čeká obnovení výchozího nastavení na potvrzení?
     ///
     /// [en] Is restoring the default settings waiting for confirmation?
@@ -304,6 +308,7 @@ impl LogicFlowApp {
             saved_settings,
             settings_error: None,
             settings_open: false,
+            properties: None,
             settings_reset: false,
             folder_target: None,
             settings,
@@ -347,8 +352,7 @@ impl LogicFlowApp {
     fn perform(&mut self, action: Pending) {
         match action {
             Pending::New => {
-                let mut p = Project::new(Circuit::default());
-                p.title = None;
+                let p = Project::new_empty(&self.settings.author, &self.settings.license);
                 self.replace_project(p);
             }
             Pending::Open => {
@@ -544,14 +548,12 @@ impl LogicFlowApp {
                         });
                         self.menu_commands(
                             ui,
-                            &[
-                                None,
-                                Some(Command::Save),
-                                Some(Command::SaveAs),
-                                None,
-                                Some(Command::Quit),
-                            ],
+                            &[None, Some(Command::Save), Some(Command::SaveAs), None],
                         );
+                        if ui.button(tr(lang, T::PropsMenu)).clicked() {
+                            self.properties = Some(self.project.info.clone());
+                        }
+                        self.menu_commands(ui, &[None, Some(Command::Quit)]);
                     });
                     ui.menu_button(tr(lang, T::MenuEdit), |ui| {
                         self.menu_commands(
@@ -839,6 +841,138 @@ impl LogicFlowApp {
         self.libraries.configure(&self.settings);
     }
 
+    /// Okno Vlastnosti obvodu: název, autoři, popis, licence, škola a data – ukládají
+    /// se do souboru obvodu. Úpravy se projeví až tlačítkem OK.
+    ///
+    /// [en] Circuit properties window: title, authors, description, licence, school and
+    /// dates – saved in the circuit file. Changes take effect only with the OK button.
+    fn properties_window(&mut self, ctx: &egui::Context) {
+        let Some(mut info) = self.properties.take() else {
+            return;
+        };
+        let lang = self.lang;
+        let weak = |t: &str| RichText::new(t).small().color(colors::TEXT_WEAK);
+        let me = self.settings.author.trim().to_owned();
+        let mut open = true;
+        let mut done: Option<bool> = None;
+        egui::Window::new(tr(lang, T::PropsTitle))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .default_width(480.0)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                egui::Grid::new("circuit_properties")
+                    .num_columns(2)
+                    .spacing([12.0, 6.0])
+                    .show(ui, |ui| {
+                        ui.label(tr(lang, T::InfoTitle));
+                        ui.add(egui::TextEdit::singleline(&mut info.title).desired_width(320.0));
+                        ui.end_row();
+
+                        ui.label(tr(lang, T::InfoAuthors));
+                        ui.vertical(|ui| {
+                            let mut remove = None;
+                            for (i, a) in info.authors.iter_mut().enumerate() {
+                                ui.horizontal(|ui| {
+                                    ui.add(egui::TextEdit::singleline(a).desired_width(240.0));
+                                    if ui.button(tr(lang, T::SettingsRemove)).clicked() {
+                                        remove = Some(i);
+                                    }
+                                });
+                            }
+                            if let Some(i) = remove {
+                                info.authors.remove(i);
+                            }
+                            ui.horizontal_wrapped(|ui| {
+                                if ui.button(tr(lang, T::InfoAddAuthor)).clicked() {
+                                    info.authors.push(String::new());
+                                }
+                                if !me.is_empty() && !info.has_author(&me) {
+                                    info.authors.retain(|a| !a.trim().is_empty());
+                                    let label = if info.authors.is_empty() {
+                                        T::InfoAddMe
+                                    } else {
+                                        T::InfoAddMeCoauthor
+                                    };
+                                    if ui.button(format!("{}: {me}", tr(lang, label))).clicked() {
+                                        info.add_author(&me);
+                                    }
+                                }
+                            });
+                            if me.is_empty() {
+                                ui.label(weak(tr(lang, T::InfoSetName)));
+                            }
+                        });
+                        ui.end_row();
+
+                        ui.label(tr(lang, T::InfoDescription));
+                        ui.add(
+                            egui::TextEdit::multiline(&mut info.description)
+                                .desired_rows(3)
+                                .desired_width(320.0),
+                        );
+                        ui.end_row();
+
+                        ui.label(tr(lang, T::InfoLicense));
+                        license_picker(ui, "circuit_license", &mut info.license, lang);
+                        ui.end_row();
+
+                        ui.label(tr(lang, T::InfoSchool));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut info.school)
+                                .hint_text(tr(lang, T::InfoSchoolHint))
+                                .desired_width(320.0),
+                        );
+                        ui.end_row();
+
+                        let or_not_yet = |d: &str| {
+                            if d.is_empty() {
+                                tr(lang, T::InfoNotYet).to_owned()
+                            } else {
+                                d.to_owned()
+                            }
+                        };
+                        ui.label(tr(lang, T::InfoCreated));
+                        let mut created = or_not_yet(&info.created);
+                        if !info.app_version.is_empty() {
+                            created = format!(
+                                "{created}, {} {}",
+                                tr(lang, T::InfoInVersion),
+                                info.app_version
+                            );
+                        }
+                        ui.label(weak(&created));
+                        ui.end_row();
+                        ui.label(tr(lang, T::InfoModified));
+                        ui.label(weak(&or_not_yet(&info.modified)));
+                        ui.end_row();
+                    });
+                ui.add_space(4.0);
+                ui.label(weak(tr(lang, T::InfoNote)));
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    if ui.button(tr(lang, T::Ok)).clicked() {
+                        done = Some(true);
+                    }
+                    if ui.button(tr(lang, T::Cancel)).clicked() {
+                        done = Some(false);
+                    }
+                });
+            });
+        match (open, done) {
+            (_, Some(true)) => {
+                tidy_info(&mut info);
+                if info != self.project.info {
+                    self.project.info = info;
+                    self.project.modified = true;
+                }
+            }
+            (false, _) | (_, Some(false)) => {}
+            (true, None) => self.properties = Some(info),
+        }
+    }
+
     /// Okno Nastavení: obecné volby, autor a licence, složky knihoven, soubor s nastavením.
     ///
     /// [en] Settings window: general options, author and licence, library folders, settings file.
@@ -907,28 +1041,7 @@ impl LogicFlowApp {
                         );
                         ui.end_row();
                         ui.label(tr(lang, T::SettingsLicense));
-                        ui.horizontal(|ui| {
-                            ui.add(
-                                egui::TextEdit::singleline(&mut self.settings.license)
-                                    .desired_width(160.0),
-                            );
-                            egui::ComboBox::from_id_salt("settings_license")
-                                .selected_text("")
-                                .width(24.0)
-                                .show_ui(ui, |ui| {
-                                    for l in LICENSE_PRESETS
-                                        .into_iter()
-                                        .chain([tr(lang, T::LicenseNone)])
-                                    {
-                                        if ui
-                                            .selectable_label(self.settings.license == l, l)
-                                            .clicked()
-                                        {
-                                            self.settings.license = l.to_owned();
-                                        }
-                                    }
-                                });
-                        });
+                        license_picker(ui, "settings_license", &mut self.settings.license, lang);
                         ui.end_row();
                     });
                 ui.label(weak(tr(lang, T::SettingsAuthorNote)));
@@ -1126,6 +1239,10 @@ impl LogicFlowApp {
         }
 
         self.settings_window(ctx);
+        if std::mem::take(&mut self.project.properties_request) {
+            self.properties = Some(self.project.info.clone());
+        }
+        self.properties_window(ctx);
 
         let mut open = self.about_open;
         egui::Window::new(tr(lang, T::About))
@@ -1246,6 +1363,43 @@ fn workspace_rule(
         step.workspace = if return_to == sim_ws { 0 } else { return_to };
     }
     step
+}
+
+/// Pole pro licenci s rozbalovací nabídkou obvyklých licencí (CC BY 4.0…, neuvedeno).
+///
+/// [en] Licence field with a drop-down of common licences (CC BY 4.0…, not specified).
+fn license_picker(ui: &mut egui::Ui, id: &str, license: &mut String, lang: Lang) {
+    ui.horizontal(|ui| {
+        ui.add(egui::TextEdit::singleline(license).desired_width(160.0));
+        egui::ComboBox::from_id_salt(id)
+            .selected_text("")
+            .width(24.0)
+            .show_ui(ui, |ui| {
+                for l in LICENSE_PRESETS
+                    .into_iter()
+                    .chain([tr(lang, T::LicenseNone)])
+                {
+                    if ui.selectable_label(*license == l, l).clicked() {
+                        *license = l.to_owned();
+                    }
+                }
+            });
+    });
+}
+
+/// Uklidí informace z okna Vlastnosti obvodu: mezery na okrajích, prázdní autoři.
+///
+/// [en] Tidies the information from the Circuit properties window: surrounding spaces,
+/// empty authors.
+fn tidy_info(info: &mut CircuitInfo) {
+    for s in [&mut info.title, &mut info.license, &mut info.school] {
+        *s = s.trim().to_owned();
+    }
+    info.description = info.description.trim().to_owned();
+    for a in &mut info.authors {
+        *a = a.trim().to_owned();
+    }
+    info.authors.retain(|a| !a.is_empty());
 }
 
 /// Projekt z vestavěného příkladu.
