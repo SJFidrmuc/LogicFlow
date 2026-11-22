@@ -4,8 +4,8 @@
 
 use logicflow_core::circuit::sync_instances;
 use logicflow_core::{
-    Circuit, CompId, ComponentKind, LogicValue, Point, ProjectFile, Rotation, Simulator,
-    SubcircuitDef, WireId,
+    Circuit, CircuitInfo, CompId, ComponentKind, LogicValue, Point, ProjectFile, Rotation,
+    Simulator, SubcircuitDef, WireId,
 };
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -18,6 +18,16 @@ const EVENT_BUDGET: usize = 20_000;
 ///
 /// [en] Maximum number of “Undo” steps.
 const UNDO_LIMIT: usize = 200;
+
+/// Dnešní datum RRRR-MM-DD (UTC) pro informace o obvodu.
+///
+/// [en] Today's date YYYY-MM-DD (UTC) for the circuit information.
+pub fn today() -> String {
+    let secs = web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    CircuitInfo::date_from_unix(secs)
+}
 
 /// Vybrané součástky a vodiče ve schématu.
 ///
@@ -173,6 +183,14 @@ pub struct Project {
     ///
     /// [en] Does the project have unsaved changes?
     pub modified: bool,
+    /// Informace o obvodu (název, autoři, popis, licence…) – ukládají se do souboru.
+    ///
+    /// [en] Circuit information (title, authors, description, licence…) – saved to the file.
+    pub info: CircuitInfo,
+    /// Žádost o otevření okna Vlastnosti obvodu (z panelu Hierarchie).
+    ///
+    /// [en] Request to open the Circuit properties window (from the Hierarchy panel).
+    pub properties_request: bool,
     /// Výběr ve schématu.
     ///
     /// [en] Selection in the schematic.
@@ -262,6 +280,8 @@ impl Project {
             path: None,
             title: None,
             modified: false,
+            info: CircuitInfo::default(),
+            properties_request: false,
             selection: Selection::default(),
             undo: Vec::new(),
             redo: Vec::new(),
@@ -297,7 +317,8 @@ impl Project {
     /// [en] Creates a project from the text of a .logicflow file (no file access – also
     /// used by the future web version, which gets the file content from the browser).
     pub fn from_text(text: &str) -> Result<Self, String> {
-        let (mut circuit, mut subs) = ProjectFile::from_json(text)?;
+        let file = ProjectFile::parse(text)?;
+        let (mut circuit, mut subs) = (file.circuit, file.subcircuits);
         // Počty vývodů instancí podle aktuálních definic.
         // [en] Pin counts of instances according to the current definitions.
         let defs = subs.clone();
@@ -305,13 +326,28 @@ impl Project {
         for d in &mut subs {
             sync_instances(&mut d.circuit, &defs);
         }
-        Ok(Self::with_subcircuits(circuit, subs))
+        let mut p = Self::with_subcircuits(circuit, subs);
+        p.info = file.info;
+        Ok(p)
+    }
+
+    /// Nový prázdný projekt: autor a licence z nastavení, dnešní datum vytvoření.
+    ///
+    /// [en] New empty project: author and licence from the settings, today's creation date.
+    pub fn new_empty(author: &str, license: &str) -> Self {
+        let mut p = Self::new(Circuit::default());
+        p.info.add_author(author);
+        p.info.license = license.trim().to_owned();
+        p.info.created = today();
+        p.info.app_version = logicflow_core::VERSION.to_owned();
+        p
     }
 
     /// Uloží projekt (hlavní obvod i všechny podobvody) do souboru.
     ///
     /// [en] Saves the project (main circuit and all subcircuits) to a file.
     pub fn save(&mut self, path: &Path) -> Result<(), String> {
+        self.info.stamp(&today());
         std::fs::write(path, self.to_text()).map_err(|e| e.to_string())?;
         self.path = Some(path.to_path_buf());
         self.title = None;
@@ -326,7 +362,7 @@ impl Project {
     /// access – the web version offers it as a download).
     pub fn to_text(&self) -> String {
         let (main, subs) = self.snapshot();
-        ProjectFile::to_json(&main, &subs)
+        ProjectFile::to_json_with_info(&self.info, &main, &subs)
     }
 
     /// Název do titulku okna.
@@ -1337,6 +1373,19 @@ pub use logicflow_core::circuit::natural_cmp;
 mod tests {
     use super::*;
     use logicflow_core::Point;
+
+    #[test]
+    fn info_survives_save_and_load() {
+        let mut p = Project::new_empty("  Eva Nová ", "CC BY 4.0");
+        assert_eq!(p.info.authors, ["Eva Nová"]);
+        assert_eq!(p.info.created, today());
+        p.info.title = "Test".into();
+        let q = Project::from_text(&p.to_text()).unwrap();
+        assert_eq!(q.info, p.info);
+        // Bez jména v nastavení zůstane seznam autorů prázdný.
+        // [en] Without a name in the settings the author list stays empty.
+        assert!(Project::new_empty("", "neuvedeno").info.authors.is_empty());
+    }
 
     fn small() -> Project {
         let mut c = Circuit::default();
