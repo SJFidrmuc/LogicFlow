@@ -113,7 +113,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 - Jemnější nastavení frekvence hodin a rychlosti simulace, krokování po hraně.
 - Napájení **VCC a GND** se značkami.
 - Autor, licence a popis přímo v souboru obvodu.
-- Barva LED, plošky rozhraní podobvodu, import hotového obvodu jako podobvodu.
+- Barva LED a LED se dvěma vývody (anoda, katoda), plošky rozhraní podobvodu, import hotového obvodu jako podobvodu.
 - Soubor s nastavením v domovské složce, **edice Škola** (nastavení pro učebnu, Správa učebny).
 - Jazykové balíčky, nápověda v programu přímo z Markdownu.
 - Světlý motiv (projektor, tisk), export obrázku schématu PNG / SVG.
@@ -124,12 +124,14 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 ### 0.5 (2027)
 - Paměti ROM, RAM, EEPROM s hex editorem.
 - Panel nástrojů s ikonami ve dvou podobách: kompaktní a velké ikony se záložkami (dotyk, projektor).
+- **Maticová zapojení:** maticová klávesnice 4×4 a 3×4, bodová matice LED 5×7 a 8×8 s dosvitem (skenování a multiplexování displejů).
 
 ### 0.6 (2027)
 - Export do VHDL.
 
 ### 0.7 (2027)
 - Obvody řady 74xx (pouzdro DIP s vývody VCC a GND), příručka v PDF, vzorové úlohy.
+- Tlačítko a spínač se dvěma vývody, rezistor pull-up, výstupy s otevřeným kolektorem.
 
 ### 1.0 (září 2027)
 - Verze pro výuku.
