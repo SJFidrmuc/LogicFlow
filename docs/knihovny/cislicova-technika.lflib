@@ -12,7 +12,7 @@
         "description": "Gate-level circuits of common digital electronics tasks: gates from NAND and NOR, combinational circuits, adders and subtractors, flip-flops, counters, registers and applications. Every item is verified by simulation."
       }
     },
-    "author": "Stanislav Jan Fidrmuc",
+    "author": "Mgr. Stanislav Jan Fidrmuc",
     "license": "CC BY 4.0",
     "version": 1,
     "created": "2026-11-22",
@@ -31,7 +31,7 @@
           "description": "Inverter from one NAND gate with joined inputs: Y = ¬(A·A) = ¬A."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -167,7 +167,7 @@
           "description": "AND from two NAND gates: a NAND followed by a NAND used as an inverter. Y = ¬¬(A·B) = A·B."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -386,7 +386,7 @@
           "description": "OR from three NAND gates by De Morgan's law: Y = ¬(¬A·¬B) = A + B."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -674,7 +674,7 @@
           "description": "Exclusive OR from four NAND gates – the classic circuit with a 7400. Y = A ⊕ B."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -1064,7 +1064,7 @@
           "description": "Inverter from one NOR gate with joined inputs: Y = ¬(A + A) = ¬A."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -1200,7 +1200,7 @@
           "description": "OR from two NOR gates: a NOR followed by a NOR used as an inverter. Y = ¬¬(A + B) = A + B."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -1419,7 +1419,7 @@
           "description": "AND from three NOR gates by De Morgan's law: Y = ¬(¬A + ¬B) = A·B."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -1707,7 +1707,7 @@
           "description": "Equivalence from four NOR gates (the same circuit as XOR from four NAND; with NOR it gives the negated result). Y = ¬(A ⊕ B)."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -2097,7 +2097,7 @@
           "description": "Voting: the output is 1 when at least two of the three inputs are 1. Y = A·B + A·C + B·C. A typical minimisation task (Karnaugh map)."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -2479,7 +2479,7 @@
           "description": "The parity bit P completes four data bits to an even number of ones: P = D0 ⊕ D1 ⊕ D2 ⊕ D3. The same circuit with a fifth input serves as a parity check."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -2828,7 +2828,7 @@
           "description": "Gray code: neighbouring numbers differ in a single bit. G3 = B3, Gi = Bi+1 ⊕ Bi. Task 7.12 (Gray code encoder)."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -3260,7 +3260,7 @@
           "description": "The reverse conversion: B3 = G3, Bi = Bi+1 ⊕ Gi – each bit depends on the higher one, hence a chain of XOR gates. Task 7.12 (Gray code decoder)."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -3802,7 +3802,7 @@
           "description": "Selects one of two data inputs by the address S: Y = ¬S·D0 + S·D1."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -4239,7 +4239,7 @@
           "description": "Selects one of four data inputs by the address S1 S0; each product term matches one address (minterm). The 74153 has the same function."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -5079,7 +5079,7 @@
           "description": "With EN = 1 exactly the output Yi whose number is on the address A1 A0 is 1; with EN = 0 all outputs are 0. Used as a demultiplexer (EN = data)."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -5704,7 +5704,7 @@
           "description": "Compares two bits: A<B = ¬A·B, A=B = ¬(A ⊕ B), A>B = A·¬B. Task 7.10."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -6156,7 +6156,7 @@
           "description": "Comparing two-bit numbers using two 1-bit comparators: the higher bit decides, if the higher bits are equal the lower bit decides. A>B = (A1>B1) + (A1=B1)·(A0>B0). Task 7.11."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -6952,7 +6952,7 @@
           "description": "Adds two bits: sum S = A ⊕ B, carry C = A·B. Task 7.9."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -7206,7 +7206,7 @@
           "description": "Adds two bits and the carry from the lower position: the first half adder adds A and B, the second adds Cin, the carries are merged by an OR gate. S = A ⊕ B ⊕ Cin. Task 7.9."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -7644,7 +7644,7 @@
           "description": "Ripple-carry adder from four full adders (Cout of one position → Cin of the next). The 74283 has the same function."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -8661,7 +8661,7 @@
           "description": "Subtracts bit B from bit A: difference D = A ⊕ B, borrow Bo = ¬A·B. Task 7.8."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -9006,7 +9006,7 @@
           "description": "Subtracts B and the borrow Bi from the lower position from A: D = A ⊕ B ⊕ Bi, Bo = ¬A·B + ¬(A ⊕ B)·Bi. Task 7.8."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -9663,7 +9663,7 @@
           "description": "M = 0: S = A + B; M = 1: S = A − B in two's complement (B is negated by XOR gates and 1 is added via Cin). When subtracting, C = 1 means A ≥ B. Task 7.8."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -10691,7 +10691,7 @@
           "description": "Two NOR gates with feedback. S = 1 sets Q = 1, R = 1 resets, S = R = 0 holds. S = R = 1 is the forbidden state (Q = Qn = 0). After power-up the state is undefined (X) until the circuit is set or reset."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -10989,7 +10989,7 @@
           "description": "Two NAND gates with feedback, inputs active low (Sn, Rn). Sn = 0 sets Q = 1, Rn = 0 resets, Sn = Rn = 1 holds; Sn = Rn = 0 is the forbidden state (Q = Qn = 1). Note: after power-up the switches are at 0, i.e. in the forbidden state – first set only one of the inputs to 1."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -11287,7 +11287,7 @@
           "description": "An RS flip-flop from NAND with steering gates: with C = 1 the output Q follows the input D (the latch is “transparent”), with C = 0 it holds the last value. The inverter prevents the forbidden RS state. The 7475 has the same function."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -11803,7 +11803,7 @@
           "description": "Up counter 0–15 from four T flip-flops (T = 1, each stage divides by two). Each next stage is clocked by the Qn output of the previous one, so the stages toggle one after another – the delay is visible in the timing diagram. The 7493 has the same function."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -12411,7 +12411,7 @@
           "description": "Up counter 0–15 from four JK flip-flops with a common clock. A stage toggles when all lower stages are 1: J = K = Q0·Q1·…"
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -13157,7 +13157,7 @@
           "description": "Decade counter 0–9 from JK flip-flops: 9 (1001) is followed by 0. J1 = Q0·¬Q3, K1 = Q0, J2 = K2 = Q0·Q1, J3 = Q0·Q1·Q2, K3 = Q0. Task 7.14 (mod-N counter); the 7490 has the same function."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -14005,7 +14005,7 @@
           "description": "Synchronous counter from T flip-flops: U = 1 counts up, U = 0 down. A stage toggles when the lower stages are all 1 (up) or all 0 (down). Task 7.13; the 74193 has a similar function."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -14983,7 +14983,7 @@
           "description": "Four D flip-flops in a row with a common clock: on every rising edge the data shift by one stage (D → Q0 → Q1 → Q2 → Q3). Serial in, parallel out – like the 74164."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -15526,7 +15526,7 @@
           "description": "A shift register whose last output returns negated (Qn3 → D): 0000 → 0001 → 0011 → 0111 → 1111 → 1110 → … – eight states, neighbours differ in a single bit."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -16077,7 +16077,7 @@
           "description": "A shift register closed into a ring (Q3 → D) with a single one that circulates: Q0 → Q1 → Q2 → Q3 → Q0. After start Q0 = 1 (the flip-flop's initial state). Useful for sequential switching (running light)."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -16606,7 +16606,7 @@
           "description": "Security system: when it is armed (Z = 1) and the door (D) or window (O) opens or the motion sensor (P) reports, the alarm A turns on and stays on even after the door closes, until the system is disarmed (Z = 0). The memory is an RS flip-flop from NOR. Task 7.6."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -17170,7 +17170,7 @@
           "description": "Three fans A, B, C (1 = running). Green: all running. Yellow: one stopped. Red: two or all stopped (majority function of the negated inputs). Task 7.7."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -17989,7 +17989,7 @@
           "description": "A two-bit synchronous counter from T flip-flops and a light decoder: red → red + amber → green → amber → red … Every rising edge of the clock C advances the traffic light by one phase."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",

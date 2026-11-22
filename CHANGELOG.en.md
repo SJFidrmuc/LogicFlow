@@ -34,6 +34,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 - The component library and the memory editor show the current plan for upcoming components (memories in version 0.5, 74xx chips in version 0.7).
 
 ### Changed
+- The author's name is given with the title everywhere – Mgr. Stanislav Jan Fidrmuc (About window, licence, help, libraries, README); a test checks it.
 - In edit mode a switch is toggled by a double-click and a push button pressed by the second press of a double-click – a single click only selects the component, so it is not toggled by accident while moving. Clocks stand still in edit mode.
 - Space starts the simulation in edit mode; the Right arrow goes from edit mode to a paused simulation and makes a step.
 - Preparation for the future web version (iPhone, iPad, Android, Chromebook): the simulation core does not use files or the system clock and CI also compiles it for WebAssembly; time in the application via `web_time`. The program behaves the same.
