@@ -8,6 +8,21 @@
 - Před zavřením programu nebo otevřením jiného obvodu se program zeptá na neuložené změny.
 - Soubor jde otevřít i z příkazové řádky: `logicflow obvod.logicflow`
 
+## Vlastnosti obvodu – autor a licence
+
+Okno **Soubor → Vlastnosti obvodu…** (nebo kliknutí na informace nahoře v panelu Hierarchie) ukládá do souboru obvodu informace o něm:
+
+![Okno Vlastnosti obvodu s tlačítkem Přidat se jako spoluautor](obrazky/vlastnosti-obvodu.png)
+
+- **Název**, **autoři**, **popis** (co obvod dělá, k čemu slouží), **licence** a nepovinně **škola / třída**.
+- **Nový obvod** (Ctrl+N) dostane autora a licenci z nastavení (viz níže) a dnešní datum vytvoření. Při každém uložení se zapíše datum poslední úpravy.
+- U obvodu někoho jiného tlačítko **Přidat se jako spoluautor** připíše vaše jméno na konec seznamu – původní autor zůstává první.
+- Změny se projeví tlačítkem **OK**, **Zrušit** je zahodí. Obvod je pak potřeba uložit.
+- Název, autoři a licence jsou vidět nahoře v panelu **Hierarchie** (popis po najetí myší) a v okně pro otevření souboru po vybrání souboru – ještě než ho otevřete.
+- Do **online knihovny obvodů** se přijímají obvody s vyplněným názvem, autorem, popisem a licencí **CC BY 4.0**.
+
+> **Tip:** Verze 0.3 informace o obvodu nezná – když v ní soubor uložíte, informace se ztratí.
+
 ## Příklady
 
 V nabídce **Soubor → Příklady** je 9 hotových obvodů. Příklad se otevře jako nový obvod, takže ho můžete libovolně upravit a uložit pod vlastním názvem.

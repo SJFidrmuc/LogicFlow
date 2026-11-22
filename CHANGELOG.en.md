@@ -12,6 +12,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **Circuit properties** (File → Circuit properties…): title, authors, description, licence and school/class are stored in the circuit file (the `info` part, the same keys as in the online circuit library; unknown keys are kept). A new circuit gets the author and licence from the settings, saving records the modification date, and you can add yourself as a co-author of someone else's circuit. The information is shown at the top of the Hierarchy and in the preview of the open dialog.
 - **VCC supply and GND ground** with symbols as in electrical schematics (logic 1 and 0, no automatic label). Joining VCC to GND is a **power short**: the net turns red and the schematic and status bar show a message, even when the short is inside a subcircuit.
 - **Rolling build from the main branch:** the pre-release “Průběžné sestavení (main)” with packages for all platforms is replaced after every change – new features can be tried without waiting for a release. **Version archive** on the web: a table of all releases × platforms with download links.
 - **Finer clock settings:** frequency by a slider 0.1–100 Hz (logarithmic, with a field for typing a number), by the period in ms or by quick choices; can be changed while simulating without a phase jump – the clock continues smoothly.
