@@ -7,6 +7,7 @@ Příkazy:
                             aktuální verze z Cargo.toml; s --tag navíc, že tag
                             odpovídá verzi programu (spouští CI a workflow Vydání)
   poznamky X.Y.Z            vypíše poznámky k vydání (česká a anglická sekce)
+  poznamky nevydano         totéž pro sekci Nevydáno / Unreleased (průběžné sestavení)
 
 [en] Changelog CHANGELOG.md (Czech) and CHANGELOG.en.md (English).
 
@@ -17,6 +18,7 @@ Commands:
                             also that the tag matches the program version (run by
                             CI and the release workflow)
   poznamky X.Y.Z            prints the release notes (Czech and English section)
+  poznamky nevydano         the same for the Unreleased section (rolling build)
 """
 
 import os
@@ -138,13 +140,18 @@ def poznamky(verze):
     """
     casti = []
     for jazyk, nadpis in (("cs", "Česky"), ("en", "English")):
-        cesta = SOUBORY[jazyk][0]
-        obsah = next((o for n, _, o in sekce(cesta) if n == verze), None)
+        cesta, nevydano = SOUBORY[jazyk]
+        hledat = nevydano if verze == "nevydano" else verze
+        obsah = next((o for n, _, o in sekce(cesta) if n == hledat), None)
         if obsah is None:
             sys.exit(f"{cesta.name}: verze {verze} nenalezena / [en] version not found")
         # Nadpisy sekce o úroveň níž, aby byly pod nadpisem jazyka.
         # [en] Section headings one level lower so they sit under the language heading.
         text = "\n".join("#" + r if r.startswith("### ") else r for r in obsah).strip()
+        if not text:
+            # Prázdná sekce Nevydáno hned po vydání verze.
+            # [en] An empty Unreleased section right after a release.
+            text = "Zatím bez změn." if jazyk == "cs" else "No changes yet."
         casti.append(f"## {nadpis}\n\n{text}")
     return "\n\n".join(casti) + "\n"
 
