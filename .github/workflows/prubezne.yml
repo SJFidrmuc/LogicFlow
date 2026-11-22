@@ -1,0 +1,125 @@
+# Průběžné sestavení: po každém úspěšném CI na větvi main se přepíše předběžné
+# vydání „prubezne“ (Releases → Průběžné sestavení (main)) balíčky pro všechny
+# platformy a nápovědou v HTML. Stahuje se bez přihlášení a nevyprší (na rozdíl
+# od artefaktů CI); hlavní odkaz „nejnovější verze“ dál vede na poslední oficiální
+# vydání. Poznámky jsou ze sekce Nevydáno přehledu změn, pod nimi archiv verzí.
+#
+# Balíčky se neskládají znovu – použijí se programy z právě dokončeného CI
+# (stejný commit, stejné testy). Ručně: Actions → Průběžné sestavení → Run workflow
+# (vezme poslední úspěšné CI na main).
+#
+# [en] Rolling build: after every successful CI on the main branch the pre-release
+# "prubezne" (Releases → Průběžné sestavení (main)) is replaced with packages for all
+# platforms and the HTML help. It can be downloaded without signing in and does not
+# expire (unlike CI artifacts); the main "latest version" link still points to the
+# last official release. The notes come from the Unreleased section of the changelog,
+# followed by the version archive.
+#
+# The packages are not rebuilt – the programs from the CI run that just finished are
+# used (the same commit, the same tests). Manually: Actions → Průběžné sestavení →
+# Run workflow (takes the last successful CI on main).
+name: Průběžné sestavení
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: prubezne
+  cancel-in-progress: true
+
+jobs:
+  prubezne:
+    name: Průběžné sestavení (main)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Které CI
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "RUN_ID=${{ github.event.workflow_run.id }}" >> "$GITHUB_ENV"
+            echo "SHA=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
+          else
+            gh run list --repo "$REPO" --workflow ci.yml --branch main --status success \
+              --limit 1 --json databaseId,headSha --jq '.[0] | "RUN_ID=\(.databaseId)\nSHA=\(.headSha)"' >> "$GITHUB_ENV"
+          fi
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+      - name: Programy z CI
+        run: gh run download "$RUN_ID" --repo "$REPO" --dir ci
+      - name: Balíčky
+        run: |
+          set -euo pipefail
+          short="${SHA:0:7}"
+          datum="$(date -u +%Y-%m-%d)"
+          mkdir dist
+          cat > SESTAVENI.txt <<EOF
+          LogicFlow – průběžné sestavení z větve main
+          commit: $SHA
+          sestaveno: $datum
+          Není to oficiální vydání – na vyzkoušení novinek, ne do výuky.
+          Seznam novinek: CHANGELOG.md, sekce Nevydáno.
+
+          LogicFlow – rolling build from the main branch
+          Not an official release – for trying out new features, not for teaching.
+          EOF
+          sed -i 's/^ *//' SESTAVENI.txt
+          # artefakt CI → název platformy v balíčku
+          for pair in windows-x64:windows-x64 windows-arm64:windows-arm64 \
+                      macos-arm64:macos-arm64 macos-x64:macos-x64 linux-x64:linux-x64 \
+                      linux-arm64-raspberry-pi:raspberry-pi-arm64; do
+            src="ci/logicflow-${pair%%:*}"
+            name="LogicFlow-prubezne-${pair##*:}"
+            mkdir "$name"
+            cp "$src"/* README.md LICENSE CHANGELOG.md SESTAVENI.txt "$name/"
+            case "$name" in
+              *windows*) zip -qr "dist/$name.zip" "$name" ;;
+              *) chmod +x "$name/logicflow"; tar -czf "dist/$name.tar.gz" "$name" ;;
+            esac
+          done
+          # nápověda: čeština v kořeni, angličtina v /en/ (jako ve vydání)
+          name="LogicFlow-prubezne-napoveda-html"
+          cp -r ci/napoveda-html/cs "$name"
+          cp -r ci/napoveda-html/en "$name/en"
+          zip -qr "dist/$name.zip" "$name"
+          ls -l dist
+      - name: Poznámky
+        run: |
+          {
+            echo "**Průběžné sestavení z větve main** – commit \`${SHA:0:7}\`, $(date -u +%Y-%m-%d)."
+            echo "Aktuální stav vývoje na vyzkoušení, **není to oficiální vydání** (oficiální: [nejnovější verze](https://github.com/$REPO/releases/latest)). Přepisuje se po každé změně v main."
+            echo
+            echo "*Rolling build from the main branch – latest state of development for trying out, not an official release.*"
+            echo
+            python3 scripts/zmeny.py poznamky nevydano
+            echo
+            echo "## Archiv verzí / Version archive"
+            echo
+            gh api "repos/$REPO/releases" --paginate --slurp > vydani.json
+            python3 scripts/archiv.py md vydani.json
+          } > poznamky.md
+      - name: Vydání „prubezne“
+        # Staré vydání i tag se smažou a vytvoří znovu na novém commitu (odkazy ke
+        # stažení …/releases/download/prubezne/… zůstávají stejné). Vydání vytvořené
+        # tímto tokenem nespustí workflow Vydání; to ho navíc samo přeskočí.
+        # [en] The old release and tag are deleted and recreated on the new commit
+        # (the download links …/releases/download/prubezne/… stay the same). A release
+        # created with this token does not trigger the release workflow; it also skips it.
+        run: |
+          gh release delete prubezne --repo "$REPO" --cleanup-tag --yes || true
+          gh release create prubezne dist/* --repo "$REPO" --target "$SHA" \
+            --prerelease --latest=false \
+            --title "Průběžné sestavení (main)" --notes-file poznamky.md

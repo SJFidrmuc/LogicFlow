@@ -12,6 +12,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **Rolling build from the main branch:** the pre-release “Průběžné sestavení (main)” with packages for all platforms is replaced after every change – new features can be tried without waiting for a release. **Version archive** on the web: a table of all releases × platforms with download links.
 - **Finer clock settings:** frequency by a slider 0.1–100 Hz (logarithmic, with a field for typing a number), by the period in ms or by quick choices; can be changed while simulating without a phase jump – the clock continues smoothly.
 - **Simulation speed ×0.1 to ×10** in the status bar and the Simulation menu; the status bar shows the simulated time.
 - **Step to the next clock edge** (Shift+Right arrow) and **step one whole period** to the next rising edge (Ctrl+Right arrow).
