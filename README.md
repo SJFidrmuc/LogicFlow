@@ -25,6 +25,10 @@ Hotové programy jsou na stránce **[Releases → nejnovější verze](https://g
 - **Linux a Raspberry Pi:** `tar -xzf LogicFlow-…tar.gz`, pak `./logicflow` ve vzniklé složce.
 - **macOS:** po rozbalení při prvním spuštění klikněte na `logicflow` pravým tlačítkem → Otevřít (program zatím není podepsaný).
 
+**Starší verze:** [archiv verzí](https://sjfidrmuc.github.io/LogicFlow/vydani/) – tabulka všech vydání pro všechny platformy s odkazy ke stažení.
+
+**Průběžné sestavení:** [Průběžné sestavení (main)](https://github.com/SJFidrmuc/LogicFlow/releases/tag/prubezne) – aktuální stav vývoje, přepisuje se po každé změně. Je na vyzkoušení novinek, ne do výuky; balíčky se jmenují `LogicFlow-prubezne-…` a obsahují i soubor `SESTAVENI.txt` s číslem commitu.
+
 ## Co umí
 
 - **Kreslení schémat** – součástky se přidávají přes Shift+A nebo z knihovny, vodiče se kreslí tažením z vývodu. Vodiče se při přesunu součástky samy přepojí.

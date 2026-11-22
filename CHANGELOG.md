@@ -12,6 +12,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Průběžné sestavení z větve main:** předběžné vydání „Průběžné sestavení (main)“ s balíčky pro všechny platformy se přepíše po každé změně – novinky se dají vyzkoušet bez čekání na vydání. **Archiv verzí** na webu: tabulka všech vydání × platforem s odkazy ke stažení.
 - **Jemnější nastavení hodin:** frekvence posuvníkem 0,1–100 Hz (logaritmicky, s polem pro zadání čísla), periodou v ms nebo rychlými volbami; změna i za běhu simulace bez skoku fáze – hodiny navážou plynule.
 - **Rychlost simulace ×0,1 až ×10** ve stavovém řádku a v nabídce Simulace; stavový řádek ukazuje simulovaný čas.
 - **Krok na další hranu hodin** (Shift+šipka vpravo) a **krok o celou periodu** na další náběžnou hranu (Ctrl+šipka vpravo).

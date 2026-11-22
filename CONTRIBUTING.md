@@ -97,7 +97,11 @@ Píše se pro uživatele (učitele, žáky): co se změnilo a k čemu to je, ne 
    - CI musí být zelené (`scripts/zmeny.py kontrola` hlídá, že verze z `Cargo.toml` je v přehledu popsaná).
 2. Pull request sloučit do `main`.
 3. Na GitHubu *Releases → Draft a new release* → **nový** tag `vX.Y.Z` (*Create new tag on publish*), cíl *main*. Tag se nikdy nevytváří předem – existující tag by se použil znovu i se starou revizí. Popis vydání lze nechat **prázdný**: workflow ho doplní z přehledu změn (česky i anglicky). → *Publish release*.
-4. Workflow **Vydání** nejdřív ověří, že tag odpovídá verzi v `Cargo.toml` a že je verze v přehledu změn; pak sestaví balíčky pro všechny platformy a nápovědu a připojí je k vydání.
+4. Workflow **Vydání** nejdřív ověří, že tag odpovídá verzi v `Cargo.toml` a že je verze v přehledu změn; pak sestaví balíčky pro všechny platformy a nápovědu a připojí je k vydání. Je-li zapnutá proměnná `NAPOVEDA_PAGES`, zveřejní na GitHub Pages nápovědu a **archiv verzí** (`/vydani/`, `scripts/archiv.py`) – tabulku vydání × platforma s odkazy na balíčky ve vydáních. Binárky se do repozitáře neukládají.
+
+### Průběžné sestavení
+
+Po každém úspěšném CI na `main` přepíše workflow **Průběžné sestavení** (`.github/workflows/prubezne.yml`) předběžné vydání s tagem `prubezne`: balíčky `LogicFlow-prubezne-<platforma>` z právě dokončeného CI (s README, licencí, přehledem změn a `SESTAVENI.txt` s commitem), nápověda v HTML a poznámky ze sekce Nevydáno. Není označené jako nejnovější, takže odkaz *releases/latest* dál vede na oficiální verzi; workflow Vydání tag `prubezne` přeskakuje. Ručně: *Actions → Průběžné sestavení → Run workflow*. Tag `prubezne` se ručně nemaže ani nepřesouvá – dělá to workflow.
 
 ## Užitečné příkazy
 
