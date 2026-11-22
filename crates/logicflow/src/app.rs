@@ -688,12 +688,17 @@ impl LogicFlowApp {
                         })
                         .response
                         .on_hover_text(tr(lang, T::SimSpeed));
-                    if self.project.sim.is_oscillating() {
-                        ui.label(
-                            RichText::new(tr(lang, T::Oscillating))
-                                .small()
-                                .color(egui::Color32::from_rgb(0xff, 0x70, 0x60)),
-                        );
+                    for (on, key) in [
+                        (self.project.sim.is_oscillating(), T::Oscillating),
+                        (self.project.sim.has_power_short(), T::PowerShort),
+                    ] {
+                        if on {
+                            ui.label(
+                                RichText::new(tr(lang, key))
+                                    .small()
+                                    .color(egui::Color32::from_rgb(0xff, 0x70, 0x60)),
+                            );
+                        }
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(

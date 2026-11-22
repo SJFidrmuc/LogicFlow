@@ -40,6 +40,8 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
                     tr(lang, T::ConstOne).to_owned(),
                     ComponentKind::Constant { value: true },
                 ),
+                (tr(lang, T::PowerVcc).to_owned(), ComponentKind::Vcc),
+                (tr(lang, T::PowerGnd).to_owned(), ComponentKind::Gnd),
                 (tr(lang, T::Clock).to_owned(), ComponentKind::DEFAULT_CLOCK),
             ],
         },
@@ -137,6 +139,8 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
         ComponentKind::Constant { value } => {
             tr(lang, if *value { T::ConstOne } else { T::ConstZero }).to_owned()
         }
+        ComponentKind::Vcc => tr(lang, T::PowerVcc).to_owned(),
+        ComponentKind::Gnd => tr(lang, T::PowerGnd).to_owned(),
         ComponentKind::Led => tr(lang, T::Led).to_owned(),
         ComponentKind::FlipFlop { ff, .. } => {
             format!("{} {}", tr(lang, T::FlipFlop), ff_name(*ff, lang))
