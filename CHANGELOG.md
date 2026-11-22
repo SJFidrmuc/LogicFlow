@@ -12,6 +12,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Napájení VCC a zem GND** se značkami podle elektrotechnických schémat (logická 1 a 0, bez automatického popisku). Spojení VCC s GND je **zkrat napájení**: síť zčervená a schéma i stavový řádek ukážou hlášku, i když je zkrat uvnitř podobvodu.
 - **Průběžné sestavení z větve main:** předběžné vydání „Průběžné sestavení (main)“ s balíčky pro všechny platformy se přepíše po každé změně – novinky se dají vyzkoušet bez čekání na vydání. **Archiv verzí** na webu: tabulka všech vydání × platforem s odkazy ke stažení.
 - **Jemnější nastavení hodin:** frekvence posuvníkem 0,1–100 Hz (logaritmicky, s polem pro zadání čísla), periodou v ms nebo rychlými volbami; změna i za běhu simulace bez skoku fáze – hodiny navážou plynule.
 - **Rychlost simulace ×0,1 až ×10** ve stavovém řádku a v nabídce Simulace; stavový řádek ukazuje simulovaný čas.
@@ -129,7 +130,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 ### 0.6 (2027)
 - Paměti ROM, RAM, EEPROM s hex editorem.
 - Panel nástrojů s ikonami ve dvou podobách: kompaktní a velké ikony se záložkami (dotyk, projektor).
-- Plošky rozhraní podobvodu (vstupy a výstupy podobvodu s názvem a pořadím, i sběrnicové).
+- Plošky rozhraní podobvodu (vstupy a výstupy podobvodu s názvem a pořadím, i sběrnicové) a návěští sítí – propojení podle názvu bez vodičů, i pro VCC a GND.
 - **Maticová zapojení:** maticová klávesnice 4×4 a 3×4, bodová matice LED 5×7 a 8×8 s dosvitem (skenování a multiplexování displejů).
 
 ### 0.7 (2027)

@@ -19,7 +19,7 @@ Program pracuje ve dvou režimech, podobně jako DigitalWorks:
 | --- | --- | --- |
 | světle zelená | 1 | logická jednička |
 | tmavě zelená | 0 | logická nula |
-| červená | X | neurčitá hodnota: nepřipojený vstup, kolize dvou výstupů, neinicializovaná paměť |
+| červená | X | neurčitá hodnota: nepřipojený vstup, kolize dvou výstupů (spojení VCC s GND navíc podbarví síť červeně jako zkrat napájení), neinicializovaná paměť |
 | modrá | Z | nepřipojený vodič (vysoká impedance) |
 
 ## Krokování

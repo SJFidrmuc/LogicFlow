@@ -7,6 +7,8 @@ Součástky jsou v nabídce Shift+A i v Knihovně součástek rozdělené do sku
 | Přepínač | čtvereček s 0 nebo 1 | vstup 0 nebo 1; v simulaci se přepíná kliknutím, v režimu úprav dvojklikem |
 | Tlačítko | – | vstup, dává 1 jen po dobu stisku; v režimu úprav se stiskne druhým stiskem dvojkliku |
 | Konstanta 0, Konstanta 1 | – | pevná logická hodnota |
+| Napájení VCC | čára s příčkou a nápisem VCC | logická 1 se značkou napájení |
+| Zem GND | značka země (tři zkracující se čáry) | logická 0 se značkou země |
 | Generátor hodin | obdélníkový průběh | pravidelný hodinový signál 0,1–100 Hz (viz [Sekvenční obvody](sekvencni-obvody.md)) |
 | BUF | [1] | opakovač (budič) |
 | NOT | [1] s indikátorem negace | invertor |
@@ -16,6 +18,12 @@ Součástky jsou v nabídce Shift+A i v Knihovně součástek rozdělené do sku
 | XOR | [=1] | nonekvivalence – 1 při lichém počtu jedniček |
 | XNOR | [=1] s indikátorem negace | ekvivalence – negovaný XOR |
 | LED | kroužek | výstup, svítí při 1; při X nebo Z ukáže písmeno |
+
+## Napájení VCC a GND
+
+Značky **VCC** a **GND** dávají stejně jako konstanty pevnou hodnotu 1 a 0, ale vypadají jako napájení ve schématech z elektrotechniky. Každou značku stačí připojit k vývodu, který ji potřebuje; napájecí vodiče se přes celé schéma tahat nemusí. Značky nemají automatický popisek a otáčejí se klávesou R jako ostatní součástky.
+
+Když se síť spojí zároveň s VCC (nebo Konstantou 1) a s GND (nebo Konstantou 0), vznikne **zkrat napájení**. Hodnota sítě je X, vodiče sítě jsou podbarvené červeně a schéma i stavový řádek ukážou hlášku „Zkrat napájení“. Hláška se objeví i tehdy, když je zkrat uvnitř podobvodu.
 
 Hradla mají 2 až 8 vstupů, počet se nastavuje ve Vlastnostech. Sedmisegmentovka a hex displej jsou popsané v kapitole [Funkční bloky a zobrazovače](funkcni-bloky.md).
 

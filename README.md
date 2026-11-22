@@ -100,7 +100,7 @@ Co přinesla která verze a co se chystá: **[přehled změn a plán vývoje](CH
 | ~~0.3~~ | podobvody, funkční bloky (čítače, registry, MUX, dekodéry…), sedmisegmentovka, americké značky | hotovo |
 | 0.4 | režim simulace, kontextová nabídka a schránka, napájení VCC/GND, knihovny prvků, barva LED, soubor s nastavením, jazykové balíčky, světlý motiv, export obrázku, nápověda v Markdownu i v programu | 2027 |
 | 0.5 | sběrnice 1–64 bitů, edice Škola pro učebny | 2027 |
-| 0.6 | paměti ROM, RAM, EEPROM, hex editor, panel nástrojů, plošky rozhraní podobvodu, maticová klávesnice a bodová matice LED | 2027 |
+| 0.6 | paměti ROM, RAM, EEPROM, hex editor, panel nástrojů, plošky rozhraní podobvodu a návěští sítí, maticová klávesnice a bodová matice LED | 2027 |
 | 0.7 | export do VHDL | 2027 |
 | 0.8 | obvody 74xx, tlačítko se dvěma vývody a pull-up, příručka, vzorové úlohy | 2027 |
 | 1.0 | verze pro výuku | 09/2027 |

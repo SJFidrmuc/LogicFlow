@@ -152,6 +152,10 @@ const CS: &[Section] = &[
                 ),
                 ("Tlačítko", "vstup, dává 1 jen po dobu stisku"),
                 ("Konstanta 0 / 1", "pevná logická hodnota"),
+                (
+                    "Napájení VCC, zem GND",
+                    "logická 1 / 0 se značkou napájení; spojení VCC s GND je zkrat napájení (síť zčervená)",
+                ),
                 ("BUF  [1]", "opakovač (budič)"),
                 ("NOT  [1] s trojúhelníkem", "invertor"),
                 ("AND  [&]", "logický součin – 1, když jsou všechny vstupy 1"),
@@ -523,6 +527,10 @@ const EN: &[Section] = &[
                 ),
                 ("Push button", "input, 1 only while pressed"),
                 ("Constant 0 / 1", "fixed logic value"),
+                (
+                    "Supply VCC, ground GND",
+                    "logic 1 / 0 with a power symbol; joining VCC to GND is a power short (the net turns red)",
+                ),
                 ("BUF  [1]", "buffer"),
                 ("NOT  [1] with triangle", "inverter"),
                 ("AND  [&]", "1 when all inputs are 1"),
