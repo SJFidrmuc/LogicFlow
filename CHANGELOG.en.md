@@ -36,6 +36,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 - The component library and the memory editor show the current plan for upcoming components (memories in version 0.5, 74xx chips in version 0.7).
 
 ### Changed
+- **Version plan split:** 0.4 without buses and the School edition, which come in 0.5; the following milestones moved by one version. Upcoming components in the library and the Memory panel show the new versions (memories 0.6, 74xx chips 0.8).
 - The author's name is given with the title everywhere – Mgr. Stanislav Jan Fidrmuc (About window, licence, help, libraries, README); a test checks it.
 - In edit mode a switch is toggled by a double-click and a push button pressed by the second press of a double-click – a single click only selects the component, so it is not toggled by accident while moving. Clocks stand still in edit mode.
 - Space starts the simulation in edit mode; the Right arrow goes from edit mode to a paused simulation and makes a step.
@@ -115,23 +116,26 @@ Approximate – the order and content may change. The detailed plan is kept by t
 - **VCC and GND** power supply with symbols.
 - Author, licence and description stored in the circuit file.
 - LED colour and a two-pin LED (anode, cathode), importing a finished circuit as a subcircuit.
-- Settings file in the home folder, **School edition** (classroom settings, Classroom administration).
+- Settings file in the home folder.
 - Language packs, in-program help directly from Markdown.
 - Light theme (projector, printing), exporting a schematic image as PNG / SVG.
 - Update check, splash screen, Support development link.
-- Block libraries (personal, shared folder, school).
-- **Buses 1–64 bits wide:** splitter, tri-state buffer, hex keypad, logic probe.
+- **Component libraries:** built-in teaching library, personal libraries and shared folders, exporting a subcircuit to a library.
 
 ### 0.5 (2027)
-- ROM, RAM and EEPROM memories with a hex editor.
-- Toolbar with icons in two forms: compact, and large icons with tabs (touch, projector).
-- Subcircuit interface pads (subcircuit inputs and outputs with a name and order, later also bus pads).
-- **Matrix circuits:** 4×4 and 3×4 matrix keypad, 5×7 and 8×8 dot-matrix LED display with afterglow (scanning and display multiplexing).
+- **Buses 1–64 bits wide:** splitter, tri-state buffer, number input, hex keypad, logic probe, function blocks with bus pins.
+- **School edition:** classroom settings with locking, Classroom administration, school libraries (teacher's and class exchange folder).
 
 ### 0.6 (2027)
-- VHDL export.
+- ROM, RAM and EEPROM memories with a hex editor.
+- Toolbar with icons in two forms: compact, and large icons with tabs (touch, projector).
+- Subcircuit interface pads (subcircuit inputs and outputs with a name and order, also bus pads).
+- **Matrix circuits:** 4×4 and 3×4 matrix keypad, 5×7 and 8×8 dot-matrix LED display with afterglow (scanning and display multiplexing).
 
 ### 0.7 (2027)
+- VHDL export.
+
+### 0.8 (2027)
 - 74xx series chips (DIP package with VCC and GND pins), PDF manual, sample exercises.
 - Two-pin button and switch, pull-up resistor, open-collector outputs.
 

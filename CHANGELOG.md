@@ -36,6 +36,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 - Knihovna součástek a editor paměti uvádějí u připravovaných součástek aktuální plán (paměti ve verzi 0.5, obvody 74xx ve verzi 0.7).
 
 ### Změněno
+- **Plán verzí rozdělen:** 0.4 bez sběrnic a edice Škola, ty přijdou ve 0.5; další milníky se posunuly o jednu verzi. Připravované součástky v knihovně a panel Paměť ukazují nové verze (paměti 0.6, obvody 74xx 0.8).
 - Jméno autora se všude uvádí s titulem – Mgr. Stanislav Jan Fidrmuc (okno O aplikaci, licence, nápověda, knihovny, README); hlídá to test.
 - V režimu úprav se přepínač přepíná dvojklikem a tlačítko stiskne druhým stiskem dvojkliku – jedno kliknutí součástku jen vybere, takže ji při přesouvání nepřepnete omylem. Hodiny v režimu úprav stojí.
 - Mezerník v režimu úprav spustí simulaci, šipka vpravo z režimu úprav přejde do pozastavené simulace a udělá krok.
@@ -115,23 +116,26 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 - Napájení **VCC a GND** se značkami.
 - Autor, licence a popis přímo v souboru obvodu.
 - Barva LED a LED se dvěma vývody (anoda, katoda), import hotového obvodu jako podobvodu.
-- Soubor s nastavením v domovské složce, **edice Škola** (nastavení pro učebnu, Správa učebny).
+- Soubor s nastavením v domovské složce.
 - Jazykové balíčky, nápověda v programu přímo z Markdownu.
 - Světlý motiv (projektor, tisk), export obrázku schématu PNG / SVG.
 - Kontrola aktualizací, úvodní obrazovka, odkaz Podpořit vývoj.
-- Knihovny bloků (osobní, sdílená složka, školní).
-- **Sběrnice 1–64 bitů:** rozdělovač, třístavový budič, hex klávesnice, logická sonda.
+- **Knihovny prvků:** vestavěná výuková knihovna, osobní knihovny a sdílené složky, export podobvodu do knihovny.
 
 ### 0.5 (2027)
-- Paměti ROM, RAM, EEPROM s hex editorem.
-- Panel nástrojů s ikonami ve dvou podobách: kompaktní a velké ikony se záložkami (dotyk, projektor).
-- Plošky rozhraní podobvodu (vstupy a výstupy podobvodu s názvem a pořadím, později i sběrnicové).
-- **Maticová zapojení:** maticová klávesnice 4×4 a 3×4, bodová matice LED 5×7 a 8×8 s dosvitem (skenování a multiplexování displejů).
+- **Sběrnice 1–64 bitů:** rozdělovač, třístavový budič, vstup s číslem, hex klávesnice, logická sonda, funkční bloky se sběrnicovými vývody.
+- **Edice Škola:** nastavení pro učebnu se zamykáním, Správa učebny, školní knihovny (učitelská a výměnná složka třídy).
 
 ### 0.6 (2027)
-- Export do VHDL.
+- Paměti ROM, RAM, EEPROM s hex editorem.
+- Panel nástrojů s ikonami ve dvou podobách: kompaktní a velké ikony se záložkami (dotyk, projektor).
+- Plošky rozhraní podobvodu (vstupy a výstupy podobvodu s názvem a pořadím, i sběrnicové).
+- **Maticová zapojení:** maticová klávesnice 4×4 a 3×4, bodová matice LED 5×7 a 8×8 s dosvitem (skenování a multiplexování displejů).
 
 ### 0.7 (2027)
+- Export do VHDL.
+
+### 0.8 (2027)
 - Obvody řady 74xx (pouzdro DIP s vývody VCC a GND), příručka v PDF, vzorové úlohy.
 - Tlačítko a spínač se dvěma vývody, rezistor pull-up, výstupy s otevřeným kolektorem.
 
