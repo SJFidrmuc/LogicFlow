@@ -16,6 +16,10 @@ use egui::{
 };
 use logicflow_core::{Circuit, CompId, Component, ComponentKind, Point, Rotation, WireId};
 
+/// Barva podbarvení sítě se zkratem napájení.
+///
+/// [en] Highlight colour of a net with a power short.
+const POWER_SHORT: Color32 = Color32::from_rgba_premultiplied(0x90, 0x20, 0x18, 0xa0);
 /// Nejmenší zvětšení.
 ///
 /// [en] Smallest zoom.
@@ -355,11 +359,17 @@ impl SchematicView {
                 colors::TEXT_WEAK,
             );
         }
-        if project.sim.is_oscillating() {
+        // Varování vlevo nahoře pod sebou: kmitání, zkrat napájení.
+        // [en] Warnings at the top left, one below the other: oscillation, power short.
+        let warnings = [
+            (project.sim.is_oscillating(), T::Oscillating),
+            (project.sim.has_power_short(), T::PowerShort),
+        ];
+        for (i, (_, key)) in warnings.iter().filter(|(on, _)| *on).enumerate() {
             painter.text(
-                rect.left_top() + vec2(10.0, 10.0),
+                rect.left_top() + vec2(10.0, 10.0 + 20.0 * i as f32),
                 Align2::LEFT_TOP,
-                tr(lang, T::Oscillating),
+                tr(lang, *key),
                 FontId::proportional(13.0),
                 Color32::from_rgb(0xff, 0x70, 0x60),
             );
@@ -881,6 +891,11 @@ impl SchematicView {
                     [a, b],
                     Stroke::new(lw + 4.0, symbols::SELECTED.gamma_multiply(0.6)),
                 );
+            }
+            // Zkrat napájení: síť výrazně podbarvená červeně.
+            // [en] Power short: the net strongly highlighted in red.
+            if project.sim.wire_in_power_short(w.id) {
+                painter.line_segment([a, b], Stroke::new(lw + 7.0, POWER_SHORT));
             }
             painter.line_segment(
                 [a, b],

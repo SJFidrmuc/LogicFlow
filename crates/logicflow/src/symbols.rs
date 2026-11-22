@@ -388,6 +388,10 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
                 fade(signal_color(v), look),
             );
         }
+        ComponentKind::Vcc | ComponentKind::Gnd => {
+            draw_power(painter, cam, comp, outline, look);
+            draw_label(painter, cam, comp, 1.4, look);
+        }
         ComponentKind::FlipFlop { ff, falling, .. } => {
             draw_flip_flop(painter, cam, comp, ff, falling, outline, look);
         }
@@ -840,6 +844,44 @@ fn draw_label(painter: &Painter, cam: Camera, comp: &Component, dx: f32, look: L
         align_for(comp.rotation, dx),
         fade(colors::TEXT, look),
     );
+}
+
+/// Značka napájení: VCC = svislá čára s příčkou a nápisem „VCC“ nad vývodem,
+/// GND = značka země (tři zkracující se čáry, ČSN EN 60617-2) pod vývodem.
+/// Stejná v evropském i americkém stylu.
+///
+/// [en] Power symbol: VCC = a vertical line with a bar and the text “VCC” above the pin,
+/// GND = the ground symbol (three shortening lines, IEC 60617-2) below the pin.
+/// The same in the European and the American style.
+fn draw_power(painter: &Painter, cam: Camera, comp: &Component, outline: Stroke, look: Look) {
+    let line = |x0: f32, y0: f32, x1: f32, y1: f32, width: f32| {
+        painter.line_segment(
+            [
+                cam.to_screen(local(comp, x0, y0)),
+                cam.to_screen(local(comp, x1, y1)),
+            ],
+            Stroke::new(width, outline.color),
+        );
+    };
+    let w = outline.width;
+    if comp.kind == ComponentKind::Vcc {
+        line(0.0, 0.0, 0.0, -0.6, w);
+        line(-0.9, -0.6, 0.9, -0.6, w * 1.8);
+        text(
+            painter,
+            cam,
+            local(comp, 0.0, -0.85),
+            "VCC",
+            0.9,
+            align_dir(comp.rotation, 0.0, -1.0),
+            fade(signal_color(LogicValue::One), look),
+        );
+    } else {
+        line(0.0, 0.0, 0.0, 0.3, w);
+        for (y, half) in [(0.3, 0.9), (0.65, 0.55), (1.0, 0.2)] {
+            line(-half, y, half, y, w * 1.4);
+        }
+    }
 }
 
 /// Indikátor negace podle ČSN EN 60617-12: pravoúhlý trojúhelník na vývodu.

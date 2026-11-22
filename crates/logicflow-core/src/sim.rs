@@ -466,6 +466,10 @@ pub struct Simulator {
     ///
     /// [en] Did the circuit keep changing during the last `run`?
     oscillating: bool,
+    /// Sítě se zkratem napájení: budí je zároveň VCC (Konstanta 1) i GND (Konstanta 0).
+    ///
+    /// [en] Nets with a power short: driven by VCC (Constant 1) and GND (Constant 0) at once.
+    power_short: Vec<bool>,
 }
 
 impl Simulator {
@@ -515,6 +519,22 @@ impl Simulator {
                 }
             }
         }
+        // Zkrat napájení: síť, kterou budí pevná 1 i pevná 0 (VCC/GND, konstanty).
+        // Nezávisí na průběhu simulace, takže se určí hned ze zapojení.
+        // [en] Power short: a net driven by a fixed 1 and a fixed 0 (VCC/GND, constants).
+        // It does not depend on the course of the simulation, so it is found from the wiring.
+        let power_short = net_drivers
+            .iter()
+            .map(|drivers| {
+                let level = |want: bool| {
+                    drivers.iter().any(|&g| {
+                        let (i, _) = out_owner[g];
+                        kinds[i].supply_level() == Some(want)
+                    })
+                };
+                level(true) && level(false)
+            })
+            .collect();
         let key_index: HashMap<Vec<CompId>, usize> = keys
             .iter()
             .enumerate()
@@ -591,6 +611,7 @@ impl Simulator {
             seq: 0,
             time: previous.map_or(0, |p| p.time),
             oscillating: false,
+            power_short,
         };
         // Hodnoty zdrojů (např. hodin) převezme z předchozího simulátoru.
         // [en] Source values (e.g. clocks) are taken over from the previous simulator.
@@ -856,6 +877,23 @@ impl Simulator {
     /// [en] Current simulation time in ticks.
     pub fn time(&self) -> u64 {
         self.time
+    }
+
+    /// Je v obvodu (i uvnitř podobvodů) zkrat napájení – síť spojená s VCC i GND?
+    ///
+    /// [en] Is there a power short in the circuit (also inside subcircuits) – a net connected to VCC and GND?
+    pub fn has_power_short(&self) -> bool {
+        self.power_short.iter().any(|&s| s)
+    }
+
+    /// Patří vodič do sítě se zkratem napájení?
+    ///
+    /// [en] Does the wire belong to a net with a power short?
+    pub fn wire_in_power_short(&self, id: WireId) -> bool {
+        self.netlist
+            .wire_net
+            .get(&id)
+            .is_some_and(|&n| self.power_short[n])
     }
 
     /// Netlist rozvinutého obvodu.
@@ -1487,5 +1525,83 @@ mod tests {
         assert_eq!(led(&sim, l), One);
         assert_eq!(sim.wire_value(w), Z, "nepřipojený vodič");
         let _ = a;
+    }
+
+    /// VCC dává 1, GND 0; LED připojená k VCC svítí a bez spojení VCC s GND není zkrat.
+    ///
+    /// [en] VCC gives 1, GND 0; an LED connected to VCC lights up and there is no short
+    /// without VCC joined to GND.
+    #[test]
+    fn power_supply_values() {
+        let mut c = Circuit::default();
+        // VCC na (0,0) má vývod (0,1); LED na (3,1) má vstup (1,1).
+        // [en] VCC at (0,0) has its pin at (0,1); LED at (3,1) has its input at (1,1).
+        let vcc = c.add_component(ComponentKind::Vcc, Point::new(0, 0));
+        let led = c.add_component(ComponentKind::Led, Point::new(3, 1));
+        let gnd = c.add_component(ComponentKind::Gnd, Point::new(10, 0));
+        c.add_wire(Point::new(0, 1), Point::new(1, 1)).unwrap();
+        assert_eq!(c.component(vcc).unwrap().label, "", "napájení bez popisku");
+        assert_eq!(c.component(gnd).unwrap().pins(), vec![Point::new(10, -1)]);
+        let mut sim = Simulator::new(&c, None);
+        sim.run(100);
+        assert_eq!(sim.inputs(led), vec![One]);
+        assert_eq!(sim.output(gnd), Some(Zero));
+        assert!(!sim.has_power_short());
+    }
+
+    /// Vodič mezi VCC a GND (nebo Konstantou 0) je zkrat napájení: síť je X a označená.
+    ///
+    /// [en] A wire between VCC and GND (or Constant 0) is a power short: the net is X and marked.
+    #[test]
+    fn power_short_detected() {
+        for low in [ComponentKind::Gnd, ComponentKind::Constant { value: false }] {
+            let mut c = Circuit::default();
+            c.add_component(ComponentKind::Vcc, Point::new(0, 0));
+            // GND na (4,2) má vývod (4,1); Konstanta 0 na (2,1) má výstup (4,1).
+            // [en] GND at (4,2) has its pin at (4,1); Constant 0 at (2,1) has its output at (4,1).
+            let pos = if low == ComponentKind::Gnd {
+                Point::new(4, 2)
+            } else {
+                Point::new(2, 1)
+            };
+            c.add_component(low, pos);
+            let w = c.add_wire(Point::new(0, 1), Point::new(4, 1)).unwrap();
+            let other = c.add_wire(Point::new(0, 5), Point::new(4, 5)).unwrap();
+            let mut sim = Simulator::new(&c, None);
+            sim.run(100);
+            assert!(sim.has_power_short(), "{low:?}");
+            assert!(sim.wire_in_power_short(w));
+            assert!(!sim.wire_in_power_short(other));
+            assert_eq!(sim.wire_value(w), X, "kolize budičů");
+        }
+    }
+
+    /// Zkrat napájení uvnitř podobvodu se ohlásí i v nadřazeném obvodu.
+    ///
+    /// [en] A power short inside a subcircuit is reported in the parent circuit too.
+    #[test]
+    fn power_short_inside_subcircuit() {
+        let mut inner = Circuit::default();
+        inner.add_component(ComponentKind::Vcc, Point::new(0, 0));
+        inner.add_component(ComponentKind::Gnd, Point::new(4, 2));
+        inner.add_wire(Point::new(0, 1), Point::new(4, 1)).unwrap();
+        let led = inner.add_component(ComponentKind::Led, Point::new(10, 0));
+        inner.component_mut(led).unwrap().label = "Y".into();
+        let def = SubcircuitDef {
+            id: 1,
+            name: "Zkrat".into(),
+            circuit: inner,
+        };
+        let mut c = Circuit::default();
+        c.add_component(
+            ComponentKind::Subcircuit {
+                id: 1,
+                inputs: 0,
+                outputs: 1,
+            },
+            Point::new(0, 0),
+        );
+        let sim = Simulator::with_subcircuits(&c, &[def], None);
+        assert!(sim.has_power_short());
     }
 }

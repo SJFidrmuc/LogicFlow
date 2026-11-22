@@ -12,6 +12,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **VCC supply and GND ground** with symbols as in electrical schematics (logic 1 and 0, no automatic label). Joining VCC to GND is a **power short**: the net turns red and the schematic and status bar show a message, even when the short is inside a subcircuit.
 - **Rolling build from the main branch:** the pre-release “Průběžné sestavení (main)” with packages for all platforms is replaced after every change – new features can be tried without waiting for a release. **Version archive** on the web: a table of all releases × platforms with download links.
 - **Finer clock settings:** frequency by a slider 0.1–100 Hz (logarithmic, with a field for typing a number), by the period in ms or by quick choices; can be changed while simulating without a phase jump – the clock continues smoothly.
 - **Simulation speed ×0.1 to ×10** in the status bar and the Simulation menu; the status bar shows the simulated time.
@@ -129,7 +130,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 ### 0.6 (2027)
 - ROM, RAM and EEPROM memories with a hex editor.
 - Toolbar with icons in two forms: compact, and large icons with tabs (touch, projector).
-- Subcircuit interface pads (subcircuit inputs and outputs with a name and order, also bus pads).
+- Subcircuit interface pads (subcircuit inputs and outputs with a name and order, also bus pads) and net labels – connection by name without wires, also for VCC and GND.
 - **Matrix circuits:** 4×4 and 3×4 matrix keypad, 5×7 and 8×8 dot-matrix LED display with afterglow (scanning and display multiplexing).
 
 ### 0.7 (2027)

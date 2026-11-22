@@ -1,0 +1,224 @@
+{
+ "format": 1,
+ "app": "LogicFlow 0.3.1",
+ "circuit": {
+  "components": [
+   {
+    "id": 1,
+    "kind": {
+     "type": "vcc"
+    },
+    "pos": {
+     "x": 0,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": ""
+   },
+   {
+    "id": 3,
+    "kind": {
+     "type": "led"
+    },
+    "pos": {
+     "x": 4,
+     "y": 1
+    },
+    "rotation": "R0",
+    "label": "Y1"
+   },
+   {
+    "id": 4,
+    "kind": {
+     "type": "gnd"
+    },
+    "pos": {
+     "x": 0,
+     "y": 6
+    },
+    "rotation": "R0",
+    "label": ""
+   },
+   {
+    "id": 6,
+    "kind": {
+     "type": "led"
+    },
+    "pos": {
+     "x": 4,
+     "y": 5
+    },
+    "rotation": "R0",
+    "label": "Y2"
+   },
+   {
+    "id": 7,
+    "kind": {
+     "type": "gate",
+     "gate": "And",
+     "inputs": 2
+    },
+    "pos": {
+     "x": 12,
+     "y": 2
+    },
+    "rotation": "R0",
+    "label": ""
+   },
+   {
+    "id": 8,
+    "kind": {
+     "type": "vcc"
+    },
+    "pos": {
+     "x": 8,
+     "y": -2
+    },
+    "rotation": "R0",
+    "label": ""
+   },
+   {
+    "id": 11,
+    "kind": {
+     "type": "switch",
+     "on": true
+    },
+    "pos": {
+     "x": 5,
+     "y": 3
+    },
+    "rotation": "R0",
+    "label": "A"
+   },
+   {
+    "id": 14,
+    "kind": {
+     "type": "led"
+    },
+    "pos": {
+     "x": 19,
+     "y": 2
+    },
+    "rotation": "R0",
+    "label": "Y3"
+   },
+   {
+    "id": 15,
+    "kind": {
+     "type": "vcc"
+    },
+    "pos": {
+     "x": 24,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": ""
+   },
+   {
+    "id": 16,
+    "kind": {
+     "type": "gnd"
+    },
+    "pos": {
+     "x": 28,
+     "y": 2
+    },
+    "rotation": "R0",
+    "label": ""
+   },
+   {
+    "id": 18,
+    "kind": {
+     "type": "led"
+    },
+    "pos": {
+     "x": 30,
+     "y": 1
+    },
+    "rotation": "R0",
+    "label": "Y4"
+   }
+  ],
+  "wires": [
+   {
+    "id": 2,
+    "a": {
+     "x": 0,
+     "y": 1
+    },
+    "b": {
+     "x": 2,
+     "y": 1
+    }
+   },
+   {
+    "id": 5,
+    "a": {
+     "x": 0,
+     "y": 5
+    },
+    "b": {
+     "x": 2,
+     "y": 5
+    }
+   },
+   {
+    "id": 9,
+    "a": {
+     "x": 8,
+     "y": -1
+    },
+    "b": {
+     "x": 8,
+     "y": 1
+    }
+   },
+   {
+    "id": 10,
+    "a": {
+     "x": 8,
+     "y": 1
+    },
+    "b": {
+     "x": 9,
+     "y": 1
+    }
+   },
+   {
+    "id": 12,
+    "a": {
+     "x": 7,
+     "y": 3
+    },
+    "b": {
+     "x": 9,
+     "y": 3
+    }
+   },
+   {
+    "id": 13,
+    "a": {
+     "x": 15,
+     "y": 2
+    },
+    "b": {
+     "x": 17,
+     "y": 2
+    }
+   },
+   {
+    "id": 17,
+    "a": {
+     "x": 24,
+     "y": 1
+    },
+    "b": {
+     "x": 28,
+     "y": 1
+    }
+   }
+  ],
+  "next_id": 19
+ },
+ "subcircuits": []
+}

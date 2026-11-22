@@ -501,7 +501,10 @@ fn component_properties(
                     }
                     ui.end_row();
                 }
-                ComponentKind::Button | ComponentKind::Led => {}
+                ComponentKind::Button
+                | ComponentKind::Led
+                | ComponentKind::Vcc
+                | ComponentKind::Gnd => {}
             }
 
             let is_led = matches!(comp.kind, ComponentKind::Led);
@@ -736,6 +739,8 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                             ComponentKind::Switch { .. }
                             | ComponentKind::Button
                             | ComponentKind::Constant { .. }
+                            | ComponentKind::Vcc
+                            | ComponentKind::Gnd
                             | ComponentKind::Clock { .. } => group == 0,
                             ComponentKind::Gate { .. } => group == 1,
                             ComponentKind::Led

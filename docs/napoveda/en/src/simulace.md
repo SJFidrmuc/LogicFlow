@@ -19,7 +19,7 @@ The program works in two modes, similar to DigitalWorks:
 | --- | --- | --- |
 | light green | 1 | logic one |
 | dark green | 0 | logic zero |
-| red | X | undefined: unconnected input, two outputs colliding, uninitialised memory |
+| red | X | undefined: unconnected input, two outputs colliding (joining VCC to GND also highlights the net in red as a power short), uninitialised memory |
 | blue | Z | unconnected wire (high impedance) |
 
 ## Stepping
