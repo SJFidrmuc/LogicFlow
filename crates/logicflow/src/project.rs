@@ -197,6 +197,19 @@ pub struct Project {
     ///
     /// [en] Does time run in simulation mode (not paused)? Always `false` in edit mode.
     pub running: bool,
+    /// Rychlost simulace: násobek skutečného času (×0,1 zpomalí pro výklad, ×10 zrychlí
+    /// dlouhé čítače). Nastavuje ji aplikace, do souboru se neukládá.
+    ///
+    /// [en] Simulation speed: a multiple of real time (×0.1 slows down for explaining,
+    /// ×10 speeds up long counters). Set by the application, not saved in the file.
+    pub speed: f64,
+    /// Posun fáze jednotlivých hodin (s) – po změně frekvence hodiny navážou plynule,
+    /// bez skoku. Hodnota hodin se počítá z `(time - posun) / půlperioda`.
+    ///
+    /// [en] Phase offset of individual clocks (s) – after a frequency change the clock
+    /// continues smoothly, without a jump. The clock value is computed from
+    /// `(time - offset) / half period`.
+    clock_offsets: HashMap<CompId, f64>,
     /// Povolit úpravy schématu i v režimu simulace (volba pro pokročilé, výchozí vypnuto).
     ///
     /// [en] Allow editing the schematic in simulation mode too (advanced option, off by default).
@@ -250,6 +263,8 @@ impl Project {
             mode: Mode::Edit,
             running: false,
             edit_while_simulating: false,
+            speed: 1.0,
+            clock_offsets: HashMap::new(),
             time: 0.0,
             signals: Vec::new(),
             pending_place: None,
@@ -997,7 +1012,7 @@ impl Project {
         match (self.mode, self.running) {
             (Mode::Simulation, true) => {
                 let prev = self.time;
-                self.time += dt;
+                self.time += dt * self.speed;
                 self.advance_clocks(prev, self.time);
                 self.sim.run(EVENT_BUDGET);
             }
@@ -1024,38 +1039,119 @@ impl Project {
         self.record_signals();
     }
 
-    /// Generátory hodin a délka jejich půlperiody v sekundách.
+    /// Generátory hodin: id, délka půlperiody (s) a posun fáze (s).
     ///
-    /// [en] Clock generators and the length of their half period in seconds.
-    fn clocks(&self) -> Vec<(CompId, f64)> {
+    /// [en] Clock generators: id, half period length (s) and phase offset (s).
+    fn clocks(&self) -> Vec<(CompId, f64, f64)> {
         self.circuit
             .components
             .iter()
             .filter_map(|c| match c.kind {
-                ComponentKind::Clock { period_ms } => {
-                    Some((c.id, f64::from(period_ms.max(2)) / 2000.0))
-                }
+                ComponentKind::Clock { period_ms } => Some((
+                    c.id,
+                    half_period(period_ms),
+                    self.clock_offsets.get(&c.id).copied().unwrap_or(0.0),
+                )),
                 _ => None,
             })
             .collect()
     }
 
-    /// Za jak dlouho (s) nastane příští hrana některého generátoru hodin.
+    /// Má otevřený list nějaký generátor hodin?
     ///
-    /// [en] In how long (s) the next edge of any clock generator occurs.
-    pub fn time_to_next_clock_edge(&self) -> Option<f64> {
+    /// [en] Does the open sheet have any clock generator?
+    pub fn has_clocks(&self) -> bool {
+        self.circuit
+            .components
+            .iter()
+            .any(|c| matches!(c.kind, ComponentKind::Clock { .. }))
+    }
+
+    /// Čas (s) příští hrany některého generátoru hodin; s `rising_only` jen náběžné
+    /// hrany (hodiny přejdou do 1 – od jedné náběžné hrany ke druhé je celá perioda).
+    ///
+    /// [en] Time (s) of the next edge of any clock generator; with `rising_only` only
+    /// rising edges (the clock goes to 1 – from one rising edge to the next is a whole period).
+    pub fn next_clock_edge(&self, rising_only: bool) -> Option<f64> {
         self.clocks()
             .into_iter()
-            .map(|(_, half)| ((self.time / half).floor() + 1.0) * half - self.time)
+            .map(|(_, half, off)| {
+                let mut k = ((self.time - off) / half).floor() as i64 + 1;
+                if rising_only && k.rem_euclid(2) == 0 {
+                    k += 1;
+                }
+                k as f64 * half + off
+            })
             .min_by(f64::total_cmp)
+    }
+
+    /// Za jak dlouho (s simulovaného času) nastane příští hrana některého generátoru hodin.
+    ///
+    /// [en] In how long (s of simulated time) the next edge of any clock generator occurs.
+    pub fn time_to_next_clock_edge(&self) -> Option<f64> {
+        self.next_clock_edge(false).map(|t| t - self.time)
+    }
+
+    /// Krok na příští hranu hodin (Shift+šipka vpravo), s `rising_only` na příští
+    /// náběžnou hranu – o celou periodu (Ctrl+šipka vpravo). Obvod se po hraně ustálí.
+    /// Z režimu úprav přejde do pozastavené simulace.
+    ///
+    /// [en] Step to the next clock edge (Shift+right arrow), with `rising_only` to the next
+    /// rising edge – a whole period (Ctrl+right arrow). The circuit settles after the
+    /// edge. From edit mode it switches to a paused simulation.
+    pub fn step_to_edge(&mut self, rising_only: bool) {
+        let Some(edge) = self.next_clock_edge(rising_only) else {
+            return;
+        };
+        self.mode = Mode::Simulation;
+        self.running = false;
+        // Kousek za hranu, aby zaokrouhlení nevrátilo čas před ni.
+        // [en] A tiny bit past the edge so that rounding does not put the time before it.
+        let to = edge + 1e-9;
+        let from = self.time;
+        self.advance_clocks(from, to);
+        self.time = to;
+        self.sim.run(EVENT_BUDGET);
+        self.record_signals();
+    }
+
+    /// Nastaví periodu hodin (ms) bez skoku fáze: hodiny pokračují z místa, kde byly
+    /// (stejná úroveň i rozpracovaná část půlperiody). Se `undo` se uloží stav pro
+    /// „Zpět“ (při tažení posuvníkem jen na začátku).
+    ///
+    /// [en] Sets the clock period (ms) without a phase jump: the clock continues from
+    /// where it was (the same level and the elapsed part of the half period). With
+    /// `undo` the state is saved for "Undo" (when dragging a slider only at the start).
+    pub fn set_clock_period(&mut self, id: CompId, period_ms: u32, undo: bool) {
+        let Some(ComponentKind::Clock { period_ms: old }) =
+            self.circuit.component(id).map(|c| c.kind)
+        else {
+            return;
+        };
+        let period_ms = period_ms.clamp(MIN_CLOCK_PERIOD_MS, MAX_CLOCK_PERIOD_MS);
+        if old == period_ms {
+            return;
+        }
+        let off = self.clock_offsets.get(&id).copied().unwrap_or(0.0);
+        let cycles = (self.time - off) / half_period(old);
+        self.clock_offsets
+            .insert(id, self.time - cycles * half_period(period_ms));
+        if undo {
+            self.checkpoint();
+        }
+        if let Some(c) = self.circuit.component_mut(id) {
+            c.kind = ComponentKind::Clock { period_ms };
+        }
+        self.after_structure_change();
     }
 
     /// Nastaví výstupy generátorů hodin podle aktuálního času projektu.
     ///
     /// [en] Sets the outputs of the clock generators according to the current project time.
     fn drive_clocks(&mut self) {
-        for (id, half) in self.clocks() {
-            let v = LogicValue::from_bool((self.time / half).floor() as u64 % 2 == 1);
+        for (id, half, off) in self.clocks() {
+            let k = ((self.time - off) / half).floor() as i64;
+            let v = LogicValue::from_bool(k.rem_euclid(2) == 1);
             if self.sim.output(id) != Some(v) {
                 self.sim.set_source(id, v);
             }
@@ -1069,13 +1165,17 @@ impl Project {
     /// the circuit settle after each – no edge is lost even with a slow frame.
     fn advance_clocks(&mut self, from: f64, to: f64) {
         let mut edges: Vec<(f64, CompId, LogicValue)> = Vec::new();
-        for (id, half) in self.clocks() {
-            let first = (from / half).floor() as u64 + 1;
-            let last = (to / half).floor() as u64;
+        for (id, half, off) in self.clocks() {
+            let first = ((from - off) / half).floor() as i64 + 1;
+            let last = ((to - off) / half).floor() as i64;
             // Při extrémně dlouhém snímku stačí posledních pár hran.
             // [en] With an extremely long frame the last few edges are enough.
-            for k in first.max(last.saturating_sub(64))..=last {
-                edges.push((k as f64 * half, id, LogicValue::from_bool(k % 2 == 1)));
+            for k in first.max(last - 64)..=last {
+                edges.push((
+                    k as f64 * half + off,
+                    id,
+                    LogicValue::from_bool(k.rem_euclid(2) == 1),
+                ));
             }
         }
         edges.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -1094,6 +1194,7 @@ impl Project {
     pub fn reset_simulation(&mut self) {
         self.sim = Simulator::with_subcircuits(&self.circuit, &self.subcircuits, None);
         self.time = 0.0;
+        self.clock_offsets.clear();
         self.signals.clear();
         self.sim.run(EVENT_BUDGET);
         self.record_signals();
@@ -1163,6 +1264,37 @@ impl Project {
             self.signals.push(s);
         }
     }
+}
+
+/// Nejkratší perioda hodin (ms) – 100 Hz.
+///
+/// [en] Shortest clock period (ms) – 100 Hz.
+pub const MIN_CLOCK_PERIOD_MS: u32 = 10;
+/// Nejdelší perioda hodin (ms) – 0,1 Hz.
+///
+/// [en] Longest clock period (ms) – 0.1 Hz.
+pub const MAX_CLOCK_PERIOD_MS: u32 = 10_000;
+/// Rychlé volby frekvence hodin (Hz).
+///
+/// [en] Quick choices of the clock frequency (Hz).
+pub const CLOCK_PRESETS_HZ: [f32; 6] = [0.2, 0.5, 1.0, 2.0, 5.0, 10.0];
+/// Volby rychlosti simulace (násobek skutečného času).
+///
+/// [en] Choices of the simulation speed (multiple of real time).
+pub const SPEED_CHOICES: [f64; 7] = [0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
+
+/// Perioda hodin (ms) pro frekvenci v Hz, oříznutá na povolený rozsah.
+///
+/// [en] Clock period (ms) for a frequency in Hz, clamped to the allowed range.
+pub fn period_for_hz(hz: f32) -> u32 {
+    ((1000.0 / hz.max(0.001)).round() as u32).clamp(MIN_CLOCK_PERIOD_MS, MAX_CLOCK_PERIOD_MS)
+}
+
+/// Délka půlperiody (s) pro periodu v ms.
+///
+/// [en] Half period length (s) for a period in ms.
+fn half_period(period_ms: u32) -> f64 {
+    f64::from(period_ms.max(2)) / 2000.0
 }
 
 /// Id definic podobvodů, jejichž instance obvod přímo obsahuje.
@@ -1535,6 +1667,68 @@ mod tests {
         let before = p.circuit.components.len();
         p.paste_text(&text, None);
         assert_eq!(p.circuit.components.len(), before);
+    }
+
+    #[test]
+    fn clock_frequency_change_keeps_phase() {
+        let (mut p, _) = clocked_t();
+        let clk = p.circuit.components[0].id;
+        p.start_simulation();
+        // 1 Hz, čas 0,75 s: hodiny jsou v 1 a uběhla polovina půlperiody.
+        // [en] 1 Hz, time 0.75 s: the clock is 1 and half of the half period has passed.
+        p.update(0.75);
+        assert_eq!(p.sim.output(clk), Some(LogicValue::One));
+        // Změna na 2 Hz: úroveň zůstane 1 a příští hrana přijde za polovinu nové
+        // půlperiody (0,125 s), ne skokem.
+        // [en] Change to 2 Hz: the level stays 1 and the next edge comes in half of the
+        // new half period (0.125 s), not with a jump.
+        p.set_clock_period(clk, 500, true);
+        assert_eq!(p.sim.output(clk), Some(LogicValue::One));
+        assert!((p.time_to_next_clock_edge().unwrap() - 0.125).abs() < 1e-9);
+        p.update(0.1);
+        assert_eq!(p.sim.output(clk), Some(LogicValue::One));
+        p.update(0.05);
+        assert_eq!(p.sim.output(clk), Some(LogicValue::Zero));
+        // Rozsah 0,1–100 Hz.
+        // [en] Range 0.1–100 Hz.
+        assert_eq!(period_for_hz(1000.0), MIN_CLOCK_PERIOD_MS);
+        assert_eq!(period_for_hz(0.01), MAX_CLOCK_PERIOD_MS);
+        assert_eq!(period_for_hz(4.0), 250);
+    }
+
+    #[test]
+    fn speed_and_edge_steps() {
+        let (mut p, ff) = clocked_t();
+        // Rychlost ×2: za 0,5 s skutečného času uběhne 1 s simulace.
+        // [en] Speed ×2: 0.5 s of real time is 1 s of simulation.
+        p.start_simulation();
+        p.speed = 2.0;
+        p.update(0.5);
+        assert!((p.time - 1.0).abs() < 1e-9);
+        p.reset_simulation();
+        p.speed = 1.0;
+        p.stop_simulation();
+        // Krok na hranu: hodiny 1 Hz mají hrany v 0,5; 1,0; 1,5 s.
+        // [en] Edge step: a 1 Hz clock has edges at 0.5, 1.0, 1.5 s.
+        p.step_to_edge(false);
+        assert!(p.is_simulating() && !p.running);
+        assert!((p.time - 0.5).abs() < 1e-6);
+        assert_eq!(p.sim.flip_flop_state(ff), Some(LogicValue::One));
+        p.step_to_edge(false);
+        assert!((p.time - 1.0).abs() < 1e-6);
+        // Krok o periodu (na náběžnou hranu): z 1,0 s na 1,5 s – T se překlopí.
+        // [en] Period step (to the rising edge): from 1.0 s to 1.5 s – T toggles.
+        p.step_to_edge(true);
+        assert!((p.time - 1.5).abs() < 1e-6);
+        assert_eq!(p.sim.flip_flop_state(ff), Some(LogicValue::Zero));
+        p.step_to_edge(true);
+        assert!((p.time - 2.5).abs() < 1e-6);
+        assert_eq!(p.sim.flip_flop_state(ff), Some(LogicValue::One));
+        // Bez hodin krok na hranu nic neudělá.
+        // [en] Without clocks the edge step does nothing.
+        let mut q = small();
+        q.step_to_edge(false);
+        assert!(!q.is_simulating());
     }
 
     #[test]

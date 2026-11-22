@@ -311,31 +311,62 @@ fn component_properties(
                     }
                 }
                 ComponentKind::Clock { period_ms } => {
+                    // Frekvence: rychlé volby, posuvník 0,1–100 Hz (logaritmicky, s polem
+                    // pro zadání čísla) a perioda v ms. Jde měnit i za běhu simulace,
+                    // hodiny navážou bez skoku fáze.
+                    // [en] Frequency: quick choices, a slider 0.1–100 Hz (logarithmic, with
+                    // a field for typing a number) and the period in ms. It can be changed
+                    // while simulating too, the clock continues without a phase jump.
                     ui.label(weak(tr(lang, T::Frequency)));
-                    let mut new_period = period_ms;
                     let current = 1000.0 / period_ms.max(1) as f32;
+                    let mut chosen = None;
                     egui::ComboBox::from_id_salt("clock_hz")
                         .selected_text(crate::symbols::format_hz(current))
                         .show_ui(ui, |ui| {
-                            for hz in [0.2_f32, 0.5, 1.0, 2.0, 5.0, 10.0] {
-                                let p = (1000.0 / hz).round() as u32;
-                                ui.selectable_value(
-                                    &mut new_period,
-                                    p,
-                                    crate::symbols::format_hz(hz),
-                                );
+                            for hz in crate::project::CLOCK_PRESETS_HZ {
+                                let p = crate::project::period_for_hz(hz);
+                                if ui
+                                    .selectable_label(period_ms == p, crate::symbols::format_hz(hz))
+                                    .clicked()
+                                {
+                                    chosen = Some((p, true));
+                                }
                             }
                         });
-                    if new_period != period_ms {
-                        project.checkpoint();
-                        if let Some(c) = project.circuit.component_mut(id) {
-                            c.kind = ComponentKind::Clock {
-                                period_ms: new_period,
-                            };
-                        }
-                        structure_changed = true;
+                    ui.end_row();
+                    ui.label("");
+                    let mut hz = current;
+                    let r = ui.add(
+                        egui::Slider::new(&mut hz, 0.1..=100.0)
+                            .logarithmic(true)
+                            .suffix(" Hz")
+                            .max_decimals(2),
+                    );
+                    if r.changed() {
+                        // Zpět jen jednou na začátek tažení, ne při každém pohybu.
+                        // [en] Undo only once at the start of a drag, not on every movement.
+                        let undo = r.drag_started() || !r.dragged();
+                        chosen = Some((crate::project::period_for_hz(hz), undo));
                     }
                     ui.end_row();
+                    ui.label(weak(tr(lang, T::Period)));
+                    let mut ms = period_ms;
+                    let r = ui.add(
+                        egui::DragValue::new(&mut ms)
+                            .range(
+                                crate::project::MIN_CLOCK_PERIOD_MS
+                                    ..=crate::project::MAX_CLOCK_PERIOD_MS,
+                            )
+                            .speed(5)
+                            .suffix(" ms"),
+                    );
+                    if r.changed() {
+                        chosen = Some((ms, r.drag_started() || !r.dragged()));
+                    }
+                    ui.end_row();
+                    if let Some((p, undo)) = chosen {
+                        project.set_clock_period(id, p, undo);
+                    }
                 }
                 ComponentKind::Block { block } => {
                     let mut new_block = block;

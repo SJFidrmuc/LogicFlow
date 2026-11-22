@@ -7,7 +7,7 @@ Součástky jsou v nabídce Shift+A i v Knihovně součástek rozdělené do sku
 | Přepínač | čtvereček s 0 nebo 1 | vstup 0 nebo 1; v simulaci se přepíná kliknutím, v režimu úprav dvojklikem |
 | Tlačítko | – | vstup, dává 1 jen po dobu stisku; v režimu úprav se stiskne druhým stiskem dvojkliku |
 | Konstanta 0, Konstanta 1 | – | pevná logická hodnota |
-| Generátor hodin | obdélníkový průběh | pravidelný hodinový signál 0,2–10 Hz (viz [Sekvenční obvody](sekvencni-obvody.md)) |
+| Generátor hodin | obdélníkový průběh | pravidelný hodinový signál 0,1–100 Hz (viz [Sekvenční obvody](sekvencni-obvody.md)) |
 | BUF | [1] | opakovač (budič) |
 | NOT | [1] s indikátorem negace | invertor |
 | AND | [&] | logický součin – 1, když jsou všechny vstupy 1 |

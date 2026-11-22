@@ -18,8 +18,13 @@ Každý klopný obvod má výstupy Q a Q̄ (negovaný). Vstup řízený hranou j
 
 ## Generátor hodin
 
-- Vytváří pravidelný obdélníkový signál. Frekvence se nastavuje ve Vlastnostech (0,2 až 10 Hz).
-- Hodiny běží jen v režimu simulace (F5), v režimu úprav stojí. Při pozastavení se s každým krokem (šipka vpravo) posunou o čtvrt sekundy.
+- Vytváří pravidelný obdélníkový signál. Frekvence se nastavuje ve **Vlastnostech**: rychlé volby 0,2–10 Hz, **posuvník 0,1–100 Hz** (do pole vedle jde frekvenci i napsat) nebo **perioda** v milisekundách. Rychlé volby jsou i v kontextové nabídce (pravé tlačítko → Frekvence).
+- Frekvenci jde měnit i za běhu simulace. Hodiny navážou plynule bez skoku: zůstane úroveň i rozběhnutá část půlperiody.
+- Hodiny běží jen v režimu simulace (F5), v režimu úprav stojí. Krokování:
+  - **šipka vpravo** – jeden takt (čas se posune o čtvrt sekundy),
+  - **Shift+šipka vpravo** – na další hranu hodin (půl periody),
+  - **Ctrl+šipka vpravo** – o celou periodu, na další náběžnou hranu (u čítače = o jedno číslo).
+- **Rychlost simulace** (×0,1 až ×10) se nastavuje ve stavovém řádku nebo v nabídce Simulace → Rychlost simulace. ×0,1 zpomalí pro výklad, ×10 zrychlí dlouhé čítače. Časový diagram a údaj „čas“ ve stavovém řádku ukazují simulovaný čas. Po spuštění programu je rychlost vždy ×1.
 - V časovém diagramu jsou hodiny vždy nahoře, takže je vidět, při které hraně se výstupy mění.
 
 ## Restart simulace

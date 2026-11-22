@@ -20,6 +20,8 @@
 | Shift+F5 | zastavit simulaci, zpět k úpravám (stav obvodu zůstane) |
 | mezerník | spustit, pozastavit nebo pokračovat |
 | šipka vpravo | jeden takt (simulace se pozastaví) |
+| Shift+šipka vpravo | krok na další hranu hodin |
+| Ctrl+šipka vpravo | krok o celou periodu hodin (na náběžnou hranu) |
 | Ctrl+R | restartovat simulaci |
 | Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y | zpět, znovu |
 | Ctrl+N, Ctrl+O, Ctrl+S | nový, otevřít, uložit |

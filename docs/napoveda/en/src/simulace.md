@@ -26,8 +26,10 @@ The program works in two modes, similar to DigitalWorks:
 
 - **Space** starts the simulation in edit mode; in simulation mode it pauses or resumes it.
 - The **Right arrow** (or Simulation → Step) performs one tick; from edit mode it goes straight to a paused simulation. You can watch a change pass gate by gate.
+- **Shift+Right arrow** moves time to the next clock edge, **Ctrl+Right arrow** by a whole period (to the next rising edge) – see [Sequential circuits](sekvencni-obvody.md).
+- **Simulation speed** ×0.1 to ×10 is set in the status bar or in the Simulation menu.
 - If the circuit never settles (e.g. an inverter feeding itself), the warning **The circuit oscillates** appears.
 - **Simulation → Restart simulation** (Ctrl+R) starts again from the initial state.
-- The status bar shows the mode, whether the simulation runs and the tick number.
+- The status bar shows the mode, whether the simulation runs, the tick number, the simulated time and the simulation speed.
 
 > **Tip:** Circuits with memory, such as an SR latch made of NOR gates, start in state X. Only set (S) or reset (R) defines their state. After editing the schematic such a circuit keeps its state.

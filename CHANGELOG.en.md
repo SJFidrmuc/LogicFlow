@@ -12,6 +12,9 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **Finer clock settings:** frequency by a slider 0.1–100 Hz (logarithmic, with a field for typing a number), by the period in ms or by quick choices; can be changed while simulating without a phase jump – the clock continues smoothly.
+- **Simulation speed ×0.1 to ×10** in the status bar and the Simulation menu; the status bar shows the simulated time.
+- **Step to the next clock edge** (Shift+Right arrow) and **step one whole period** to the next rising edge (Ctrl+Right arrow).
 - **Clipboard Ctrl+C / X / V**: copying the selected components with the wires between them, pasting at the mouse pointer (the pasted part follows the mouse, a click drops it); works between sheets and between two LogicFlow windows, subcircuits used come along. Copy, Cut and Paste also in the Edit menu and the context menu.
 - **Context menu on the right button** depending on the clicked place: on a component Toggle, Frequency, Inputs, Pins, Bits, Count direction, Open subcircuit, label, Rotate, Duplicate, Move, Delete; on a wire Select / Delete the whole net and Delete segment; on an empty place Add component here, Select all, Fit view and simulation controls. Dragging with the right button still pans. Edits are greyed out in simulation mode.
 - Right button also in the Hierarchy (Open and Delete subcircuit, Find in schematic) and in the truth table (Copy as text – into Word or a spreadsheet as columns).

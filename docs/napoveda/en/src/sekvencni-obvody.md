@@ -16,8 +16,13 @@ Every flip-flop has outputs Q and Q̄ (negated). An edge-triggered input is mark
 
 ## Clock generator
 
-- Produces a regular square wave. Set the frequency in Properties (0.2 to 10 Hz).
-- The clock runs only in simulation mode (F5); in edit mode it stands still. While paused it advances by a quarter of a second with every step (right arrow).
+- Produces a regular square wave. Set the frequency in **Properties**: quick choices 0.2–10 Hz, a **slider 0.1–100 Hz** (the field next to it accepts a typed number) or the **period** in milliseconds. Quick choices are also in the context menu (right button → Frequency).
+- The frequency can be changed while simulating too. The clock continues smoothly without a jump: the level and the elapsed part of the half period stay.
+- The clock runs only in simulation mode (F5); in edit mode it stands still. Stepping:
+  - **Right arrow** – one tick (time moves by a quarter of a second),
+  - **Shift+Right arrow** – to the next clock edge (half a period),
+  - **Ctrl+Right arrow** – a whole period, to the next rising edge (for a counter = one number).
+- **Simulation speed** (×0.1 to ×10) is set in the status bar or in Simulation → Simulation speed. ×0.1 slows down for explaining, ×10 speeds up long counters. The timing diagram and the "time" in the status bar show simulated time. After the program starts the speed is always ×1.
 - Clocks are always at the top of the timing diagram, so you can see on which edge the outputs change.
 
 ## Restarting the simulation
