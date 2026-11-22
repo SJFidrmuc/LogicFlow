@@ -144,9 +144,10 @@
   <text x="986" y="689" class="s m">set_source() · run() · step()</text>
   <text x="986" y="707" class="s m">outputs() · wire_value() · block_state()</text>
 
-  <rect x="970" y="740" width="380" height="55" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
-  <text x="1160" y="763" class="x" text-anchor="middle">Jádro používají i automatické testy a kontrola</text>
-  <text x="1160" y="781" class="x" text-anchor="middle">obvodů v repozitáři LogicFlow-obvody</text>
+  <rect x="970" y="730" width="380" height="56" rx="10" class="co"/>
+  <text x="986" y="752" class="h">Library <tspan class="s m">(library.rs)</tspan> – knihovny .lflib</text>
+  <text x="986" y="775" class="s">prvky = podobvody s uid; <tspan class="m">insertion_text()</tspan> jako Ctrl+V</text>
+  <text x="1160" y="802" class="x" text-anchor="middle">Jádro používají i testy a kontrola obvodů v LogicFlow-obvody</text>
 
   <!-- Soubor -->
   <rect x="300" y="850" width="300" height="60" rx="10" class="fi"/>
