@@ -142,4 +142,4 @@ Diagram [`docs/architektura.svg`](docs/architektura.svg) ukazuje moduly aplikace
 
 ## Licence
 
-[MIT](LICENSE) © 2026 Stanislav Jan Fidrmuc
+[MIT](LICENSE) © 2026 Mgr. Stanislav Jan Fidrmuc

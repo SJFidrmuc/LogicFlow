@@ -807,7 +807,7 @@ impl LogicFlowApp {
                 ui.label(tr(lang, T::AboutText));
                 ui.add_space(6.0);
                 ui.label(format!(
-                    "© 2026 Stanislav Jan Fidrmuc · {}",
+                    "© 2026 Mgr. Stanislav Jan Fidrmuc · {}",
                     tr(lang, T::License)
                 ));
                 ui.add_space(6.0);

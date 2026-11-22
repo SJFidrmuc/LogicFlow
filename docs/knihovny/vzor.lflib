@@ -12,7 +12,7 @@
         "description": "Sample of the .lflib format: a 1-bit full adder and a 2-bit adder that uses it."
       }
     },
-    "author": "Stanislav Jan Fidrmuc",
+    "author": "Mgr. Stanislav Jan Fidrmuc",
     "license": "CC BY 4.0",
     "version": 1,
     "created": "2026-11-22",
@@ -31,7 +31,7 @@
           "description": "Full adder with carry in and carry out: S = A ⊕ B ⊕ Cin, Cout = A·B + Cin·(A ⊕ B). Chaining (Cout → Cin) gives a multi-bit adder."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",
@@ -462,7 +462,7 @@
           "description": "Two-bit adder made of two full adders (Cout of the first goes to Cin of the second): Cout S1 S0 = A1 A0 + B1 B0 + Cin. Example of an item that uses another item of the same library."
         }
       },
-      "author": "Stanislav Jan Fidrmuc",
+      "author": "Mgr. Stanislav Jan Fidrmuc",
       "license": "CC BY 4.0",
       "version": 1,
       "created": "2026-11-22",

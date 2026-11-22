@@ -50,7 +50,7 @@ const DATUM: &str = "2026-11-22";
 /// Autor knihovny a prvků.
 ///
 /// [en] Author of the library and the items.
-const AUTOR: &str = "Stanislav Jan Fidrmuc";
+const AUTOR: &str = "Mgr. Stanislav Jan Fidrmuc";
 
 /// Popis prvku: identita, názvy, kategorie a popisy česky a anglicky.
 ///

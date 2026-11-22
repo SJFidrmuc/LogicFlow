@@ -34,6 +34,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 - Knihovna součástek a editor paměti uvádějí u připravovaných součástek aktuální plán (paměti ve verzi 0.5, obvody 74xx ve verzi 0.7).
 
 ### Změněno
+- Jméno autora se všude uvádí s titulem – Mgr. Stanislav Jan Fidrmuc (okno O aplikaci, licence, nápověda, knihovny, README); hlídá to test.
 - V režimu úprav se přepínač přepíná dvojklikem a tlačítko stiskne druhým stiskem dvojkliku – jedno kliknutí součástku jen vybere, takže ji při přesouvání nepřepnete omylem. Hodiny v režimu úprav stojí.
 - Mezerník v režimu úprav spustí simulaci, šipka vpravo z režimu úprav přejde do pozastavené simulace a udělá krok.
 - Příprava na budoucí webovou verzi (iPhone, iPad, Android, Chromebook): simulační jádro bez práce se soubory a systémového času, překládá se v CI i pro WebAssembly; čas v aplikaci přes `web_time`. Chování programu se nemění.
