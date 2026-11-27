@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SJFidrmuc/LogicFlow/main/docs/formaty/lflib.schema.json",
+  "title": "LogicFlow – knihovna prvků (.lflib), formát 1",
+  "description": "Knihovna prvků LogicFlow. Zapojení prvku je objekt circuit z logicflow.schema.json. Popis: docs/formaty/lflib.md (cs), lflib.en.md (en). Schéma nekontroluje jedinečnost uid a id, odkazy mezi prvky ani cykly – to dělá program (kapitola 9). [en] LogicFlow element library. The item circuit is the circuit object from logicflow.schema.json. The schema does not check uniqueness of uid and id, references between items or cycles – the program does (chapter 9).",
+  "type": "object",
+  "required": ["format", "type", "library"],
+  "properties": {
+    "format": { "const": 1, "x-since": "0.4.0" },
+    "type": { "const": "logicflow-library", "x-since": "0.4.0" },
+    "app": { "type": "string", "x-since": "0.4.0" },
+    "library": { "$ref": "#/$defs/library", "x-since": "0.4.0" },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" }, "x-since": "0.4.0" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "uid": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+    },
+    "version": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+    "date": { "$ref": "logicflow.schema.json#/$defs/date" },
+    "translations": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z]{2}$" },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "x-since": "0.4.0" },
+          "description": { "type": "string", "x-since": "0.4.0" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "category": {
+      "type": "string",
+      "description": "Klíč vestavěné kategorie nebo vlastní text. [en] Built-in category key or custom text.",
+      "examples": ["combinational", "arithmetic", "code-converters", "sequential", "memory", "applications", "other"],
+      "x-builtin": {
+        "combinational": "0.4.0", "arithmetic": "0.4.0", "code-converters": "0.4.0", "sequential": "0.4.0",
+        "memory": "0.4.0", "applications": "0.4.0", "other": "0.4.0"
+      }
+    },
+    "library": {
+      "type": "object",
+      "required": ["uid", "name"],
+      "properties": {
+        "uid": { "$ref": "#/$defs/uid", "x-since": "0.4.0" },
+        "name": { "type": "string", "x-since": "0.4.0" },
+        "description": { "type": "string", "x-since": "0.4.0" },
+        "translations": { "$ref": "#/$defs/translations", "x-since": "0.4.0" },
+        "author": { "type": "string", "x-since": "0.4.0" },
+        "license": { "type": "string", "x-since": "0.4.0" },
+        "version": { "$ref": "#/$defs/version", "x-since": "0.4.0" },
+        "created": { "$ref": "#/$defs/date", "x-since": "0.4.0" },
+        "modified": { "$ref": "#/$defs/date", "x-since": "0.4.0" }
+      },
+      "additionalProperties": false
+    },
+    "item": {
+      "type": "object",
+      "required": ["uid", "id", "name", "circuit"],
+      "properties": {
+        "uid": { "$ref": "#/$defs/uid", "x-since": "0.4.0" },
+        "id": { "$ref": "logicflow.schema.json#/$defs/uint", "x-since": "0.4.0" },
+        "name": { "type": "string", "x-since": "0.4.0" },
+        "category": { "$ref": "#/$defs/category", "x-since": "0.4.0" },
+        "description": { "type": "string", "x-since": "0.4.0" },
+        "translations": { "$ref": "#/$defs/translations", "x-since": "0.4.0" },
+        "author": { "type": "string", "x-since": "0.4.0" },
+        "license": { "type": "string", "x-since": "0.4.0" },
+        "version": { "$ref": "#/$defs/version", "x-since": "0.4.0" },
+        "created": { "$ref": "#/$defs/date", "x-since": "0.4.0" },
+        "modified": { "$ref": "#/$defs/date", "x-since": "0.4.0" },
+        "inputs": { "type": "array", "items": { "type": "string" }, "x-since": "0.4.0" },
+        "outputs": { "type": "array", "items": { "type": "string" }, "x-since": "0.4.0" },
+        "circuit": { "$ref": "logicflow.schema.json#/$defs/circuit", "x-since": "0.4.0" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

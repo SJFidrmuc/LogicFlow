@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SJFidrmuc/LogicFlow/main/docs/formaty/logicflow.schema.json",
+  "title": "LogicFlow – projekt (.logicflow), formát 1",
+  "description": "Soubor projektu LogicFlow: hlavní obvod, podobvody a informace o obvodu. Popis: docs/formaty/logicflow.md (cs), logicflow.en.md (en). Anotace x-since = první verze programu, která hodnotu zná. [en] LogicFlow project file: main circuit, subcircuits and circuit information. x-since = first program version that knows the value.",
+  "type": "object",
+  "required": ["format", "app", "circuit"],
+  "properties": {
+    "format": { "const": 1, "x-since": "0.1.0" },
+    "app": { "type": "string", "x-since": "0.1.0" },
+    "info": { "$ref": "#/$defs/info", "x-since": "0.4.0" },
+    "circuit": { "$ref": "#/$defs/circuit", "x-since": "0.1.0" },
+    "subcircuits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/subcircuitDef" },
+      "x-since": "0.3.0"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "uint": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "date": {
+      "type": "string",
+      "anyOf": [{ "const": "" }, { "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }]
+    },
+    "point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "y": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "additionalProperties": false
+    },
+    "info": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "x-since": "0.4.0" },
+        "authors": { "type": "array", "items": { "type": "string" }, "x-since": "0.4.0" },
+        "description": { "type": "string", "x-since": "0.4.0" },
+        "license": { "type": "string", "x-since": "0.4.0" },
+        "school": { "type": "string", "x-since": "0.4.0" },
+        "created": { "$ref": "#/$defs/date", "x-since": "0.4.0" },
+        "modified": { "$ref": "#/$defs/date", "x-since": "0.4.0" },
+        "app_version": { "type": "string", "x-since": "0.4.0" }
+      },
+      "additionalProperties": true
+    },
+    "circuit": {
+      "type": "object",
+      "required": ["components", "wires"],
+      "properties": {
+        "components": { "type": "array", "items": { "$ref": "#/$defs/component" } },
+        "wires": { "type": "array", "items": { "$ref": "#/$defs/wire" } },
+        "next_id": { "$ref": "#/$defs/uint" }
+      },
+      "additionalProperties": false
+    },
+    "rotation": {
+      "enum": ["R0", "R90", "R180", "R270"],
+      "x-since": { "R0": "0.1.0", "R90": "0.1.0", "R180": "0.1.0", "R270": "0.1.0" }
+    },
+    "component": {
+      "type": "object",
+      "required": ["id", "kind", "pos"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uint" },
+        "kind": { "$ref": "#/$defs/componentKind" },
+        "pos": { "$ref": "#/$defs/point" },
+        "rotation": { "$ref": "#/$defs/rotation" },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "wire": {
+      "type": "object",
+      "required": ["id", "a", "b"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uint" },
+        "a": { "$ref": "#/$defs/point" },
+        "b": { "$ref": "#/$defs/point" }
+      },
+      "additionalProperties": false
+    },
+    "gateKind": {
+      "enum": ["Buffer", "Not", "And", "Or", "Nand", "Nor", "Xor", "Xnor"],
+      "x-since": {
+        "Buffer": "0.1.0", "Not": "0.1.0", "And": "0.1.0", "Or": "0.1.0",
+        "Nand": "0.1.0", "Nor": "0.1.0", "Xor": "0.1.0", "Xnor": "0.1.0"
+      }
+    },
+    "flipFlopKind": {
+      "enum": ["rs", "d_latch", "d", "jk", "t"],
+      "x-since": { "rs": "0.2.0", "d_latch": "0.2.0", "d": "0.2.0", "jk": "0.2.0", "t": "0.2.0" }
+    },
+    "pinSide": {
+      "enum": ["left", "right", "top", "bottom"],
+      "x-since": { "left": "0.3.0", "right": "0.3.0", "top": "0.3.0", "bottom": "0.3.0" }
+    },
+    "componentKind": {
+      "type": "object",
+      "required": ["type"],
+      "oneOf": [
+        {
+          "x-since": "0.1.0",
+          "properties": {
+            "type": { "const": "gate" },
+            "gate": { "$ref": "#/$defs/gateKind" },
+            "inputs": { "type": "integer", "minimum": 1, "maximum": 8 }
+          },
+          "required": ["type", "gate", "inputs"],
+          "additionalProperties": false,
+          "if": { "properties": { "gate": { "enum": ["Buffer", "Not"] } } },
+          "then": { "properties": { "inputs": { "const": 1 } } },
+          "else": { "properties": { "inputs": { "minimum": 2 } } }
+        },
+        {
+          "x-since": "0.1.0",
+          "properties": { "type": { "const": "switch" }, "on": { "type": "boolean" } },
+          "required": ["type", "on"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.1.0",
+          "properties": { "type": { "const": "button" } },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.1.0",
+          "properties": { "type": { "const": "constant" }, "value": { "type": "boolean" } },
+          "required": ["type", "value"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.4.0",
+          "properties": { "type": { "const": "vcc" } },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.4.0",
+          "properties": { "type": { "const": "gnd" } },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.1.0",
+          "properties": { "type": { "const": "led" } },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.2.0",
+          "properties": {
+            "type": { "const": "flip_flop" },
+            "ff": { "$ref": "#/$defs/flipFlopKind" },
+            "falling": { "type": "boolean" },
+            "initial": { "type": "boolean" }
+          },
+          "required": ["type", "ff"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.2.0",
+          "properties": {
+            "type": { "const": "clock" },
+            "period_ms": { "type": "integer", "minimum": 1, "maximum": 4294967295 }
+          },
+          "required": ["type", "period_ms"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "type": { "const": "block" }, "block": { "$ref": "#/$defs/blockKind" } },
+          "required": ["type", "block"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "type": { "const": "seven_segment" }, "pins": { "$ref": "#/$defs/pinSide" } },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "type": { "const": "hex_display" }, "pins": { "$ref": "#/$defs/pinSide" } },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": {
+            "type": { "const": "subcircuit" },
+            "id": { "$ref": "#/$defs/uint" },
+            "inputs": { "type": "integer", "minimum": 0, "maximum": 32 },
+            "outputs": { "type": "integer", "minimum": 0, "maximum": 32 }
+          },
+          "required": ["type", "id", "inputs", "outputs"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "blockKind": {
+      "type": "object",
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "mux" }, "select": { "type": "integer", "minimum": 1, "maximum": 3 } },
+          "required": ["kind", "select"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "decoder" }, "bits": { "type": "integer", "minimum": 1, "maximum": 3 } },
+          "required": ["kind", "bits"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "encoder" }, "bits": { "type": "integer", "minimum": 2, "maximum": 3 } },
+          "required": ["kind", "bits"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "adder" }, "bits": { "type": "integer", "minimum": 1, "maximum": 4 } },
+          "required": ["kind", "bits"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "comparator" }, "bits": { "type": "integer", "minimum": 1, "maximum": 4 } },
+          "required": ["kind", "bits"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "bcd_to7_seg" } },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": {
+            "kind": { "const": "counter" },
+            "bits": { "type": "integer", "minimum": 2, "maximum": 8 },
+            "down": { "type": "boolean" }
+          },
+          "required": ["kind", "bits", "down"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "register" }, "bits": { "type": "integer", "minimum": 2, "maximum": 8 } },
+          "required": ["kind", "bits"],
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.3.0",
+          "properties": { "kind": { "const": "shift_register" }, "bits": { "type": "integer", "minimum": 2, "maximum": 8 } },
+          "required": ["kind", "bits"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "subcircuitDef": {
+      "type": "object",
+      "required": ["id", "name", "circuit"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uint" },
+        "name": { "type": "string" },
+        "circuit": { "$ref": "#/$defs/circuit" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
