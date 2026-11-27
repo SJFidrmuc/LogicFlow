@@ -104,7 +104,7 @@ Objekt `kind` má vždy klíč **`type`** a podle něj další parametry.
 | `switch` | `on` (bool) | 0 | 1 | 0.1.0 | přepínač – drží 0 nebo 1 |
 | `button` | – | 0 | 1 | 0.1.0 | tlačítko – 1 jen po dobu stisku |
 | `constant` | `value` (bool) | 0 | 1 | 0.1.0 | konstanta 0 / 1 |
-| `led` | – | 1 | 0 | 0.1.0 | svítivá dioda |
+| `led` | `color` (od 0.4.0) | 1 | 0 | 0.1.0 | svítivá dioda (9.3) |
 | `flip_flop` | `ff`, `falling`, `initial` | 2–3 | 2 | 0.2.0 | klopný obvod (9.4) |
 | `clock` | `period_ms` | 0 | 1 | 0.2.0 | generátor hodin |
 | `block` | `block` (objekt) | podle bloku | podle bloku | 0.3.0 | funkční blok (9.5) |
@@ -113,6 +113,7 @@ Objekt `kind` má vždy klíč **`type`** a podle něj další parametry.
 | `subcircuit` | `id`, `inputs`, `outputs` | 0–32 | 0–32 | 0.3.0 | instance podobvodu (9.6) |
 | `vcc` | – | 0 | 1 | 0.4.0 | napájení – logická 1 se značkou napájení |
 | `gnd` | – | 0 | 1 | 0.4.0 | zem – logická 0 se značkou země |
+| `led_ak` | `color` | 2 | 0 | 0.4.0 | svítivá dioda se dvěma vývody – anoda a katoda (9.3) |
 
 Čtenář, který `type` nezná, **musí** soubor odmítnout (nesmí součástku tiše vynechat – změnilo by to zapojení).
 
@@ -141,11 +142,23 @@ Objekt `kind` má vždy klíč **`type`** a podle něj další parametry.
 
 ### 9.3 Zobrazovače
 
-- `led` – **výstup obvodu** (v podobvodu vývod).
+- `led` – **výstup obvodu** (v podobvodu vývod); svítí při 1 na vstupu.
+- `led_ak` (od 0.4.0) – svítivá dioda se vstupy **A** (anoda) a **K** (katoda); svítí při A = 1 a K = 0, při X nebo Z na kterémkoli vývodu nesvítí. **Není** výstupem obvodu (rozhraní podobvodu, pravdivostní tabulka). Je to samostatný druh, ne parametr `led`, aby ji starší verze neotevřely jako LED s jedním vývodem.
+
+Klíč `color` (nepovinný, výchozí `red`) u `led` a `led_ak` určuje barvu svitu; simulaci nemění. LogicFlow výchozí `red` nezapisuje. Starší verze klíč u `led` přeskočí (LED je pak červená), soubor tedy otevřou:
+
+| `color` | Od verze | Barva |
+| --- | --- | --- |
+| `red` | 0.4.0 | červená |
+| `green` | 0.4.0 | zelená |
+| `yellow` | 0.4.0 | žlutá |
+| `blue` | 0.4.0 | modrá |
+| `white` | 0.4.0 | bílá |
+
 - `seven_segment` – vstupy **a, b, c, d, e, f, g, dp** v tomto pořadí.
 - `hex_display` – vstupy **D0–D3** (D0 nejnižší bit); zobrazí 0–F.
 
-Klíč `pins` (nepovinný, výchozí `left`) určuje stranu s vývody:
+Klíč `pins` (nepovinný, výchozí `left`) určuje u `seven_segment` a `hex_display` stranu s vývody:
 
 | `pins` | Od verze | Vývody |
 | --- | --- | --- |
@@ -201,6 +214,7 @@ Místní souřadnice pro `R0` (otočení viz kapitola 7). Vývody se počítají
 | `vcc` | – | (0, 1) |
 | `gnd` | – | (0, −1) |
 | `led` | (−2, 0) | – |
+| `led_ak` | A (−2, 0), K (2, 0) | – |
 | `flip_flop` `jk` | (−3, −2), (−3, 0), (−3, 2) | Q (3, −2), Q̄ (3, 2) |
 | `flip_flop` ostatní | (−3, −1), (−3, 1) | Q (3, −1), Q̄ (3, 1) |
 | `clock` | – | (3, 0) |
@@ -256,11 +270,12 @@ Jiný zapisovač **musí** dodržet povinná pole a rozsahy z kapitol 4–11; os
 | hradla, přepínače, tlačítka, konstanty, LED | ano | ano | ano | ano |
 | klopné obvody, hodiny | odmítne | ano | ano | ano |
 | funkční bloky, zobrazovače, podobvody | odmítne | odmítne | ano | ano |
-| `vcc`, `gnd` | odmítne | odmítne | odmítne | ano |
+| `vcc`, `gnd`, `led_ak` | odmítne | odmítne | odmítne | ano |
+| `color` u `led` | otevře, LED je červená, při uložení barvu zahodí | totéž | totéž | ano |
 | část `info` | otevře, při uložení zahodí | totéž | totéž | ano |
 | `format` vyšší než 1 | odmítne | odmítne | odmítne | odmítne |
 
-- **Nejnižší verze**, která soubor otevře = nejvyšší „Od verze“ ze všech `type`, `gate`, `ff`, `kind` bloku a `pins` použitých v souboru.
+- **Nejnižší verze**, která soubor otevře = nejvyšší „Od verze“ ze všech `type`, `gate`, `ff`, `kind` bloku a `pins` použitých v souboru (`color` se nepočítá – starší verze ho přeskočí).
 - Nová součástka nebo nová hodnota v budoucích verzích nezvyšuje `format`, ale starší verze takový soubor odmítne (viz kapitola 9). Nová nepovinná pole starší verze přeskočí.
 - Uvnitř formátu 1 se klíče ani hodnoty nepřejmenovávají ani neodebírají a každé nové pole má výchozí hodnotu – soubor z libovolné starší verze proto novější verze vždy otevře.
 

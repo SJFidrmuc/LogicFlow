@@ -1,6 +1,6 @@
 # Subcircuits
 
-A subcircuit is a circuit you insert into another one as a single component – for example a half adder used twice in a full adder. Its inputs are its switches and buttons, its outputs its LEDs. Their labels set the pin order on the symbol (A, B, C…).
+A subcircuit is a circuit you insert into another one as a single component – for example a half adder used twice in a full adder. Its inputs are its switches and buttons, its outputs its (one-pin) LEDs. Their labels set the pin order on the symbol (A, B, C…).
 
 ## How to
 

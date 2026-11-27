@@ -508,13 +508,49 @@ fn component_properties(
                     }
                     ui.end_row();
                 }
-                ComponentKind::Button
-                | ComponentKind::Led
-                | ComponentKind::Vcc
-                | ComponentKind::Gnd => {}
+                ComponentKind::Led { color } | ComponentKind::LedAk { color } => {
+                    // Barva (jen vzhled) a počet vývodů: 1 = vstup, 2 = anoda a katoda.
+                    // [en] Colour (appearance only) and number of pins: 1 = input,
+                    // 2 = anode and cathode.
+                    ui.label(weak(tr(lang, T::LedColorLabel)));
+                    let mut new_color = color;
+                    ui.add_enabled_ui(editable, |ui| {
+                        egui::ComboBox::from_id_salt("led_color")
+                            .selected_text(catalog::led_color_name(color, lang))
+                            .show_ui(ui, |ui| {
+                                for c in logicflow_core::LedColor::ALL {
+                                    ui.selectable_value(
+                                        &mut new_color,
+                                        c,
+                                        catalog::led_color_name(c, lang),
+                                    );
+                                }
+                            });
+                    });
+                    ui.end_row();
+                    ui.label(weak(tr(lang, T::PinSideLabel)));
+                    let two = matches!(comp.kind, ComponentKind::LedAk { .. });
+                    let mut new_two = two;
+                    ui.vertical(|ui| {
+                        if !editable {
+                            ui.disable();
+                        }
+                        ui.radio_value(&mut new_two, false, tr(lang, T::LedPinsOne));
+                        ui.radio_value(&mut new_two, true, tr(lang, T::LedPinsTwo));
+                    });
+                    ui.end_row();
+                    if (new_color, new_two) != (color, two) {
+                        project.checkpoint();
+                        if let Some(c) = project.circuit.component_mut(id) {
+                            c.kind = c.kind.with_led_color(new_color).with_led_two_pins(new_two);
+                        }
+                        structure_changed = true;
+                    }
+                }
+                ComponentKind::Button | ComponentKind::Vcc | ComponentKind::Gnd => {}
             }
 
-            let is_led = matches!(comp.kind, ComponentKind::Led);
+            let is_led = comp.kind.is_led();
             let multi = matches!(
                 comp.kind,
                 ComponentKind::Block { .. }
@@ -523,16 +559,26 @@ fn component_properties(
                     | ComponentKind::Subcircuit { .. }
             );
             let shown = if is_led {
-                project.sim.inputs(id).first().copied()
+                comp.kind.led_state(&project.sim.inputs(id))
             } else {
                 project.sim.output_net_value(id)
             };
+            let two_pin_led = matches!(comp.kind, ComponentKind::LedAk { .. });
             if let Some(v) = shown.filter(|_| !multi) {
-                ui.label(weak(tr(lang, if is_led { T::Input } else { T::Output })));
+                // U LED se dvěma vývody je to stav svitu, ne hodnota jednoho vstupu.
+                // [en] For a two-pin LED it is the light state, not the value of one input.
+                let title = if two_pin_led {
+                    T::BlockState
+                } else if is_led {
+                    T::Input
+                } else {
+                    T::Output
+                };
+                ui.label(weak(tr(lang, title)));
                 ui.label(value_text(v));
                 ui.end_row();
             }
-            if matches!(comp.kind, ComponentKind::Gate { .. }) || multi {
+            if matches!(comp.kind, ComponentKind::Gate { .. }) || multi || two_pin_led {
                 let ins = project.sim.inputs(id);
                 ui.label(weak(tr(lang, T::Inputs)));
                 ui.horizontal_wrapped(|ui| {
@@ -858,7 +904,8 @@ pub fn hierarchy(ui: &mut Ui, project: &mut Project, lang: Lang) {
                             | ComponentKind::Gnd
                             | ComponentKind::Clock { .. } => group == 0,
                             ComponentKind::Gate { .. } => group == 1,
-                            ComponentKind::Led
+                            ComponentKind::Led { .. }
+                            | ComponentKind::LedAk { .. }
                             | ComponentKind::SevenSegment { .. }
                             | ComponentKind::HexDisplay { .. } => group == 2,
                             ComponentKind::FlipFlop { .. } => group == 3,

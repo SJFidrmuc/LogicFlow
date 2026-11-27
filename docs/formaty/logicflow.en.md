@@ -104,7 +104,7 @@ The `kind` object always has the key **`type`** and further parameters depending
 | `switch` | `on` (bool) | 0 | 1 | 0.1.0 | switch – holds 0 or 1 |
 | `button` | – | 0 | 1 | 0.1.0 | push button – 1 only while pressed |
 | `constant` | `value` (bool) | 0 | 1 | 0.1.0 | constant 0 / 1 |
-| `led` | – | 1 | 0 | 0.1.0 | light-emitting diode |
+| `led` | `color` (since 0.4.0) | 1 | 0 | 0.1.0 | light-emitting diode (9.3) |
 | `flip_flop` | `ff`, `falling`, `initial` | 2–3 | 2 | 0.2.0 | flip-flop (9.4) |
 | `clock` | `period_ms` | 0 | 1 | 0.2.0 | clock generator |
 | `block` | `block` (object) | per block | per block | 0.3.0 | function block (9.5) |
@@ -113,6 +113,7 @@ The `kind` object always has the key **`type`** and further parameters depending
 | `subcircuit` | `id`, `inputs`, `outputs` | 0–32 | 0–32 | 0.3.0 | subcircuit instance (9.6) |
 | `vcc` | – | 0 | 1 | 0.4.0 | supply – logic 1 with a power symbol |
 | `gnd` | – | 0 | 1 | 0.4.0 | ground – logic 0 with a ground symbol |
+| `led_ak` | `color` | 2 | 0 | 0.4.0 | light-emitting diode with two pins – anode and cathode (9.3) |
 
 A reader that does not know a `type` **must** refuse the file (it must not silently skip the component – that would change the circuit).
 
@@ -141,11 +142,23 @@ A reader that does not know a `type` **must** refuse the file (it must not silen
 
 ### 9.3 Displays
 
-- `led` – a **circuit output** (a pin in a subcircuit).
+- `led` – a **circuit output** (a pin in a subcircuit); lights at 1 on its input.
+- `led_ak` (since 0.4.0) – a light-emitting diode with inputs **A** (anode) and **K** (cathode); it lights at A = 1 and K = 0 and stays dark with X or Z on any pin. It is **not** a circuit output (subcircuit interface, truth table). It is a separate kind, not a parameter of `led`, so that older versions do not open it as a one-pin LED.
+
+The key `color` (optional, default `red`) of `led` and `led_ak` sets the colour of the light; it does not affect the simulation. LogicFlow does not write the default `red`. Older versions skip the key on `led` (the LED is then red), so they open the file:
+
+| `color` | Since | Colour |
+| --- | --- | --- |
+| `red` | 0.4.0 | red |
+| `green` | 0.4.0 | green |
+| `yellow` | 0.4.0 | yellow |
+| `blue` | 0.4.0 | blue |
+| `white` | 0.4.0 | white |
+
 - `seven_segment` – inputs **a, b, c, d, e, f, g, dp** in this order.
 - `hex_display` – inputs **D0–D3** (D0 the lowest bit); shows 0–F.
 
-The key `pins` (optional, default `left`) sets the side with the pins:
+The key `pins` (optional, default `left`) sets the side with the pins of `seven_segment` and `hex_display`:
 
 | `pins` | Since | Pins |
 | --- | --- | --- |
@@ -201,6 +214,7 @@ Local coordinates for `R0` (rotation in chapter 7). Pins are counted from the to
 | `vcc` | – | (0, 1) |
 | `gnd` | – | (0, −1) |
 | `led` | (−2, 0) | – |
+| `led_ak` | A (−2, 0), K (2, 0) | – |
 | `flip_flop` `jk` | (−3, −2), (−3, 0), (−3, 2) | Q (3, −2), Q̄ (3, 2) |
 | `flip_flop` others | (−3, −1), (−3, 1) | Q (3, −1), Q̄ (3, 1) |
 | `clock` | – | (3, 0) |
@@ -256,11 +270,12 @@ Another writer **must** follow the required fields and ranges of chapters 4–11
 | gates, switches, push buttons, constants, LEDs | yes | yes | yes | yes |
 | flip-flops, clocks | refuses | yes | yes | yes |
 | function blocks, displays, subcircuits | refuses | refuses | yes | yes |
-| `vcc`, `gnd` | refuses | refuses | refuses | yes |
+| `vcc`, `gnd`, `led_ak` | refuses | refuses | refuses | yes |
+| `color` on `led` | opens, the LED is red, drops the colour on saving | same | same | yes |
 | the `info` part | opens, drops it on saving | same | same | yes |
 | `format` higher than 1 | refuses | refuses | refuses | refuses |
 
-- The **lowest version** that opens a file = the highest “Since” of all `type`, `gate`, `ff`, block `kind` and `pins` values used in the file.
+- The **lowest version** that opens a file = the highest “Since” of all `type`, `gate`, `ff`, block `kind` and `pins` values used in the file (`color` does not count – older versions skip it).
 - A new component or value in future versions does not increase `format`, but an older version refuses such a file (see chapter 9). Older versions skip new optional fields.
 - Within format 1 keys and values are never renamed or removed and every new field has a default value – so a newer version always opens a file from any older version.
 

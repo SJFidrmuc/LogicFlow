@@ -1467,11 +1467,10 @@ impl Project {
     /// [en] Value shown for a component in the timing diagram.
     pub fn signal_value(&self, id: CompId) -> LogicValue {
         match self.circuit.component(id).map(|c| c.kind) {
-            Some(ComponentKind::Led) => self
-                .sim
-                .inputs(id)
-                .first()
-                .copied()
+            // U LED stav svitu (u LED se dvěma vývody podle anody i katody).
+            // [en] For an LED its light state (for a two-pin LED from the anode and cathode).
+            Some(kind) if kind.is_led() => kind
+                .led_state(&self.sim.inputs(id))
                 .unwrap_or(LogicValue::Z),
             _ => self.sim.output(id).unwrap_or(LogicValue::Z),
         }
@@ -1608,7 +1607,7 @@ mod tests {
     fn small() -> Project {
         let mut c = Circuit::default();
         c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
-        c.add_component(ComponentKind::Led, Point::new(6, 0));
+        c.add_component(ComponentKind::LED, Point::new(6, 0));
         c.add_wire(Point::new(2, 0), Point::new(4, 0));
         Project::new(c)
     }
@@ -1624,7 +1623,7 @@ mod tests {
         p.circuit
             .add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
         p.circuit
-            .add_component(ComponentKind::Led, Point::new(4, 0));
+            .add_component(ComponentKind::LED, Point::new(4, 0));
         p.after_structure_change();
         assert!(
             !p.can_place_subcircuit(id),
@@ -1963,7 +1962,7 @@ mod tests {
         // [en] Switch → LED, a wire of two segments in one net and one separate wire.
         let mut c = Circuit::default();
         c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
-        c.add_component(ComponentKind::Led, Point::new(8, 0));
+        c.add_component(ComponentKind::LED, Point::new(8, 0));
         let w1 = c.add_wire(Point::new(2, 0), Point::new(4, 0)).unwrap();
         let w2 = c.add_wire(Point::new(4, 0), Point::new(6, 0)).unwrap();
         let lone = c.add_wire(Point::new(0, 10), Point::new(4, 10)).unwrap();
@@ -2047,7 +2046,7 @@ mod tests {
         p.circuit
             .add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
         p.circuit
-            .add_component(ComponentKind::Led, Point::new(4, 0));
+            .add_component(ComponentKind::LED, Point::new(4, 0));
         p.after_structure_change();
         p.leave_subcircuit();
         let kind = p.subcircuit(id).unwrap().kind();

@@ -35,8 +35,8 @@ use std::collections::BTreeSet;
 use logicflow_core::circuit::MAX_SUBCIRCUIT_PINS;
 use logicflow_core::library::CATEGORIES;
 use logicflow_core::{
-    BlockKind, Circuit, CircuitInfo, ComponentKind, FlipFlopKind, GateKind, Library, LogicValue,
-    PinSide, Point, ProjectFile, Rotation, Simulator, SubcircuitDef,
+    BlockKind, Circuit, CircuitInfo, ComponentKind, FlipFlopKind, GateKind, LedColor, Library,
+    LogicValue, PinSide, Point, ProjectFile, Rotation, Simulator, SubcircuitDef,
 };
 use serde_json::Value;
 
@@ -137,13 +137,13 @@ fn kind_since(kind: &ComponentKind) -> &'static str {
         | ComponentKind::Switch { .. }
         | ComponentKind::Button
         | ComponentKind::Constant { .. }
-        | ComponentKind::Led => "0.1.0",
+        | ComponentKind::Led { .. } => "0.1.0",
         ComponentKind::FlipFlop { .. } | ComponentKind::Clock { .. } => "0.2.0",
         ComponentKind::Block { .. }
         | ComponentKind::SevenSegment { .. }
         | ComponentKind::HexDisplay { .. }
         | ComponentKind::Subcircuit { .. } => "0.3.0",
-        ComponentKind::Vcc | ComponentKind::Gnd => "0.4.0",
+        ComponentKind::Vcc | ComponentKind::Gnd | ComponentKind::LedAk { .. } => "0.4.0",
     }
 }
 
@@ -158,7 +158,14 @@ fn all_kinds() -> Vec<ComponentKind> {
         ComponentKind::Constant { value: true },
         ComponentKind::Vcc,
         ComponentKind::Gnd,
-        ComponentKind::Led,
+        // Jiná než výchozí barva, aby se zapsal i klíč `color`.
+        // [en] A non-default colour so that the `color` key is written too.
+        ComponentKind::Led {
+            color: LedColor::Green,
+        },
+        ComponentKind::LedAk {
+            color: LedColor::Blue,
+        },
         ComponentKind::flip_flop(FlipFlopKind::Jk),
         ComponentKind::DEFAULT_CLOCK,
         ComponentKind::Block {
@@ -211,6 +218,17 @@ fn flip_flop_since(ff: FlipFlopKind) -> &'static str {
 fn pins_since(side: PinSide) -> &'static str {
     match side {
         PinSide::Left | PinSide::Right | PinSide::Top | PinSide::Bottom => "0.3.0",
+    }
+}
+
+/// První verze, která zná barvu LED.
+///
+/// [en] First version that knows the LED colour.
+fn led_color_since(color: LedColor) -> &'static str {
+    match color {
+        LedColor::Red | LedColor::Green | LedColor::Yellow | LedColor::Blue | LedColor::White => {
+            "0.4.0"
+        }
     }
 }
 
@@ -322,6 +340,13 @@ fn values_documented() {
             PinSide::ALL
                 .iter()
                 .map(|&p| (name(&p), pins_since(p)))
+                .collect(),
+        ),
+        (
+            "ledColor",
+            LedColor::ALL
+                .iter()
+                .map(|&c| (name(&c), led_color_since(c)))
                 .collect(),
         ),
         (

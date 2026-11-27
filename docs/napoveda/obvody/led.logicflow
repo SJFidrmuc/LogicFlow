@@ -1,0 +1,286 @@
+{
+ "format": 1,
+ "app": "LogicFlow 0.4.0",
+ "circuit": {
+  "components": [
+   {
+    "id": 1,
+    "kind": {
+     "type": "switch",
+     "on": true
+    },
+    "pos": {
+     "x": 0,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "A"
+   },
+   {
+    "id": 4,
+    "kind": {
+     "type": "led"
+    },
+    "pos": {
+     "x": 8,
+     "y": 0
+    },
+    "rotation": "R0",
+    "label": "červená"
+   },
+   {
+    "id": 6,
+    "kind": {
+     "type": "led",
+     "color": "green"
+    },
+    "pos": {
+     "x": 8,
+     "y": 4
+    },
+    "rotation": "R0",
+    "label": "zelená"
+   },
+   {
+    "id": 8,
+    "kind": {
+     "type": "led",
+     "color": "yellow"
+    },
+    "pos": {
+     "x": 8,
+     "y": 8
+    },
+    "rotation": "R0",
+    "label": "žlutá"
+   },
+   {
+    "id": 10,
+    "kind": {
+     "type": "led",
+     "color": "blue"
+    },
+    "pos": {
+     "x": 8,
+     "y": 12
+    },
+    "rotation": "R0",
+    "label": "modrá"
+   },
+   {
+    "id": 12,
+    "kind": {
+     "type": "led",
+     "color": "white"
+    },
+    "pos": {
+     "x": 8,
+     "y": 16
+    },
+    "rotation": "R0",
+    "label": "bílá"
+   },
+   {
+    "id": 14,
+    "kind": {
+     "type": "switch",
+     "on": true
+    },
+    "pos": {
+     "x": 0,
+     "y": 24
+    },
+    "rotation": "R0",
+    "label": "A1"
+   },
+   {
+    "id": 16,
+    "kind": {
+     "type": "led_ak"
+    },
+    "pos": {
+     "x": 12,
+     "y": 24
+    },
+    "rotation": "R0",
+    "label": "D1"
+   },
+   {
+    "id": 17,
+    "kind": {
+     "type": "switch",
+     "on": false
+    },
+    "pos": {
+     "x": 20,
+     "y": 24
+    },
+    "rotation": "R180",
+    "label": "K1"
+   },
+   {
+    "id": 19,
+    "kind": {
+     "type": "switch",
+     "on": true
+    },
+    "pos": {
+     "x": 0,
+     "y": 30
+    },
+    "rotation": "R0",
+    "label": "A2"
+   },
+   {
+    "id": 21,
+    "kind": {
+     "type": "led_ak",
+     "color": "green"
+    },
+    "pos": {
+     "x": 12,
+     "y": 30
+    },
+    "rotation": "R0",
+    "label": "D2"
+   },
+   {
+    "id": 22,
+    "kind": {
+     "type": "switch",
+     "on": true
+    },
+    "pos": {
+     "x": 20,
+     "y": 30
+    },
+    "rotation": "R180",
+    "label": "K2"
+   }
+  ],
+  "wires": [
+   {
+    "id": 2,
+    "a": {
+     "x": 2,
+     "y": 0
+    },
+    "b": {
+     "x": 4,
+     "y": 0
+    }
+   },
+   {
+    "id": 3,
+    "a": {
+     "x": 4,
+     "y": 0
+    },
+    "b": {
+     "x": 4,
+     "y": 16
+    }
+   },
+   {
+    "id": 5,
+    "a": {
+     "x": 4,
+     "y": 0
+    },
+    "b": {
+     "x": 6,
+     "y": 0
+    }
+   },
+   {
+    "id": 7,
+    "a": {
+     "x": 4,
+     "y": 4
+    },
+    "b": {
+     "x": 6,
+     "y": 4
+    }
+   },
+   {
+    "id": 9,
+    "a": {
+     "x": 4,
+     "y": 8
+    },
+    "b": {
+     "x": 6,
+     "y": 8
+    }
+   },
+   {
+    "id": 11,
+    "a": {
+     "x": 4,
+     "y": 12
+    },
+    "b": {
+     "x": 6,
+     "y": 12
+    }
+   },
+   {
+    "id": 13,
+    "a": {
+     "x": 4,
+     "y": 16
+    },
+    "b": {
+     "x": 6,
+     "y": 16
+    }
+   },
+   {
+    "id": 15,
+    "a": {
+     "x": 2,
+     "y": 24
+    },
+    "b": {
+     "x": 10,
+     "y": 24
+    }
+   },
+   {
+    "id": 18,
+    "a": {
+     "x": 14,
+     "y": 24
+    },
+    "b": {
+     "x": 18,
+     "y": 24
+    }
+   },
+   {
+    "id": 20,
+    "a": {
+     "x": 2,
+     "y": 30
+    },
+    "b": {
+     "x": 10,
+     "y": 30
+    }
+   },
+   {
+    "id": 23,
+    "a": {
+     "x": 14,
+     "y": 30
+    },
+    "b": {
+     "x": 18,
+     "y": 30
+    }
+   }
+  ],
+  "next_id": 24
+ }
+}

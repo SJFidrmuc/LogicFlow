@@ -28,7 +28,7 @@ Uživatelský přehled knihoven a vzorové knihovny jsou v [docs/knihovny](../kn
 | 0.2.0 | 1 | – | klopné obvody RS, D (úroveň), D, JK, T (`falling`, `initial`); hodiny (`period_ms`) |
 | 0.3.0 | 1 | – | funkční bloky (`block`: MUX, dekodér, kodér, sčítačka, komparátor, BCD/7SEG, čítač, registr, posuvný registr), sedmisegmentovka a hex displej (`pins`), podobvody (`subcircuit`, část `subcircuits`); vyšlo jako 0.3.1 |
 | 0.3.1 | 1 | – | beze změny formátu |
-| 0.4.0 – nevydáno | 1 | 1 | napájení `vcc` a zem `gnd`; informace o obvodu (část `info`, neznámé klíče se zachovají); knihovna prvků `.lflib` |
+| 0.4.0 – nevydáno | 1 | 1 | napájení `vcc` a zem `gnd`; barva LED (`color`) a LED se dvěma vývody `led_ak`; informace o obvodu (část `info`, neznámé klíče se zachovají); knihovna prvků `.lflib` |
 
 Verze **0.3.0** nevyšla samostatně, její obsah vyšel ve 0.3.1 – v praxi tedy „od 0.3.0“ znamená „od 0.3.1“.
 
@@ -73,7 +73,7 @@ This folder is the **normative description of the files** LogicFlow reads and wr
 | 0.2.0 | 1 | – | flip-flops RS, D latch, D, JK, T (`falling`, `initial`); clock (`period_ms`) |
 | 0.3.0 | 1 | – | function blocks (`block`: MUX, decoder, encoder, adder, comparator, BCD/7SEG, counter, register, shift register), seven-segment and hex display (`pins`), subcircuits (`subcircuit`, the `subcircuits` part); released as 0.3.1 |
 | 0.3.1 | 1 | – | no format change |
-| 0.4.0 – unreleased | 1 | 1 | supply `vcc` and ground `gnd`; circuit information (the `info` part, unknown keys kept); element library `.lflib` |
+| 0.4.0 – unreleased | 1 | 1 | supply `vcc` and ground `gnd`; LED colour (`color`) and the two-pin LED `led_ak`; circuit information (the `info` part, unknown keys kept); element library `.lflib` |
 
 Version **0.3.0** was not released on its own; its content shipped in 0.3.1, so “since 0.3.0” means “since 0.3.1” in practice.
 

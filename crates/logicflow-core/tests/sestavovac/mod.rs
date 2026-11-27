@@ -235,7 +235,7 @@ impl Sestavovac {
     ///
     /// [en] Circuit output – an LED with a label in the last column (forms the item's interface).
     pub fn vystup(&mut self, label: &str, sig: Sig) {
-        let p = self.add(ComponentKind::Led, None, label);
+        let p = self.add(ComponentKind::LED, None, label);
         self.spoj(p, 0, sig);
     }
 
@@ -329,7 +329,7 @@ impl Sestavovac {
                 }
                 ys[pi] = cy;
                 placed[pi] = true;
-                let gap = if p.kind.is_input() || matches!(p.kind, ComponentKind::Led) {
+                let gap = if p.kind.is_input() || p.kind.is_led() {
                     1.0
                 } else {
                     2.0

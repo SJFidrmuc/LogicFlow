@@ -12,6 +12,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Barva LED** – červená, zelená, žlutá, modrá nebo bílá (Vlastnosti a kontextová nabídka); zhasnutá LED má tmavý odstín své barvy. **LED se dvěma vývody – anodou a katodou:** svítí jen při A = 1 a K = 0 jako skutečná dioda, hodí se pro maticová zapojení; přepíná se volbou Vývody nebo se přidá z Shift+A → Výstupy. Do pravdivostní tabulky ani do vývodů podobvodu se nepočítá.
 - **Vlastnosti obvodu** (Soubor → Vlastnosti obvodu…): název, autoři, popis, licence a škola/třída se ukládají do souboru obvodu (část `info`, stejné klíče jako v online knihovně obvodů; neznámé klíče se zachovají). Nový obvod dostane autora a licenci z nastavení, uložení zapíše datum úpravy, u cizího obvodu se můžete přidat jako spoluautor. Informace jsou vidět nahoře v Hierarchii a v náhledu v okně pro otevření souboru.
 - **Napájení VCC a zem GND** se značkami podle elektrotechnických schémat (logická 1 a 0, bez automatického popisku). Spojení VCC s GND je **zkrat napájení**: síť zčervená a schéma i stavový řádek ukážou hlášku, i když je zkrat uvnitř podobvodu.
 - **Průběžné sestavení z větve main:** předběžné vydání „Průběžné sestavení (main)“ s balíčky pro všechny platformy se přepíše po každé změně – novinky se dají vyzkoušet bez čekání na vydání. **Archiv verzí** na webu: tabulka všech vydání × platforem s odkazy ke stažení.
@@ -39,7 +40,6 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 - Knihovna součástek: „Sčítačka 4bitová“ místo „Sčítačka 4bitový“.
 - Ctrl+R restartuje simulaci (zkratka byla v nabídce a nápovědě, ale nefungovala).
 - Klávesy nad schématem reagují jen na přesnou kombinaci (Shift+X už nemaže jako X).
-- Knihovna součástek a editor paměti uvádějí u připravovaných součástek aktuální plán (paměti ve verzi 0.5, obvody 74xx ve verzi 0.7).
 
 ### Změněno
 - **Plán verzí rozdělen:** 0.4 bez sběrnic a edice Škola, ty přijdou ve 0.5; další milníky se posunuly o jednu verzi. Připravované součástky v knihovně a panel Paměť ukazují nové verze (paměti 0.6, obvody 74xx 0.8).
@@ -147,6 +147,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 
 ### 1.0 (září 2027)
 - Verze pro výuku.
+- Odkaz Podpořit vývoj v nabídce Nápověda a v okně O aplikaci (dobrovolný příspěvek, bez připomínek v programu).
 
 ### Kolem verze 1.0 a později
 - **Webová verze** pro iPhone, iPad, Android a Chromebooky (v prohlížeči, instalovatelná na plochu) s dotykovým ovládáním.
