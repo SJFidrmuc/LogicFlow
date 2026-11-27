@@ -30,6 +30,10 @@ jobs:
       - run: python3 scripts/komentare.py kontrola
       # Přehled změn CHANGELOG.md / CHANGELOG.en.md (CONTRIBUTING.md → Vydání nové verze).
       - run: python3 scripts/zmeny.py kontrola
+      # Dokumentace formátů souborů – schémata, vzorové soubory, historie verzí
+      # (CONTRIBUTING.md → Formáty souborů).
+      - run: python3 -m pip install --user --break-system-packages "jsonschema>=4.18"
+      - run: python3 scripts/formaty.py kontrola
       # Archiv verzí a průběžné sestavení (CONTRIBUTING.md → Vydání nové verze).
       - run: python3 scripts/archiv.py test
       # Přenositelnost na web (CONTRIBUTING.md → Přenositelnost): aplikace používá
