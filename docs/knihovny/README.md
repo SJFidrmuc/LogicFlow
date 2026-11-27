@@ -30,6 +30,8 @@ Prvky lze prohlédnout i jako samostatné projekty: `LOGICFLOW_NAHLED=<složka> 
 
 ## Stavba souboru
 
+Závazný popis formátu s verzemi, od kterých jednotlivá pole platí, je **specifikace [docs/formaty/lflib.md](../formaty/lflib.md)** ([English](../formaty/lflib.en.md)) se schématem [lflib.schema.json](../formaty/lflib.schema.json). Níže je stručný přehled.
+
 JSON ve stejném stylu jako projekt `.logicflow`:
 
 ```json
@@ -115,6 +117,7 @@ Prvek se do projektu vkládá **jako kopie** – stejně jako Ctrl+V: jádro př
 
 A library is a file of ready-made subcircuits – **items** – that can be inserted into any project. The program shows libraries in the **Component library** area under **Element libraries**: the built-in teaching library and personal libraries from the folder `Documents/LogicFlow/Knihovny` (loaded by `crates/logicflow/src/libraries.rs`). The core reads and writes it in `crates/logicflow-core/src/library.rs`; [`vzor.lflib`](vzor.lflib) is a sample (a 1-bit full adder and a 2-bit adder that uses it twice).
 
+- The normative description, including the version each field is supported since, is the **specification [docs/formaty/lflib.en.md](../formaty/lflib.en.md)** with the schema [lflib.schema.json](../formaty/lflib.schema.json).
 - The file is JSON like `.logicflow`, with `"type": "logicflow-library"`, a `library` header and a list of `items`.
 - `uid` is the **stable identity** (a UUID) of the library and of each item; `id` is the item number that instances inside other items of the same library refer to.
 - `name` and `description` are in the author's language, `translations` holds optional translations by ISO 639-1 code; the program shows the name in the interface language when available.

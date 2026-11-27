@@ -140,9 +140,11 @@ Diagram [`docs/architektura.svg`](docs/architektura.svg) ukazuje moduly aplikace
 | `crates/logicflow-core` | jádro bez grafického rozhraní: model obvodu, netlist, událostní simulátor, formát souboru |
 | `crates/logicflow` | aplikace: okno, oblasti, editor schématu, panely, překlady |
 | `docs/napoveda` | nápověda v Markdownu (cs, en), obrázky a obvody pro snímky |
+| `docs/formaty` | specifikace souborů `.logicflow` a `.lflib` (cs, en), JSON Schema, historie a kompatibilita verzí |
+| `docs/knihovny` | výuková a vzorová knihovna prvků |
 | `docs/architektura.svg` | diagram struktury aplikace a toku dat |
 | `docs/screenshots` | snímky obrazovky pro README |
-| `scripts` | pomocné skripty (snímky obrazovky pro nápovědu, kontrola a export dvojjazyčných komentářů) |
+| `scripts` | pomocné skripty (snímky obrazovky pro nápovědu, kontrola a export dvojjazyčných komentářů, kontrola přehledu změn a dokumentace formátů) |
 | `.github/workflows` | automatické sestavení a testy pro 6 platforem, nápověda, vydání |
 
 ## Licence

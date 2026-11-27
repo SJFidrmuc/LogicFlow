@@ -13,6 +13,19 @@ Pro orientaci v kódu slouží diagram [docs/architektura.svg](docs/architektura
 
 Když změna přidá nový modul nebo změní tok dat (například soubor s nastavením, knihovny, sběrnice), upravte i diagram. Je to ručně psané SVG; náhled jako PNG: `rsvg-convert docs/architektura.svg -o /tmp/architektura.png`.
 
+## Formáty souborů
+
+Soubory, které program čte a zapisuje, popisuje závazně složka [docs/formaty](docs/formaty/README.md): projekt `.logicflow` (i text ve schránce) a knihovna prvků `.lflib`, každá specifikace česky i anglicky a s JSON Schema. U každé součástky, hodnoty a pole je sloupec **Od verze** – první verze programu, která je zná; z toho se pozná, kterou verzí soubor otevřete.
+
+Při změně, která formát dotkne, se ve stejném pull requestu upraví i dokumentace formátu:
+
+- **Nová součástka, blok, druh hradla či klopného obvodu, nová hodnota nebo pole:** řádek ve specifikaci česky i anglicky (`logicflow.md` + `logicflow.en.md`, u knihovny `lflib.md` + `lflib.en.md`) s Od verze = připravovaná verze, položka v JSON Schema s anotací `x-since`, zápis do řádku připravované verze v historii (`docs/formaty/README.md`, označený „nevydáno“) a do testu `crates/logicflow-core/tests/formaty.rs` (funkce `*_since`, u součástky i `all_kinds`). Nový druh součástky bez zápisu v testu se nepřeloží.
+- **Nové pole** musí mít výchozí hodnotu (`#[serde(default)]`), aby se dál otevřely soubory ze starších verzí.
+- **Nekompatibilní změna** (přejmenování nebo odebrání klíče či hodnoty, jiný význam existující hodnoty) jen se zvýšením `FORMAT` v kódu, popisem v historii a načítáním starší verze formátu. Přednost má vždy kompatibilní řešení.
+- **Vydání verze:** u řádku verze v historii formátů odstranit „nevydáno“ a v záhlaví specifikací a v přehledu formátů upravit stav dokumentace na novou verzi (viz Vydání nové verze). Vyjde-li verze pod jiným číslem, než bylo v plánu, opravit i hodnoty Od verze.
+
+Kontrolují to test `formaty.rs` (shoda specifikací a schémat s kódem, příklady se načtou a správně počítají) a `python3 scripts/formaty.py kontrola` v CI (schémata, vzorové soubory, historie proti přehledu změn a verzi v `Cargo.toml`; potřebuje `pip install jsonschema`).
+
 ## Komentáře v kódu
 
 Kód je komentovaný **česky i anglicky**, aby šla jednoduše vytvořit verze s komentáři jen v jednom jazyce – podobně jako jazykové mutace programu.
@@ -68,7 +81,8 @@ Změna je hotová, když jsou hotové **všechny** tyto části – ve stejném 
 - **snímky obrazovky** v nápovědě, pokud se změnil vzhled (`scripts/snimky-napovedy.sh`),
 - **přenositelnost** – jádro bez souborů a systémového času, čas v aplikaci přes `web_time` (viz Přenositelnost),
 - **přehled změn** – řádek v sekci Nevydáno v [CHANGELOG.md](CHANGELOG.md) i [CHANGELOG.en.md](CHANGELOG.en.md), pokud změna mění něco, čeho si všimne uživatel (nová funkce, oprava, změna chování), nebo něco důležitého pro vývoj,
-- **README** a plán vývoje u nových funkcí, případně diagram `docs/architektura.svg` při změně struktury.
+- **README** a plán vývoje u nových funkcí, případně diagram `docs/architektura.svg` při změně struktury,
+- **dokumentace formátů** v `docs/formaty`, pokud změna přidá nebo změní součástku, pole nebo hodnotu v souboru `.logicflow` či `.lflib` (viz Formáty souborů).
 
 Do verze 0.4 je nápověda ještě i přímo v kódu (`crates/logicflow/src/help.rs`). Od verze 0.4 (etapa J2) bude program zobrazovat přímo soubory z `docs/napoveda` a tento dvojí zápis odpadne.
 
@@ -94,6 +108,7 @@ Píše se pro uživatele (učitele, žáky): co se změnilo a k čemu to je, ne 
    - v obou přehledech změn přejmenovat `[Nevydáno]` / `[Unreleased]` na `[X.Y.Z] – dnešní datum` a nad ni vložit novou prázdnou sekci Nevydáno / Unreleased (může obsahovat jen nadpis a prázdný řádek – kontrola prázdnou sekci Nevydáno připouští);
    - upravit odkazy na konci: `[Nevydáno]: …/compare/vX.Y.Z...HEAD` a nový `[X.Y.Z]: …/releases/tag/vX.Y.Z`;
    - upravit **Plán dalších verzí** (vydané body odebrat, posunout plán) a tabulku Plán v README;
+   - v `docs/formaty`: u verze v historii formátů odstranit „nevydáno“ / „unreleased“ a stav dokumentace v `README.md` a v záhlaví čtyř specifikací přepsat na novou verzi (`scripts/formaty.py kontrola` jinak selže);
    - CI musí být zelené (`scripts/zmeny.py kontrola` hlídá, že verze z `Cargo.toml` je v přehledu popsaná).
 2. Pull request sloučit do `main`.
 3. Na GitHubu *Releases → Draft a new release* → **nový** tag `vX.Y.Z` (*Create new tag on publish*), cíl *main*. Tag se nikdy nevytváří předem – existující tag by se použil znovu i se starou revizí. Popis vydání lze nechat **prázdný**: workflow ho doplní z přehledu změn (česky i anglicky). → *Publish release*.
@@ -112,6 +127,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt
 python3 scripts/komentare.py kontrola  # komentáře česky i anglicky
 python3 scripts/zmeny.py kontrola      # přehled změn CHANGELOG.md / CHANGELOG.en.md
+python3 scripts/formaty.py kontrola    # dokumentace formátů souborů (pip install jsonschema)
 python3 scripts/zmeny.py poznamky 0.3.1  # poznámky k vydání z přehledu změn
 mdbook serve docs/napoveda/cs --open   # náhled nápovědy (cargo install mdbook --locked)
 scripts/snimky-napovedy.sh             # snímky obrazovky pro nápovědu (Linux)
