@@ -42,10 +42,11 @@ use serde_json::Value;
 
 /// Text souboru z `docs/formaty`. Soubory se vkládají při překladu (jádro ani jeho
 /// testy nepracují se soubory – `clippy.toml`); změna dokumentace test přeloží znovu.
+/// Konce řádků se sjednotí na `\n`.
 ///
 /// [en] Text of a file from `docs/formaty`. The files are embedded at compile time
 /// (neither the core nor its tests touch files – `clippy.toml`); a documentation
-/// change recompiles the test.
+/// change recompiles the test. Line endings are normalised to `\n`.
 fn read(name: &str) -> String {
     match name {
         "logicflow.md" => include_str!("../../../docs/formaty/logicflow.md"),
@@ -56,7 +57,9 @@ fn read(name: &str) -> String {
         "lflib.schema.json" => include_str!("../../../docs/formaty/lflib.schema.json"),
         _ => panic!("neznámý soubor / [en] unknown file docs/formaty/{name}"),
     }
-    .to_owned()
+    // Ve Windows může Git soubory převést na konce řádků CRLF.
+    // [en] On Windows Git may convert the files to CRLF line endings.
+    .replace("\r\n", "\n")
 }
 
 /// Vzorová knihovna z `docs/knihovny` (má vyplněná všechna pole).
