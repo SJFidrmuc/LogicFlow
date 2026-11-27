@@ -37,7 +37,6 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ### Opraveno
 - Ctrl+R restartuje simulaci (zkratka byla v nabídce a nápovědě, ale nefungovala).
 - Klávesy nad schématem reagují jen na přesnou kombinaci (Shift+X už nemaže jako X).
-- Knihovna součástek a editor paměti uvádějí u připravovaných součástek aktuální plán (paměti ve verzi 0.5, obvody 74xx ve verzi 0.7).
 
 ### Změněno
 - **Plán verzí rozdělen:** 0.4 bez sběrnic a edice Škola, ty přijdou ve 0.5; další milníky se posunuly o jednu verzi. Připravované součástky v knihovně a panel Paměť ukazují nové verze (paměti 0.6, obvody 74xx 0.8).
@@ -123,7 +122,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 - Soubor s nastavením v domovské složce.
 - Jazykové balíčky, nápověda v programu přímo z Markdownu.
 - Světlý motiv (projektor, tisk), export obrázku schématu PNG / SVG.
-- Kontrola aktualizací, úvodní obrazovka, odkaz Podpořit vývoj.
+- Kontrola aktualizací, úvodní obrazovka.
 - **Knihovny prvků:** vestavěná výuková knihovna, osobní knihovny a sdílené složky, export podobvodu do knihovny.
 
 ### 0.5 (2027)
@@ -145,6 +144,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 
 ### 1.0 (září 2027)
 - Verze pro výuku.
+- Odkaz Podpořit vývoj v nabídce Nápověda a v okně O aplikaci (dobrovolný příspěvek, bez připomínek v programu).
 
 ### Kolem verze 1.0 a později
 - **Webová verze** pro iPhone, iPad, Android a Chromebooky (v prohlížeči, instalovatelná na plochu) s dotykovým ovládáním.

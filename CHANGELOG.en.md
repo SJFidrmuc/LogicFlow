@@ -37,7 +37,6 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ### Fixed
 - Ctrl+R restarts the simulation (the shortcut was in the menu and the help but did not work).
 - Keys over the schematic react only to the exact combination (Shift+X no longer deletes like X).
-- The component library and the memory editor show the current plan for upcoming components (memories in version 0.5, 74xx chips in version 0.7).
 
 ### Changed
 - **Version plan split:** 0.4 without buses and the School edition, which come in 0.5; the following milestones moved by one version. Upcoming components in the library and the Memory panel show the new versions (memories 0.6, 74xx chips 0.8).
@@ -123,7 +122,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 - Settings file in the home folder.
 - Language packs, in-program help directly from Markdown.
 - Light theme (projector, printing), exporting a schematic image as PNG / SVG.
-- Update check, splash screen, Support development link.
+- Update check, splash screen.
 - **Component libraries:** built-in teaching library, personal libraries and shared folders, exporting a subcircuit to a library.
 
 ### 0.5 (2027)
@@ -145,6 +144,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 
 ### 1.0 (September 2027)
 - Version for teaching.
+- Support development link in the Help menu and the About window (voluntary donation, no reminders in the program).
 
 ### Around version 1.0 and later
 - **Web version** for iPhone, iPad, Android and Chromebooks (in the browser, installable on the home screen) with touch control.
