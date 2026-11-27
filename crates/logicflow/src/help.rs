@@ -132,11 +132,11 @@ const CS: &[Section] = &[
                 ("Ctrl+Z / Ctrl+Shift+Z", "zpět / znovu"),
             ]),
             P(
-                "V oblasti Vlastnosti jde u vybrané součástky změnit popisek, druh hradla, počet vstupů (2–8), hodnotu konstanty a otočení.",
+                "V oblasti Vlastnosti jde u vybrané součástky změnit popisek, druh hradla, počet vstupů (2–8), hodnotu konstanty, barvu a vývody LED a otočení.",
             ),
             H("Kontextová nabídka (pravé tlačítko)"),
             List(&[
-                "Kliknutí pravým tlačítkem (bez tažení) otevře nabídku podle místa: u součástky Přepnout, Frekvence, Počet vstupů, popisek, Otočit, Duplikovat, Přesunout, Smazat; u vodiče Vybrat celou síť, Smazat úsek, Smazat celou síť; v prázdném místě Přidat součástku sem, Vybrat vše, Celé schéma a ovládání simulace.",
+                "Kliknutí pravým tlačítkem (bez tažení) otevře nabídku podle místa: u součástky Přepnout, Frekvence, Počet vstupů, Barva a Vývody LED, popisek, Otočit, Duplikovat, Přesunout, Smazat; u vodiče Vybrat celou síť, Smazat úsek, Smazat celou síť; v prázdném místě Přidat součástku sem, Vybrat vše, Celé schéma a ovládání simulace.",
                 "Tažení pravým tlačítkem dál posouvá pohled; během rozdělané akce pravé tlačítko akci zruší.",
                 "V režimu simulace jsou úpravy zašedlé. Pravé tlačítko funguje i v Hierarchii a v pravdivostní tabulce (Kopírovat jako text).",
             ]),
@@ -170,7 +170,15 @@ const CS: &[Section] = &[
                 ("XOR  [=1]", "nonekvivalence – 1 při lichém počtu jedniček"),
                 ("XNOR", "ekvivalence – negovaný XOR"),
                 ("LED", "výstup, svítí při 1; při X nebo Z ukáže písmeno"),
+                (
+                    "LED (anoda, katoda)",
+                    "svítí při A = 1 a K = 0; při X nebo Z nesvítí; není výstupem obvodu",
+                ),
             ]),
+            H("Barva LED a LED se dvěma vývody"),
+            P(
+                "Ve Vlastnostech nebo v kontextové nabídce (Barva) zvolíte barvu LED: červená, zelená, žlutá, modrá nebo bílá. Barva je jen vzhled, simulaci nemění. Volba Vývody přepíná mezi LED s jedním vývodem a LED s anodou A (vlevo) a katodou K (vpravo) – ta svítí jen při A = 1 a K = 0 jako skutečná dioda a hodí se pro maticová zapojení. LED se dvěma vývody se nepočítá do pravdivostní tabulky ani do vývodů podobvodu; soubor s ní otevře LogicFlow od verze 0.4.",
+            ),
             P(
                 "Značky hradel odpovídají normě ČSN EN 60617-12 (obdélníkové značky). Negace se značí indikátorem negace – malým pravoúhlým trojúhelníkem na vývodu.",
             ),
@@ -366,7 +374,7 @@ const CS: &[Section] = &[
             "Okno pro výběr souboru má tlačítka pro domovskou složku a Dokumenty; do řádku s cestou jde napsat libovolnou složku. Tlačítko + Nová složka založí podsložku (třeba pro třídu nebo úlohu) a rovnou do ní přejde.",
             "Před zavřením nebo otevřením jiného obvodu se aplikace zeptá na neuložené změny.",
             "Soubor jde otevřít i z příkazové řádky: logicflow obvod.logicflow",
-            "Starší verze programu otevře soubor jen tehdy, když zná všechny použité součástky: hradla, přepínače a LED od 0.1, klopné obvody a hodiny od 0.2, funkční bloky, zobrazovače a podobvody od 0.3, VCC a GND a knihovny prvků od 0.4. Jinak soubor odmítne; vlastnosti obvodu verze před 0.4 při uložení zahodí. Přesný popis formátů je v repozitáři v docs/formaty.",
+            "Starší verze programu otevře soubor jen tehdy, když zná všechny použité součástky: hradla, přepínače a LED od 0.1, klopné obvody a hodiny od 0.2, funkční bloky, zobrazovače a podobvody od 0.3, VCC, GND, LED se dvěma vývody a knihovny prvků od 0.4. Jinak soubor odmítne; vlastnosti obvodu verze před 0.4 při uložení zahodí. Přesný popis formátů je v repozitáři v docs/formaty.",
             "Soubor > Vlastnosti obvodu…: název, autoři, popis, licence a škola/třída – ukládají se do souboru obvodu. Nový obvod dostane autora a licenci z nastavení, uložení zapíše datum úpravy; tlačítko Přidat se jako spoluautor připíše vaše jméno k cizímu obvodu. Informace jsou vidět nahoře v Hierarchii a v náhledu při otevírání souboru.",
             "Úpravy > Nastavení…: jazyk, značky, jméno autora, výchozí licence, složka osobních knihoven a sdílené složky knihoven (síť, OneDrive, kroužek).",
             "Nastavení se ukládá do čitelného souboru logicflow.toml (Windows %APPDATA%\\LogicFlow, macOS ~/Library/Application Support/LogicFlow, Linux ~/.config/logicflow); nečitelný soubor program odloží jako logicflow.toml.bak a použije výchozí nastavení.",
@@ -511,11 +519,11 @@ const EN: &[Section] = &[
                 ("Ctrl+Z / Ctrl+Shift+Z", "undo / redo"),
             ]),
             P(
-                "The Properties area lets you change the label, gate type, number of inputs (2–8), constant value and rotation of the selected component.",
+                "The Properties area lets you change the label, gate type, number of inputs (2–8), constant value, LED colour and pins, and rotation of the selected component.",
             ),
             H("Context menu (right button)"),
             List(&[
-                "A right-click (without dragging) opens a menu depending on the place: on a component Toggle, Frequency, Inputs, label, Rotate, Duplicate, Move, Delete; on a wire Select the whole net, Delete segment, Delete the whole net; on an empty place Add component here, Select all, Fit view and simulation controls.",
+                "A right-click (without dragging) opens a menu depending on the place: on a component Toggle, Frequency, Inputs, LED Colour and Pins, label, Rotate, Duplicate, Move, Delete; on a wire Select the whole net, Delete segment, Delete the whole net; on an empty place Add component here, Select all, Fit view and simulation controls.",
                 "Dragging with the right button still pans; during an action in progress the right button cancels it.",
                 "In simulation mode edits are greyed out. The right button also works in the Hierarchy and in the truth table (Copy as text).",
             ]),
@@ -543,7 +551,15 @@ const EN: &[Section] = &[
                 ("XOR  [=1]", "1 for an odd number of ones"),
                 ("XNOR", "negated XOR"),
                 ("LED", "output, lit at 1; shows a letter for X or Z"),
+                (
+                    "LED (anode, cathode)",
+                    "lit at A = 1 and K = 0; dark with X or Z; not a circuit output",
+                ),
             ]),
+            H("LED colour and two-pin LED"),
+            P(
+                "In Properties or in the context menu (Colour) you choose the LED colour: red, green, yellow, blue or white. The colour is appearance only and does not change the simulation. The Pins option switches between an LED with one pin and an LED with anode A (left) and cathode K (right) – it lights only at A = 1 and K = 0 like a real diode and is useful for matrix circuits. A two-pin LED is not included in the truth table or in the pins of a subcircuit; a file with it opens in LogicFlow 0.4 and later.",
+            ),
             P(
                 "Gate symbols follow IEC 60617-12 (rectangular symbols). Negation is shown by the polarity indicator – a small right triangle on the pin.",
             ),
@@ -733,7 +749,7 @@ const EN: &[Section] = &[
             "The file browser has buttons for the home folder and Documents; you can type any folder into the path line. The + New folder button creates a subfolder and opens it.",
             "Before closing or opening another circuit the app asks about unsaved changes.",
             "A file can also be opened from the command line: logicflow circuit.logicflow",
-            "An older program version opens a file only if it knows all components used: gates, switches and LEDs since 0.1, flip-flops and clocks since 0.2, function blocks, displays and subcircuits since 0.3, VCC and GND and element libraries since 0.4. Otherwise it refuses the file; versions before 0.4 drop the circuit properties when saving. The exact format description is in the repository in docs/formaty.",
+            "An older program version opens a file only if it knows all components used: gates, switches and LEDs since 0.1, flip-flops and clocks since 0.2, function blocks, displays and subcircuits since 0.3, VCC, GND, the two-pin LED and element libraries since 0.4. Otherwise it refuses the file; versions before 0.4 drop the circuit properties when saving. The exact format description is in the repository in docs/formaty.",
             "File > Circuit properties…: title, authors, description, licence and school/class – stored in the circuit file. A new circuit gets the author and licence from the settings, saving records the modification date; the Add me as co-author button adds your name to someone else's circuit. The information is shown at the top of the Hierarchy and in the preview when opening a file.",
             "Edit > Settings…: language, symbols, author name, default licence, personal libraries folder and shared library folders (network, OneDrive, club).",
             "Settings are stored in the readable file logicflow.toml (Windows %APPDATA%\\LogicFlow, macOS ~/Library/Application Support/LogicFlow, Linux ~/.config/logicflow); an unreadable file is kept as logicflow.toml.bak and default settings apply.",

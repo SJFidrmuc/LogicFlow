@@ -18,12 +18,23 @@ Součástky jsou v nabídce Shift+A i v Knihovně součástek rozdělené do sku
 | XOR | [=1] | nonekvivalence – 1 při lichém počtu jedniček |
 | XNOR | [=1] s indikátorem negace | ekvivalence – negovaný XOR |
 | LED | kroužek | výstup, svítí při 1; při X nebo Z ukáže písmeno |
+| LED (anoda, katoda) | kroužek se značkou diody | svítí při A = 1 a K = 0 (viz níže) |
 
 ## Napájení VCC a GND
 
 Značky **VCC** a **GND** dávají stejně jako konstanty pevnou hodnotu 1 a 0, ale vypadají jako napájení ve schématech z elektrotechniky. Každou značku stačí připojit k vývodu, který ji potřebuje; napájecí vodiče se přes celé schéma tahat nemusí. Značky nemají automatický popisek a otáčejí se klávesou R jako ostatní součástky.
 
 Když se síť spojí zároveň s VCC (nebo Konstantou 1) a s GND (nebo Konstantou 0), vznikne **zkrat napájení**. Hodnota sítě je X, vodiče sítě jsou podbarvené červeně a schéma i stavový řádek ukážou hlášku „Zkrat napájení“. Hláška se objeví i tehdy, když je zkrat uvnitř podobvodu.
+
+## Barva LED a LED se dvěma vývody
+
+Ve Vlastnostech nebo v kontextové nabídce (pravé tlačítko → **Barva**) zvolíte barvu LED: červená, zelená, žlutá, modrá nebo bílá. Barva je jen vzhled – simulaci nemění. Hodí se třeba pro semafor nebo pro odlišení výstupů. Zhasnutá LED má tmavý odstín své barvy, takže barva je poznat i tehdy, když nesvítí.
+
+Volba **Vývody** přepíná mezi LED s jedním vývodem (vstup, jako dosud) a **LED se dvěma vývody – anodou A** (vlevo) **a katodou K** (vpravo). Taková LED svítí jen při A = 1 a K = 0, tedy když jí „teče proud“ od anody ke katodě – stejně jako skutečná dioda. Při X nebo Z na kterémkoli vývodu nesvítí. Najdete ji i přímo v nabídce Shift+A → Výstupy → **LED (anoda, katoda)**. Hodí se pro maticová zapojení, kde se LED rozsvítí kombinací řádku a sloupce.
+
+![LED v pěti barvách a LED se dvěma vývody: D1 svítí (A = 1, K = 0), D2 ne (K = 1)](obrazky/led.png)
+
+LED se dvěma vývody **není výstupem obvodu**: nepočítá se do pravdivostní tabulky ani do vývodů podobvodu. Do časového diagramu ji přidat jde – ukazuje, zda svítí. Soubor s LED se dvěma vývody otevře LogicFlow od verze 0.4; barvu starší verze nezobrazí (LED je červená).
 
 Hradla mají 2 až 8 vstupů, počet se nastavuje ve Vlastnostech. Sedmisegmentovka a hex displej jsou popsané v kapitole [Funkční bloky a zobrazovače](funkcni-bloky.md).
 

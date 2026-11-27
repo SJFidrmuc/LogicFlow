@@ -6,7 +6,7 @@ use crate::theme::{colors, signal_color};
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Vec2, pos2, vec2};
 use logicflow_core::block::{SEVEN_SEG_HEX, number};
 use logicflow_core::{
-    BlockKind, Component, ComponentKind, FlipFlopKind, LogicValue, PinSide, Rotation,
+    BlockKind, Component, ComponentKind, FlipFlopKind, LedColor, LogicValue, PinSide, Rotation,
 };
 
 /// Styl značek: evropský (ČSN EN 60617-12) nebo americký (ANSI/IEEE Std 91).
@@ -184,6 +184,48 @@ impl SubInfo {
 ///
 /// [en] Outline colour of a selected component.
 pub const SELECTED: Color32 = Color32::from_rgb(0xff, 0xa0, 0x30);
+
+/// Barvy jedné barvy LED v různých stavech.
+///
+/// [en] Colours of one LED colour in the different states.
+struct LedPalette {
+    /// Svítí (1).
+    ///
+    /// [en] Lit (1).
+    lit: Color32,
+    /// Poloprůhledná záře kolem svítící LED.
+    ///
+    /// [en] Semi-transparent glow around a lit LED.
+    glow: Color32,
+    /// Nesvítí (0) – tmavý odstín barvy, aby byla barva poznat i zhasnutá.
+    ///
+    /// [en] Dark (0) – a dark shade of the colour so the colour is recognisable even when off.
+    off: Color32,
+    /// Neurčitá hodnota X.
+    ///
+    /// [en] Undefined value X.
+    undefined: Color32,
+}
+
+/// Barvy LED podle zvolené barvy svitu.
+///
+/// [en] LED colours according to the chosen light colour.
+fn led_palette(color: LedColor) -> LedPalette {
+    let (lit, off, undefined) = match color {
+        LedColor::Red => ((0xff, 0x45, 0x30), (0x55, 0x22, 0x1e), (0x6a, 0x30, 0x30)),
+        LedColor::Green => ((0x40, 0xe0, 0x5a), (0x1c, 0x48, 0x24), (0x34, 0x5a, 0x3a)),
+        LedColor::Yellow => ((0xff, 0xd8, 0x30), (0x55, 0x48, 0x16), (0x66, 0x5a, 0x30)),
+        LedColor::Blue => ((0x45, 0x90, 0xff), (0x1c, 0x2c, 0x58), (0x34, 0x40, 0x66)),
+        LedColor::White => ((0xf6, 0xf6, 0xf0), (0x4a, 0x4a, 0x48), (0x5a, 0x5a, 0x58)),
+    };
+    let rgb = |(r, g, b): (u8, u8, u8)| Color32::from_rgb(r, g, b);
+    LedPalette {
+        lit: rgb(lit),
+        glow: Color32::from_rgba_unmultiplied(lit.0, lit.1, lit.2, 40),
+        off: rgb(off),
+        undefined: rgb(undefined),
+    }
+}
 
 /// Zeslabí barvu u poloprůhledného náhledu.
 ///
@@ -432,20 +474,18 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
                 fade(colors::TEXT_WEAK, look),
             );
         }
-        ComponentKind::Led => {
+        ComponentKind::Led { color } | ComponentKind::LedAk { color } => {
+            let two_pins = matches!(comp.kind, ComponentKind::LedAk { .. });
             let c = cam.to_screen(local(comp, 0.0, 0.0));
-            let v = values.inputs.first().copied().unwrap_or(LogicValue::Z);
+            let v = comp.kind.led_state(&values.inputs).unwrap_or(LogicValue::Z);
+            let pal = led_palette(color);
             let fill = match v {
                 LogicValue::One => {
-                    painter.circle_filled(
-                        c,
-                        cam.len(1.5),
-                        fade(Color32::from_rgba_unmultiplied(255, 60, 40, 40), look),
-                    );
-                    Color32::from_rgb(0xff, 0x45, 0x30)
+                    painter.circle_filled(c, cam.len(1.5), fade(pal.glow, look));
+                    pal.lit
                 }
-                LogicValue::Zero => Color32::from_rgb(0x55, 0x22, 0x1e),
-                LogicValue::X => Color32::from_rgb(0x6a, 0x30, 0x30),
+                LogicValue::Zero => pal.off,
+                LogicValue::X => pal.undefined,
                 LogicValue::Z => Color32::from_rgb(0x2a, 0x2a, 0x34),
             };
             painter.circle_filled(c, cam.len(0.9), fade(fill, look));
@@ -460,8 +500,44 @@ pub fn draw(painter: &Painter, cam: Camera, comp: &Component, values: &Values, l
                     Align2::CENTER_CENTER,
                     colors::TEXT,
                 );
+            } else if two_pins {
+                // Značka diody uvnitř: trojúhelník od anody ke katodě a příčka.
+                // [en] Diode symbol inside: a triangle from the anode to the cathode and a bar.
+                let ink = if v == LogicValue::One {
+                    Color32::from_black_alpha(170)
+                } else {
+                    fade(colors::SYMBOL, look).gamma_multiply(0.8)
+                };
+                let stroke = Stroke::new(lw.max(1.0), ink);
+                let tri: Vec<Pos2> = [(-0.4, -0.45), (-0.4, 0.45), (0.35, 0.0), (-0.4, -0.45)]
+                    .iter()
+                    .map(|&(x, y)| cam.to_screen(local(comp, x, y)))
+                    .collect();
+                painter.add(egui::Shape::line(tri, stroke));
+                painter.line_segment(
+                    [
+                        cam.to_screen(local(comp, 0.35, -0.45)),
+                        cam.to_screen(local(comp, 0.35, 0.45)),
+                    ],
+                    stroke,
+                );
             }
-            draw_label(painter, cam, comp, 1.6, look);
+            if two_pins && !comp.label.is_empty() {
+                // Vpravo je katoda – popisek nad značku, aby nepřekryl vývod.
+                // [en] The cathode is on the right – the label goes above the symbol so it
+                // does not cover the pin.
+                text(
+                    painter,
+                    cam,
+                    local(comp, 0.0, -1.2),
+                    &comp.label,
+                    1.2,
+                    align_dir(comp.rotation, 0.0, -1.0),
+                    fade(colors::TEXT, look),
+                );
+            } else {
+                draw_label(painter, cam, comp, 1.6, look);
+            }
         }
         ComponentKind::Block { block } => draw_block(painter, cam, comp, block, outline, look),
         ComponentKind::Subcircuit { .. } => {

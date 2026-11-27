@@ -97,6 +97,10 @@
       "enum": ["left", "right", "top", "bottom"],
       "x-since": { "left": "0.3.0", "right": "0.3.0", "top": "0.3.0", "bottom": "0.3.0" }
     },
+    "ledColor": {
+      "enum": ["red", "green", "yellow", "blue", "white"],
+      "x-since": { "red": "0.4.0", "green": "0.4.0", "yellow": "0.4.0", "blue": "0.4.0", "white": "0.4.0" }
+    },
     "componentKind": {
       "type": "object",
       "required": ["type"],
@@ -143,7 +147,18 @@
         },
         {
           "x-since": "0.1.0",
-          "properties": { "type": { "const": "led" } },
+          "properties": {
+            "type": { "const": "led" },
+            "color": { "$ref": "#/$defs/ledColor", "x-since": "0.4.0" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "x-since": "0.4.0",
+          "properties": {
+            "type": { "const": "led_ak" },
+            "color": { "$ref": "#/$defs/ledColor" }
+          },
           "additionalProperties": false
         },
         {

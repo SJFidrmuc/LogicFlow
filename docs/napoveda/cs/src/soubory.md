@@ -17,8 +17,9 @@ Soubor `.logicflow` otevře každá verze LogicFlow, která zná **všechny sou�
 | hradla, přepínače, tlačítka, konstanty, LED | od 0.1 |
 | klopné obvody, generátor hodin | od 0.2 |
 | funkční bloky, sedmisegmentovku, hex displej, podobvody | od 0.3 |
-| napájení VCC a zem GND | od 0.4 |
+| napájení VCC a zem GND, LED se dvěma vývody | od 0.4 |
 | vlastnosti obvodu (autor, licence…) | otevře i starší verze, ale před 0.4 je při uložení zahodí |
+| barvu LED | otevře i starší verze, LED ale ukážou červeně |
 
 Starší verze soubor s neznámou součástkou **odmítne otevřít** s chybovou hláškou – nic se nepoškodí. Pokud obvod odevzdáváte nebo posíláte někomu se starší verzí, použijte jen součástky, které jeho verze zná. Knihovny prvků (`.lflib`) umí program od verze 0.4.
 
