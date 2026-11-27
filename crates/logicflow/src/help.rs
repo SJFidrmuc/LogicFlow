@@ -308,6 +308,14 @@ const CS: &[Section] = &[
                 "Osobní knihovny jsou soubory .lflib ve složce Dokumenty/LogicFlow/Knihovny (tlačítka Otevřít složku a Načíst znovu); jinou složku a sdílené složky nastavíte v Úpravy > Nastavení….",
             ]),
             Tip("Hotový příklad: Soubor > Příklady > Úplná sčítačka ze dvou podobvodů."),
+            H("Vnitřní zapojení funkčních bloků"),
+            List(&[
+                "Každý funkční blok jde rozkliknout až na hradla: vyberte ho a stiskněte Tab (nebo pravé tlačítko > Otevřít vnitřní zapojení). Otevře se jeho zapojení z hradel se stejně pojmenovanými vývody z vestavěné knihovny Funkční bloky – vnitřní zapojení.",
+                "Zapojení je jen pro čtení: vstupy jde přepínat a simulovat, schéma nejde měnit a projekt zůstane beze změny.",
+                "Sekvenční bloky jsou z klopných obvodů T a D; Tab na klopném obvodu jde hlouběji až na šest hradel NAND (zapojení 7474). Tab v prázdném místě vrátí o úroveň výš, tlačítko Zpět do projektu v Hierarchii rovnou do projektu.",
+                "Vložit do projektu jako podobvod (v Hierarchii) zkopíruje zapojení do projektu jako upravitelný podobvod.",
+                "Rozdíl proti bloku: nepřipojené EN a R mají hodnotu X a sekvenční zapojení je po spuštění v neznámém stavu, dokud ho R = 1 nevynuluje.",
+            ]),
         ],
     },
     Section {
@@ -388,7 +396,10 @@ const CS: &[Section] = &[
                 "zrušit nástroj nebo výběr; v simulaci zpět k úpravám",
             ),
             ("Home", "zobrazit celé schéma"),
-            ("Tab", "otevřít vybraný podobvod / zpět o úroveň výš"),
+            (
+                "Tab",
+                "otevřít vybraný podobvod nebo vnitřní zapojení bloku / zpět o úroveň výš",
+            ),
             ("kolečko myši", "zoom"),
             ("prostřední / pravé tlačítko + tažení", "posun pohledu"),
             ("F5", "spustit simulaci"),
@@ -675,6 +686,14 @@ const EN: &[Section] = &[
                 "Personal libraries are .lflib files in the folder Documents/LogicFlow/Knihovny (buttons Open folder and Reload); set another folder and shared folders in Edit > Settings….",
             ]),
             Tip("Ready-made example: File > Examples > Full adder from two subcircuits."),
+            H("Internal circuits of function blocks"),
+            List(&[
+                "Every function block can be opened down to gates: select it and press Tab (or right-click > Open internal circuit). Its gate-level circuit with pins of the same names from the built-in library Function blocks – internal circuits opens.",
+                "The circuit is read-only: inputs can be switched and simulated, the schematic cannot be changed and the project stays unchanged.",
+                "Sequential blocks are made of T and D flip-flops; Tab on a flip-flop goes deeper, down to six NAND gates (the 7474 circuit). Tab on an empty spot goes one level up, the Back to the project button in the Hierarchy straight to the project.",
+                "Insert into the project as a subcircuit (in the Hierarchy) copies the circuit into the project as an editable subcircuit.",
+                "Difference from the block: unconnected EN and R have the value X and a sequential circuit is in an unknown state after start until R = 1 resets it.",
+            ]),
         ],
     },
     Section {
@@ -755,7 +774,10 @@ const EN: &[Section] = &[
                 "cancel tool or selection; in simulation back to editing",
             ),
             ("Home", "fit the whole schematic"),
-            ("Tab", "open selected subcircuit / go back one level"),
+            (
+                "Tab",
+                "open selected subcircuit or internal circuit of a block / go back one level",
+            ),
             ("mouse wheel", "zoom"),
             ("middle / right button + drag", "pan"),
             ("F5", "run the simulation"),

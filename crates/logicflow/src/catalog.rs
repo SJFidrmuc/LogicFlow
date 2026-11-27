@@ -173,7 +173,12 @@ pub fn block_name(block: BlockKind, lang: Lang) -> String {
             Lang::Cs => "Úplná sčítačka (1 bit)".to_owned(),
             Lang::En => "Full adder (1 bit)".to_owned(),
         },
-        BlockKind::Adder { bits } => format!("{} {}", tr(lang, T::BlkAdder), bit(bits)),
+        // Sčítačka je ženského rodu: „4bitová“.
+        // [en] “Sčítačka” is feminine in Czech: “4bitová”.
+        BlockKind::Adder { bits } => match lang {
+            Lang::Cs => format!("{} {bits}bitová", tr(lang, T::BlkAdder)),
+            Lang::En => format!("{} {}", tr(lang, T::BlkAdder), bit(bits)),
+        },
         BlockKind::Comparator { bits } => {
             format!("{} {}", tr(lang, T::BlkComparator), bit(bits))
         }

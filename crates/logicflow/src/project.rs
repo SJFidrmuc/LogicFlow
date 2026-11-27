@@ -4,9 +4,11 @@
 
 use logicflow_core::circuit::sync_instances;
 use logicflow_core::{
-    Circuit, CircuitInfo, CompId, ComponentKind, LogicValue, Point, ProjectFile, Rotation,
-    Simulator, SubcircuitDef, WireId,
+    BlockKind, Circuit, CircuitInfo, CompId, ComponentKind, LogicValue, Point, ProjectFile,
+    Rotation, Simulator, SubcircuitDef, WireId,
 };
+
+use crate::i18n::{Lang, T};
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
@@ -18,6 +20,30 @@ const EVENT_BUDGET: usize = 20_000;
 ///
 /// [en] Maximum number of “Undo” steps.
 const UNDO_LIMIT: usize = 200;
+
+/// Hlavní obvod a definice podobvodů včetně listu `circuit`, který se právě upravuje
+/// (`sheet`; hlavní obvod je pak v `main_stash`).
+///
+/// [en] Main circuit and subcircuit definitions including the sheet `circuit` being
+/// edited (`sheet`; the main circuit is then in `main_stash`).
+fn snapshot_of(
+    circuit: &Circuit,
+    subcircuits: &[SubcircuitDef],
+    sheet: Option<u32>,
+    main_stash: Option<&MainStash>,
+) -> (Circuit, Vec<SubcircuitDef>) {
+    let mut subs = subcircuits.to_vec();
+    match sheet {
+        None => (circuit.clone(), subs),
+        Some(id) => {
+            if let Some(d) = subs.iter_mut().find(|d| d.id == id) {
+                d.circuit = circuit.clone();
+            }
+            let main = main_stash.map(|m| m.circuit.clone()).unwrap_or_default();
+            (main, subs)
+        }
+    }
+}
 
 /// Dnešní datum RRRR-MM-DD (UTC) pro informace o obvodu.
 ///
@@ -143,6 +169,62 @@ struct MainStash {
     signals: Vec<Signal>,
 }
 
+/// Projekt odložený během prohlížení vnitřního zapojení funkčního bloku: listy,
+/// simulace, výběr a historie úprav se po návratu obnoví beze změny.
+///
+/// [en] Project put aside while the internal circuit of a function block is viewed:
+/// sheets, simulation, selection and edit history are restored unchanged on return.
+struct BlockView {
+    /// Prohlížený blok.
+    ///
+    /// [en] The block being viewed.
+    block: BlockKind,
+    /// Upravovaný list projektu.
+    ///
+    /// [en] The project sheet being edited.
+    circuit: Circuit,
+    /// Definice podobvodů projektu.
+    ///
+    /// [en] Subcircuit definitions of the project.
+    subcircuits: Vec<SubcircuitDef>,
+    /// Upravovaný podobvod projektu.
+    ///
+    /// [en] Subcircuit of the project being edited.
+    sheet: Option<u32>,
+    /// Cesta zpět v projektu.
+    ///
+    /// [en] Way back in the project.
+    sheet_stack: Vec<Option<u32>>,
+    /// Odložený hlavní obvod projektu.
+    ///
+    /// [en] Main circuit of the project put aside.
+    main_stash: Option<MainStash>,
+    /// Simulátor projektu.
+    ///
+    /// [en] Simulator of the project.
+    sim: Simulator,
+    /// Čas časového diagramu projektu.
+    ///
+    /// [en] Time of the project's timing diagram.
+    time: f64,
+    /// Záznam signálů projektu.
+    ///
+    /// [en] Signal recording of the project.
+    signals: Vec<Signal>,
+    /// Výběr v projektu.
+    ///
+    /// [en] Selection in the project.
+    selection: Selection,
+    /// Historie „Zpět“ projektu.
+    ///
+    /// [en] “Undo” history of the project.
+    undo: Vec<Circuit>,
+    /// Historie „Znovu“ projektu.
+    ///
+    /// [en] “Redo” history of the project.
+    redo: Vec<Circuit>,
+}
+
 /// Otevřený projekt – vše, co editory čtou a mění.
 ///
 /// [en] Open project – everything the editors read and change.
@@ -254,6 +336,12 @@ pub struct Project {
     /// [en] Library element chosen for insertion: the element's identity and text in
     /// clipboard form (inserted like Ctrl+V at the mouse pointer).
     pub pending_paste: Option<(String, String)>,
+    /// Prohlížené vnitřní zapojení funkčního bloku (jen pro čtení); projekt je
+    /// po tu dobu odložený zde.
+    ///
+    /// [en] Internal circuit of a function block being viewed (read-only); the
+    /// project is put aside here meanwhile.
+    block_view: Option<Box<BlockView>>,
 }
 
 impl Project {
@@ -296,6 +384,7 @@ impl Project {
             pending_place: None,
             pending_paste: None,
             focus_request: None,
+            block_view: None,
         };
         p.record_signals();
         p
@@ -361,7 +450,10 @@ impl Project {
     /// [en] Text of the .logicflow file with the main circuit and all subcircuits (no file
     /// access – the web version offers it as a download).
     pub fn to_text(&self) -> String {
-        let (main, subs) = self.snapshot();
+        let (main, subs) = match &self.block_view {
+            Some(v) => snapshot_of(&v.circuit, &v.subcircuits, v.sheet, v.main_stash.as_ref()),
+            None => self.snapshot(),
+        };
         ProjectFile::to_json_with_info(&self.info, &main, &subs)
     }
 
@@ -385,21 +477,12 @@ impl Project {
     ///
     /// [en] Main circuit and subcircuit definitions including the sheet being edited.
     pub fn snapshot(&self) -> (Circuit, Vec<SubcircuitDef>) {
-        let mut subs = self.subcircuits.clone();
-        match self.sheet {
-            None => (self.circuit.clone(), subs),
-            Some(id) => {
-                if let Some(d) = subs.iter_mut().find(|d| d.id == id) {
-                    d.circuit = self.circuit.clone();
-                }
-                let main = self
-                    .main_stash
-                    .as_ref()
-                    .map(|m| m.circuit.clone())
-                    .unwrap_or_default();
-                (main, subs)
-            }
-        }
+        snapshot_of(
+            &self.circuit,
+            &self.subcircuits,
+            self.sheet,
+            self.main_stash.as_ref(),
+        )
     }
 
     /// Definice podobvodu.
@@ -450,6 +533,11 @@ impl Project {
     ///
     /// [en] Opens a sheet for editing: the main circuit (`None`) or a subcircuit.
     pub fn open_sheet(&mut self, target: Option<u32>) {
+        // Z vnitřního zapojení bloku vede hlavní obvod zpět do projektu.
+        // [en] From the internal circuit of a block, the main circuit leads back to the project.
+        if target.is_none() && self.block_view.is_some() {
+            self.leave_block();
+        }
         self.open_sheet_inner(target);
         self.sheet_stack.clear();
     }
@@ -469,6 +557,10 @@ impl Project {
     ///
     /// [en] Goes one level up (to the parent sheet). Returns `false` if there is nowhere to go.
     pub fn leave_subcircuit(&mut self) -> bool {
+        if self.block_view.is_some() && self.sheet_stack.is_empty() {
+            self.leave_block();
+            return true;
+        }
         if self.sheet.is_none() {
             return false;
         }
@@ -939,15 +1031,139 @@ impl Project {
         }
     }
 
-    /// Tab: otevře vybraný podobvod, jinak se vrátí o úroveň výš.
+    /// Funkční blok, je-li vybraná právě jedna součástka a je to blok.
     ///
-    /// [en] Tab: opens the selected subcircuit, otherwise goes one level up.
-    pub fn toggle_subcircuit(&mut self) {
-        match self.selected_subcircuit() {
-            Some(id) => self.enter_subcircuit(id),
-            None => {
-                self.leave_subcircuit();
+    /// [en] Function block if exactly one component is selected and it is a block.
+    pub fn selected_block(&self) -> Option<BlockKind> {
+        let id = self.selection.single_comp()?;
+        match self.circuit.component(id)?.kind {
+            ComponentKind::Block { block } => Some(block),
+            _ => None,
+        }
+    }
+
+    /// Tab: otevře vybraný podobvod nebo vnitřní zapojení vybraného bloku, jinak se
+    /// vrátí o úroveň výš. `lang` je jazyk názvů v zapojení bloku.
+    ///
+    /// [en] Tab: opens the selected subcircuit or the internal circuit of the selected
+    /// block, otherwise goes one level up. `lang` is the language of names in the
+    /// block's circuit.
+    pub fn toggle_subcircuit(&mut self, lang: Lang) {
+        if let Some(id) = self.selected_subcircuit() {
+            self.enter_subcircuit(id);
+        } else if let Some(block) = self.selected_block() {
+            if let Some((defs, root)) = crate::libraries::block_equivalent(block, lang) {
+                self.enter_block(block, defs, root);
             }
+        } else {
+            self.leave_subcircuit();
+        }
+    }
+
+    /// Otevře vnitřní zapojení bloku jen pro čtení: projekt se odloží a místo něj
+    /// se zobrazí podobvod `root` z definic `defs` (z vestavěné knihovny bloků).
+    /// Tab na vnořeném podobvodu jde hlouběji, Tab zpět z `root` vrátí projekt.
+    ///
+    /// [en] Opens the internal circuit of a block read-only: the project is put aside
+    /// and subcircuit `root` from the definitions `defs` (from the built-in block
+    /// library) is shown instead. Tab on a nested subcircuit goes deeper, Tab back from
+    /// `root` restores the project.
+    pub fn enter_block(&mut self, block: BlockKind, defs: Vec<SubcircuitDef>, root: u32) {
+        if self.block_view.is_some() || !defs.iter().any(|d| d.id == root) {
+            return;
+        }
+        self.store_sheet();
+        let view = BlockView {
+            block,
+            circuit: std::mem::take(&mut self.circuit),
+            subcircuits: std::mem::replace(&mut self.subcircuits, defs),
+            sheet: self.sheet.take(),
+            sheet_stack: std::mem::take(&mut self.sheet_stack),
+            main_stash: self.main_stash.take(),
+            sim: self.sim.clone(),
+            time: self.time,
+            signals: std::mem::take(&mut self.signals),
+            selection: std::mem::take(&mut self.selection),
+            undo: std::mem::take(&mut self.undo),
+            redo: std::mem::take(&mut self.redo),
+        };
+        self.block_view = Some(Box::new(view));
+        // Prázdný hlavní obvod náhledu se nikdy neukáže: odchod z `root` náhled zavře.
+        // [en] The empty main circuit of the view is never shown: leaving `root` closes the view.
+        self.open_sheet_inner(Some(root));
+        self.sheet_stack.clear();
+    }
+
+    /// Zavře vnitřní zapojení bloku a vrátí projekt přesně do stavu před otevřením.
+    ///
+    /// [en] Closes the internal circuit of a block and returns the project exactly to
+    /// the state before it was opened.
+    pub fn leave_block(&mut self) {
+        let Some(v) = self.block_view.take() else {
+            return;
+        };
+        let v = *v;
+        self.circuit = v.circuit;
+        self.subcircuits = v.subcircuits;
+        self.sheet = v.sheet;
+        self.sheet_stack = v.sheet_stack;
+        self.main_stash = v.main_stash;
+        self.sim = v.sim;
+        self.time = v.time;
+        self.signals = v.signals;
+        self.selection = v.selection;
+        self.undo = v.undo;
+        self.redo = v.redo;
+        self.pending_place = None;
+        self.pending_paste = None;
+        self.revision += 1;
+    }
+
+    /// Blok, jehož vnitřní zapojení se právě prohlíží.
+    ///
+    /// [en] The block whose internal circuit is being viewed.
+    pub fn viewed_block(&self) -> Option<BlockKind> {
+        self.block_view.as_ref().map(|v| v.block)
+    }
+
+    /// Klíč zobrazeného listu (náhled bloku, list) – při jeho změně se pohled přizpůsobí.
+    ///
+    /// [en] Key of the sheet shown (block view, sheet) – the view is fitted when it changes.
+    pub fn sheet_key(&self) -> (bool, Option<u32>) {
+        (self.block_view.is_some(), self.sheet)
+    }
+
+    /// Zavře vnitřní zapojení bloku a připraví ho k vložení do projektu jako
+    /// upravitelný podobvod (vloží se u ukazatele myši jako prvek z knihovny).
+    ///
+    /// [en] Closes the internal circuit of the block and prepares it for insertion into
+    /// the project as an editable subcircuit (inserted at the mouse pointer like an
+    /// item from the library).
+    pub fn insert_viewed_block(&mut self, lang: Lang) {
+        let Some(block) = self.viewed_block() else {
+            return;
+        };
+        self.leave_block();
+        self.pending_paste = crate::libraries::block_insertion(block, lang);
+    }
+
+    /// Lze schéma upravovat bez ohledu na náhled bloku (režim úprav nebo povolené
+    /// úpravy za běhu simulace)?
+    ///
+    /// [en] Can the schematic be edited regardless of a block view (edit mode or
+    /// editing allowed while simulating)?
+    pub fn mode_allows_edits(&self) -> bool {
+        self.mode == Mode::Edit || self.edit_while_simulating
+    }
+
+    /// Text nápovědy u zamčených úprav: náhled bloku je jen pro čtení, jinak běží simulace.
+    ///
+    /// [en] Hint text for locked edits: a block view is read-only, otherwise the simulation runs.
+    pub fn locked_hint(&self) -> T {
+        if self.block_view.is_some() {
+            T::BlockViewLocked
+        } else {
+            T::LockedHint
         }
     }
 
@@ -962,7 +1178,9 @@ impl Project {
             *on = !*on;
             let v = (*on).into();
             self.sim.set_source(id, v);
-            self.modified = true;
+            // Přepínače v náhledu bloku se do projektu neukládají.
+            // [en] Switches in a block view are not saved in the project.
+            self.modified |= self.block_view.is_none();
             self.after_input_change();
         }
     }
@@ -1014,7 +1232,7 @@ impl Project {
     /// [en] Can the schematic be edited? In edit mode yes, in simulation mode only with
     /// the "Allow editing while simulating" option switched on.
     pub fn can_edit(&self) -> bool {
-        self.mode == Mode::Edit || self.edit_while_simulating
+        self.block_view.is_none() && self.mode_allows_edits()
     }
 
     /// Spustit (F5): přepne do režimu simulace a pustí čas.
@@ -1441,6 +1659,133 @@ mod tests {
         assert_eq!(q.circuit.components.len(), 3);
         assert_eq!(q.subcircuits[0].circuit.components.len(), 2);
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn tab_on_block_opens_read_only_internal_circuit() {
+        let mut p = small();
+        let block = BlockKind::Counter {
+            bits: 4,
+            down: false,
+        };
+        let id = p.add_component_at(
+            ComponentKind::Block { block },
+            Point::new(20, 0),
+            Rotation::R0,
+        );
+        let before = p.to_text();
+        let modified = p.modified;
+        p.selection.clear();
+        p.selection.comps.insert(id);
+        assert_eq!(p.selected_block(), Some(block));
+        p.toggle_subcircuit(Lang::Cs);
+        assert_eq!(p.viewed_block(), Some(block));
+        assert!(!p.can_edit());
+        assert_eq!(p.locked_hint(), T::BlockViewLocked);
+        assert_eq!(p.sheet_name().as_deref(), Some("Čítač 4bitový nahoru"));
+        // Uložení během náhledu uloží projekt, ne zapojení bloku.
+        // [en] Saving during the view saves the project, not the block's circuit.
+        assert_eq!(p.to_text(), before);
+        // Uvnitř jsou klopné obvody T; Tab na jednom jde hlouběji (T → D → NAND).
+        // [en] Inside there are T flip-flops; Tab on one goes deeper (T → D → NAND).
+        let tff = p
+            .circuit
+            .components
+            .iter()
+            .find(|c| matches!(c.kind, ComponentKind::Subcircuit { .. }))
+            .unwrap()
+            .id;
+        p.selection.comps.insert(tff);
+        p.toggle_subcircuit(Lang::Cs);
+        assert!(p.sheet_name().unwrap().starts_with("Klopný obvod T"));
+        let dff = p
+            .circuit
+            .components
+            .iter()
+            .find(|c| matches!(c.kind, ComponentKind::Subcircuit { .. }))
+            .unwrap()
+            .id;
+        p.selection.comps.insert(dff);
+        p.toggle_subcircuit(Lang::Cs);
+        assert!(p.sheet_name().unwrap().starts_with("Klopný obvod D"));
+        let nand = p
+            .circuit
+            .components
+            .iter()
+            .filter(|c| {
+                matches!(
+                    c.kind,
+                    ComponentKind::Gate {
+                        gate: logicflow_core::GateKind::Nand,
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert_eq!(nand, 6);
+        // Přepínač v náhledu nemění příznak změn projektu.
+        // [en] A switch in the view does not change the project's modified flag.
+        let sw = p
+            .circuit
+            .components
+            .iter()
+            .find(|c| matches!(c.kind, ComponentKind::Switch { .. }))
+            .unwrap()
+            .id;
+        p.toggle_switch(sw);
+        assert_eq!(p.modified, modified);
+        // Tab zpět: D → T → čítač → projekt.
+        // [en] Tab back: D → T → counter → project.
+        p.selection.clear();
+        p.toggle_subcircuit(Lang::Cs);
+        p.toggle_subcircuit(Lang::Cs);
+        assert_eq!(p.viewed_block(), Some(block));
+        p.toggle_subcircuit(Lang::Cs);
+        assert_eq!(p.viewed_block(), None);
+        assert!(p.can_edit());
+        assert_eq!(p.to_text(), before);
+        assert_eq!(p.selected_block(), Some(block));
+        assert_eq!(p.sheet, None);
+    }
+
+    #[test]
+    fn block_view_from_subcircuit_and_insert_copy() {
+        let mut p = small();
+        let sub = p.new_subcircuit("Podobvod");
+        let id = p.add_component_at(
+            ComponentKind::Block {
+                block: BlockKind::BcdTo7Seg,
+            },
+            Point::new(0, 0),
+            Rotation::R0,
+        );
+        p.selection.clear();
+        p.selection.comps.insert(id);
+        p.toggle_subcircuit(Lang::En);
+        assert_eq!(p.sheet_name().as_deref(), Some("BCD to 7-segment decoder"));
+        // Hlavní obvod z drobečkové navigace zavře náhled a otevře hlavní obvod projektu.
+        // [en] The main circuit in the breadcrumbs closes the view and opens the project's main circuit.
+        p.open_sheet(None);
+        assert_eq!(p.viewed_block(), None);
+        assert_eq!(p.sheet, None);
+        assert!(p.subcircuit(sub).is_some());
+        // Vložení kopie: náhled se zavře a zapojení čeká na vložení u myši.
+        // [en] Inserting a copy: the view closes and the circuit waits to be inserted at the mouse.
+        p.open_sheet(Some(sub));
+        p.selection.clear();
+        p.selection.comps.insert(id);
+        p.toggle_subcircuit(Lang::Cs);
+        p.insert_viewed_block(Lang::Cs);
+        assert_eq!(p.viewed_block(), None);
+        assert_eq!(p.sheet, Some(sub));
+        let (uid, text) = p.pending_paste.clone().unwrap();
+        assert_eq!(uid, BlockKind::BcdTo7Seg.library_uid());
+        assert!(p.paste_text(&text, Some(Point::new(30, 0))));
+        assert!(
+            p.subcircuits
+                .iter()
+                .any(|d| d.name == "Převodník BCD na 7 segmentů")
+        );
     }
 
     #[test]

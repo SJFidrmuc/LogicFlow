@@ -33,8 +33,10 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 - **Soubor s nastavením `logicflow.toml`** v domovské složce (Windows `%APPDATA%\LogicFlow` – s cestovním profilem se přenáší, macOS `~/Library/Application Support/LogicFlow`, Linux `~/.config/logicflow`): čitelný text s komentáři, bezpečný zápis, nečitelný soubor se odloží jako `.bak`. Dosavadní nastavení jazyka a značek se převezme. Okno **Úpravy → Nastavení…**: jazyk, značky, úpravy za běhu simulace, jméno autora, výchozí licence, složka osobních knihoven, **sdílené složky knihoven** (síť, OneDrive, kroužek; volba jen pro čtení), otevření složky s nastavením a obnovení výchozích hodnot. Složka Dokumenty se hledá přes systémové známé složky (funguje i přesměrování na síť).
 - **Knihovny prvků v Knihovně součástek:** vestavěná výuková knihovna „Číslicová technika“ a osobní knihovny ze složky `Dokumenty/LogicFlow/Knihovny` (tlačítka Otevřít složku a Načíst znovu), prvky podle kategorií, hledání podle názvu i kategorie, u vybraného prvku popis, vývody, autor a licence. Prvek se vloží jako podobvod projektu (kopie) i s prvky, které používá – stejně jako Ctrl+V u ukazatele myši; názvy v jazyce rozhraní. Vadný soubor knihovny se ukáže jako chyba, program nespadne.
 - **Výuková knihovna „Číslicová technika“** (`docs/knihovny/cislicova-technika.lflib`, v programu jako vestavěná knihovna): 36 hradlových zapojení běžných úloh – hradla z NAND a NOR, multiplexory, dekodér, komparátory, převodníky Grayova kódu, parita, sčítačky a odčítačky, klopné obvody RS a D, čítače (asynchronní, synchronní, BCD, nahoru/dolů), posuvný registr, Johnsonův a kruhový čítač, alarm, indikace ventilátorů a semafor; česky i anglicky, každý prvek ověřený simulací.
+- **Vnitřní zapojení funkčních bloků:** Tab na bloku (nebo pravé tlačítko → Otevřít vnitřní zapojení) otevře jeho zapojení z hradel jen pro čtení – vstupy jde přepínat a simulovat, Tab jde hlouběji (čítač → klopný obvod T → klopný obvod D ze šesti NAND) a zpět, projekt zůstane beze změny; tlačítko Vložit do projektu jako podobvod ho zkopíruje jako upravitelný podobvod. Zapojení jsou ve vestavěné knihovně **„Funkční bloky – vnitřní zapojení“** (`docs/knihovny/funkcni-bloky.lflib`): všech 45 podob bloků (MUX, dekodér, kodér, sčítačka, komparátor, BCD/7SEG, čítač nahoru i dolů, registr, posuvný registr) se stejně pojmenovanými vývody, každé ověřené proti simulaci bloku.
 
 ### Opraveno
+- Knihovna součástek: „Sčítačka 4bitová“ místo „Sčítačka 4bitový“.
 - Ctrl+R restartuje simulaci (zkratka byla v nabídce a nápovědě, ale nefungovala).
 - Klávesy nad schématem reagují jen na přesnou kombinaci (Shift+X už nemaže jako X).
 - Knihovna součástek a editor paměti uvádějí u připravovaných součástek aktuální plán (paměti ve verzi 0.5, obvody 74xx ve verzi 0.7).
@@ -124,7 +126,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 - Jazykové balíčky, nápověda v programu přímo z Markdownu.
 - Světlý motiv (projektor, tisk), export obrázku schématu PNG / SVG.
 - Kontrola aktualizací, úvodní obrazovka, odkaz Podpořit vývoj.
-- **Knihovny prvků:** vestavěná výuková knihovna, osobní knihovny a sdílené složky, export podobvodu do knihovny.
+- **Knihovny prvků:** vestavěná výuková knihovna, vnitřní zapojení funkčních bloků (Tab na bloku), osobní knihovny a sdílené složky, export podobvodu do knihovny.
 
 ### 0.5 (2027)
 - **Sběrnice 1–64 bitů:** rozdělovač, třístavový budič, vstup s číslem, hex klávesnice, logická sonda, funkční bloky se sběrnicovými vývody.

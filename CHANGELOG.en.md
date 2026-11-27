@@ -33,8 +33,10 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 - **Settings file `logicflow.toml`** in the home folder (Windows `%APPDATA%\LogicFlow` – roams with a roaming profile, macOS `~/Library/Application Support/LogicFlow`, Linux `~/.config/logicflow`): readable text with comments, safe writing, an unreadable file is kept as `.bak`. The existing language and symbol settings are taken over. **Edit → Settings…** window: language, symbols, editing while simulating, author name, default licence, personal libraries folder, **shared library folders** (network, OneDrive, club; read-only option), opening the settings folder and restoring defaults. The Documents folder is found via the system known folders (redirection to the network works too).
 - **Element libraries in the Component library:** the built-in teaching library “Digital electronics” and personal libraries from the folder `Documents/LogicFlow/Knihovny` (Open folder and Reload buttons), elements by category, search by name and category, the chosen element shows its description, pins, author and licence. An element is inserted as a project subcircuit (a copy) together with the elements it uses – like Ctrl+V at the mouse pointer; names in the interface language. A broken library file is shown as an error, the program does not crash.
 - **Teaching library “Digital electronics”** (`docs/knihovny/cislicova-technika.lflib`, built into the program): 36 gate-level circuits of common tasks – gates from NAND and NOR, multiplexers, decoder, comparators, Gray code converters, parity, adders and subtractors, RS and D flip-flops, counters (asynchronous, synchronous, BCD, up/down), shift register, Johnson and ring counters, alarm, fan indicator and traffic light; in Czech and English, every item verified by simulation.
+- **Internal circuits of function blocks:** Tab on a block (or right-click → Open internal circuit) opens its gate-level circuit read-only – inputs can be switched and simulated, Tab goes deeper (counter → T flip-flop → D flip-flop from six NANDs) and back, the project stays unchanged; the Insert into the project as a subcircuit button copies it as an editable subcircuit. The circuits are in the built-in library **“Function blocks – internal circuits”** (`docs/knihovny/funkcni-bloky.lflib`): all 45 forms of the blocks (MUX, decoder, encoder, adder, comparator, BCD/7SEG, up and down counter, register, shift register) with pins of the same names, each verified against the simulation of the block.
 
 ### Fixed
+- Component library: correct Czech gender in the adder name (“Sčítačka 4bitová”).
 - Ctrl+R restarts the simulation (the shortcut was in the menu and the help but did not work).
 - Keys over the schematic react only to the exact combination (Shift+X no longer deletes like X).
 - The component library and the memory editor show the current plan for upcoming components (memories in version 0.5, 74xx chips in version 0.7).
@@ -124,7 +126,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 - Language packs, in-program help directly from Markdown.
 - Light theme (projector, printing), exporting a schematic image as PNG / SVG.
 - Update check, splash screen, Support development link.
-- **Component libraries:** built-in teaching library, personal libraries and shared folders, exporting a subcircuit to a library.
+- **Component libraries:** built-in teaching library, internal circuits of function blocks (Tab on a block), personal libraries and shared folders, exporting a subcircuit to a library.
 
 ### 0.5 (2027)
 - **Buses 1–64 bits wide:** splitter, tri-state buffer, number input, hex keypad, logic probe, function blocks with bus pins.

@@ -434,7 +434,7 @@ impl LogicFlowApp {
             Command::SelectNone => self.project.selection.clear(),
             Command::Cancel if self.project.is_simulating() => self.project.stop_simulation(),
             Command::Cancel => self.project.selection.clear(),
-            Command::Subcircuit => self.project.toggle_subcircuit(),
+            Command::Subcircuit => self.project.toggle_subcircuit(self.lang),
             Command::RunPause => self.project.toggle_run(),
             Command::Start => self.project.start_simulation(),
             Command::Stop => self.project.stop_simulation(),

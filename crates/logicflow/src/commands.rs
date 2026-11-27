@@ -403,10 +403,11 @@ impl Command {
                     (true, false) => T::Resume,
                 },
             ),
-            Command::Subcircuit if project.selected_subcircuit().is_none() => {
-                tr(lang, T::CmdBackToParent)
+            Command::Subcircuit if project.selected_subcircuit().is_some() => {
+                tr(lang, T::CmdOpenSubcircuit)
             }
-            Command::Subcircuit => tr(lang, T::CmdOpenSubcircuit),
+            Command::Subcircuit if project.selected_block().is_some() => tr(lang, T::CmdOpenBlock),
+            Command::Subcircuit => tr(lang, T::CmdBackToParent),
             _ => self.label(lang),
         }
     }
@@ -433,7 +434,11 @@ impl Command {
                 !project.selection.is_empty()
             }
             SelectAll => !project.circuit.components.is_empty(),
-            Subcircuit => project.selected_subcircuit().is_some() || project.sheet.is_some(),
+            Subcircuit => {
+                project.selected_subcircuit().is_some()
+                    || project.selected_block().is_some()
+                    || project.sheet.is_some()
+            }
             Step => !project.running,
             StepEdge | StepCycle => !project.running && project.has_clocks(),
             Start => !(project.is_simulating() && project.running),
@@ -578,7 +583,7 @@ pub fn menu_item(ui: &mut Ui, cmd: Command, lang: Lang, project: &Project) -> bo
     let enabled = cmd.available(project) && (cmd != Command::Paste || has_clipboard(ui.ctx()));
     let response = ui.add_enabled(enabled, button);
     let response = if cmd.blocked_by_simulation(project) {
-        response.on_disabled_hover_text(tr(lang, T::LockedHint))
+        response.on_disabled_hover_text(tr(lang, project.locked_hint()))
     } else {
         response
     };

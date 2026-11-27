@@ -108,6 +108,17 @@ pub enum BlockKind {
     },
 }
 
+/// Identita (uid) vestavěné knihovny „Funkční bloky – vnitřní zapojení“
+/// (`docs/knihovny/funkcni-bloky.lflib`): pro každý blok obsahuje stejně
+/// fungující zapojení z hradel se stejně pojmenovanými vývody. Identity prvků
+/// dává [`BlockKind::library_uid`].
+///
+/// [en] Identity (uid) of the built-in library “Function blocks – internal circuits”
+/// (`docs/knihovny/funkcni-bloky.lflib`): for every block it contains a gate-level
+/// circuit that works the same way and has pins with the same names. Item
+/// identities are given by [`BlockKind::library_uid`].
+pub const BLOCK_LIBRARY_UID: &str = "a6144984-2be9-41c5-bd02-86eaa1f135ba";
+
 /// Rozsah parametru bloku (nejmenší, největší hodnota).
 ///
 /// [en] Range of a block parameter (smallest, largest value).
@@ -131,6 +142,57 @@ impl BlockKind {
         Self::Register { bits: 4 },
         Self::ShiftRegister { bits: 4 },
     ];
+
+    /// Všechny podoby bloků: každý druh se všemi hodnotami hlavního parametru
+    /// (čítač i v obou směrech) – 45 bloků.
+    ///
+    /// [en] All forms of the blocks: every kind with all values of the main
+    /// parameter (the counter in both directions too) – 45 blocks.
+    pub fn variants() -> Vec<Self> {
+        let mut all = Vec::new();
+        for kind in Self::ALL {
+            let (lo, hi) = kind.param_range();
+            for n in lo..=hi {
+                match kind.with_param(n) {
+                    Self::Counter { bits, .. } => {
+                        all.push(Self::Counter { bits, down: false });
+                        all.push(Self::Counter { bits, down: true });
+                    }
+                    other => all.push(other),
+                }
+            }
+        }
+        all
+    }
+
+    /// Identita (uid) prvku s vnitřním zapojením bloku z hradel ve vestavěné
+    /// knihovně „Funkční bloky – vnitřní zapojení“ ([`BLOCK_LIBRARY_UID`]).
+    /// Je odvozená z druhu a parametru bloku, takže se nikdy nemění.
+    ///
+    /// [en] Identity (uid) of the item with the block's gate-level internal circuit in
+    /// the built-in library “Function blocks – internal circuits”
+    /// ([`BLOCK_LIBRARY_UID`]). It is derived from the block's kind and parameter, so
+    /// it never changes.
+    pub fn library_uid(self) -> String {
+        let kind: u8 = match self {
+            Self::Mux { .. } => 1,
+            Self::Decoder { .. } => 2,
+            Self::Encoder { .. } => 3,
+            Self::Adder { .. } => 4,
+            Self::Comparator { .. } => 5,
+            Self::BcdTo7Seg => 6,
+            Self::Counter { .. } => 7,
+            Self::Register { .. } => 8,
+            Self::ShiftRegister { .. } => 9,
+        };
+        let down = matches!(self, Self::Counter { down: true, .. });
+        format!(
+            "{}{kind:02x}{:02x}{:02x}00",
+            &BLOCK_LIBRARY_UID[..28],
+            self.param().unwrap_or(0),
+            u8::from(down)
+        )
+    }
 
     /// Hlavní parametr (počet bitů / adresových vstupů), pokud ho blok má.
     ///
@@ -691,6 +753,28 @@ mod tests {
         assert_eq!(number(&st), Some(0));
         clock(b, &mut ins, &mut st, &mut pc);
         assert_eq!(number(&st), Some(0xA));
+    }
+
+    #[test]
+    fn variants_and_library_uids() {
+        let all = BlockKind::variants();
+        assert_eq!(all.len(), 45);
+        let mut uids: Vec<String> = all.iter().map(|b| b.library_uid()).collect();
+        for u in &uids {
+            assert!(crate::library::is_uid(u), "{u}");
+        }
+        uids.sort();
+        uids.dedup();
+        assert_eq!(uids.len(), 45);
+        assert!(!uids.contains(&BLOCK_LIBRARY_UID.to_owned()));
+        assert_eq!(
+            BlockKind::Counter {
+                bits: 4,
+                down: true
+            }
+            .library_uid(),
+            "a6144984-2be9-41c5-bd02-86ea07040100"
+        );
     }
 
     #[test]

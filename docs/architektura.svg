@@ -94,7 +94,7 @@
   <text x="748" y="415" class="x" text-anchor="middle">docs/napoveda)</text>
 
   <!-- Project -->
-  <rect x="60" y="510" width="770" height="225" rx="10" class="pr"/>
+  <rect x="60" y="510" width="770" height="230" rx="10" class="pr"/>
   <text x="76" y="534" class="h">Project <tspan class="s m">(project.rs)</tspan> – stav otevřeného projektu</text>
   <g class="s">
     <text x="76" y="560"><tspan class="m">circuit</tspan> – právě upravovaný list</text>
@@ -108,9 +108,10 @@
     <text x="460" y="626"><tspan class="m">revision</tspan> – číslo změny (přepočty)</text>
     <text x="460" y="648"><tspan class="m">path, modified</tspan> – soubor, neuloženo</text>
   </g>
+  <text x="76" y="728" class="x"><tspan class="m">block_view</tspan> – odložený projekt při Tabu na funkční blok (vnitřní zapojení z knihovny bloků, jen pro čtení)</text>
   <line x1="76" y1="666" x2="814" y2="666" stroke="#86efac" stroke-width="1"/>
   <text x="76" y="688" class="s m">checkpoint() · after_structure_change() · toggle_switch() · set_button()</text>
-  <text x="76" y="710" class="s m">update(dt) · step() · reset_simulation() · undo() / redo() · load() / save()</text>
+  <text x="76" y="706" class="s m">update(dt) · step() · reset_simulation() · undo() / redo() · load() / save()</text>
 
   <!-- Skupina jádra -->
   <rect x="950" y="165" width="420" height="645" rx="14" class="grp"/>

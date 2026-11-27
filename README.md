@@ -98,7 +98,7 @@ Co přinesla která verze a co se chystá: **[přehled změn a plán vývoje](CH
 | ~~0.1~~ | kreslení schémat, hradla, přepínače, LED, ukládání | hotovo |
 | ~~0.2~~ | klopné obvody, generátor hodin, nápověda – připraveno na pilot ve třídě | hotovo |
 | ~~0.3~~ | podobvody, funkční bloky (čítače, registry, MUX, dekodéry…), sedmisegmentovka, americké značky | hotovo |
-| 0.4 | režim simulace, kontextová nabídka a schránka, napájení VCC/GND, knihovny prvků, barva LED, soubor s nastavením, jazykové balíčky, světlý motiv, export obrázku, nápověda v Markdownu i v programu | 2027 |
+| 0.4 | režim simulace, kontextová nabídka a schránka, napájení VCC/GND, knihovny prvků a vnitřní zapojení funkčních bloků, barva LED, soubor s nastavením, jazykové balíčky, světlý motiv, export obrázku, nápověda v Markdownu i v programu | 2027 |
 | 0.5 | sběrnice 1–64 bitů, edice Škola pro učebny | 2027 |
 | 0.6 | paměti ROM, RAM, EEPROM, hex editor, panel nástrojů, plošky rozhraní podobvodu a návěští sítí, maticová klávesnice a bodová matice LED | 2027 |
 | 0.7 | export do VHDL | 2027 |
@@ -141,7 +141,7 @@ Diagram [`docs/architektura.svg`](docs/architektura.svg) ukazuje moduly aplikace
 | `crates/logicflow` | aplikace: okno, oblasti, editor schématu, panely, překlady |
 | `docs/napoveda` | nápověda v Markdownu (cs, en), obrázky a obvody pro snímky |
 | `docs/formaty` | specifikace souborů `.logicflow` a `.lflib` (cs, en), JSON Schema, historie a kompatibilita verzí |
-| `docs/knihovny` | výuková a vzorová knihovna prvků |
+| `docs/knihovny` | výuková knihovna, vnitřní zapojení funkčních bloků a vzorová knihovna prvků |
 | `docs/architektura.svg` | diagram struktury aplikace a toku dat |
 | `docs/screenshots` | snímky obrazovky pro README |
 | `scripts` | pomocné skripty (snímky obrazovky pro nápovědu, kontrola a export dvojjazyčných komentářů, kontrola přehledu změn a dokumentace formátů) |

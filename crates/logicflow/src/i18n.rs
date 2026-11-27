@@ -234,6 +234,13 @@ pub enum T {
     Resume,
     EditWhileSimulating,
     LockedHint,
+    CmdOpenBlock,
+    BlockViewLocked,
+    BlockViewTitle,
+    BlockViewHint,
+    BlockViewBack,
+    BlockViewInsert,
+    BlockViewInsertHint,
     SimBadge,
     SimPausedBadge,
     HintSim,
@@ -528,6 +535,20 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             Resume => "Pokračovat",
             EditWhileSimulating => "Povolit úpravy za běhu simulace",
             LockedHint => "Pro úpravy zastavte simulaci (Esc)",
+            CmdOpenBlock => "Otevřít vnitřní zapojení",
+            BlockViewLocked => "Vnitřní zapojení bloku je jen pro čtení",
+            BlockViewTitle => "vnitřní zapojení (jen pro čtení)",
+            BlockViewHint => {
+                "Zapojení bloku z hradel z vestavěné knihovny Funkční bloky – vnitřní zapojení. \
+                 Vstupy jde přepínat a simulovat, schéma ale nejde měnit. Tab na podobvodu jde \
+                 hlouběji, Tab na prázdném místě zpět do projektu."
+            }
+            BlockViewBack => "Zpět do projektu",
+            BlockViewInsert => "Vložit do projektu jako podobvod",
+            BlockViewInsertHint => {
+                "Zavře náhled a vloží zapojení k ukazateli myši jako upravitelný podobvod \
+                 (stejně jako prvek z knihovny)."
+            }
             SimBadge => "SIMULACE",
             SimPausedBadge => "SIMULACE – POZASTAVENO",
             HintSim => {
@@ -825,6 +846,21 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             Resume => "Resume",
             EditWhileSimulating => "Allow editing while simulating",
             LockedHint => "Stop the simulation to edit (Esc)",
+            CmdOpenBlock => "Open internal circuit",
+            BlockViewLocked => "The internal circuit of a block is read-only",
+            BlockViewTitle => "internal circuit (read-only)",
+            BlockViewHint => {
+                "Gate-level circuit of the block from the built-in library Function blocks – \
+                 internal circuits. Inputs can be switched and simulated, but the schematic \
+                 cannot be changed. Tab on a subcircuit goes deeper, Tab on an empty spot goes \
+                 back to the project."
+            }
+            BlockViewBack => "Back to the project",
+            BlockViewInsert => "Insert into the project as a subcircuit",
+            BlockViewInsertHint => {
+                "Closes the view and inserts the circuit at the mouse pointer as an editable \
+                 subcircuit (like an item from the library)."
+            }
             SimBadge => "SIMULATION",
             SimPausedBadge => "SIMULATION – PAUSED",
             HintSim => {
