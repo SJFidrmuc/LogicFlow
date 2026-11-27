@@ -1346,25 +1346,37 @@ impl SchematicView {
                 );
             }
             ComponentKind::Led { color } | ComponentKind::LedAk { color } => {
-                edit_submenu(ui, can_edit, lang, tr(lang, T::LedColorLabel), |ui| {
-                    for c in logicflow_core::LedColor::ALL {
-                        let name = catalog::led_color_name(c, lang);
-                        if ui.add(egui::Button::selectable(color == c, name)).clicked() {
-                            new_kind = kind.with_led_color(c);
+                edit_submenu(
+                    ui,
+                    (can_edit, hint),
+                    lang,
+                    tr(lang, T::LedColorLabel),
+                    |ui| {
+                        for c in logicflow_core::LedColor::ALL {
+                            let name = catalog::led_color_name(c, lang);
+                            if ui.add(egui::Button::selectable(color == c, name)).clicked() {
+                                new_kind = kind.with_led_color(c);
+                            }
                         }
-                    }
-                });
+                    },
+                );
                 let two = matches!(kind, ComponentKind::LedAk { .. });
-                edit_submenu(ui, can_edit, lang, tr(lang, T::PinSideLabel), |ui| {
-                    for (t, label) in [(false, T::LedPinsOne), (true, T::LedPinsTwo)] {
-                        if ui
-                            .add(egui::Button::selectable(two == t, tr(lang, label)))
-                            .clicked()
-                        {
-                            new_kind = kind.with_led_two_pins(t);
+                edit_submenu(
+                    ui,
+                    (can_edit, hint),
+                    lang,
+                    tr(lang, T::PinSideLabel),
+                    |ui| {
+                        for (t, label) in [(false, T::LedPinsOne), (true, T::LedPinsTwo)] {
+                            if ui
+                                .add(egui::Button::selectable(two == t, tr(lang, label)))
+                                .clicked()
+                            {
+                                new_kind = kind.with_led_two_pins(t);
+                            }
                         }
-                    }
-                });
+                    },
+                );
             }
             ComponentKind::Block { block } => {
                 // Tab: vnitřní zapojení bloku z hradel (jen pro čtení).
