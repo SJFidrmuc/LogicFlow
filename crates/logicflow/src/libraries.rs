@@ -1,12 +1,13 @@
-//! Knihovny prvků dostupné v programu: vestavěná výuková knihovna, osobní
+//! Knihovny prvků dostupné v programu: vestavěné knihovny (výuková a vnitřní
+//! zapojení funkčních bloků), osobní
 //! knihovny (výchozí složka `Dokumenty/LogicFlow/Knihovny`) a sdílené složky
 //! ze souboru s nastavením.
 //!
 //! Toto je jediné místo, kde program čte knihovny ze souborů (viz CONTRIBUTING →
 //! Přenositelnost); zbytek programu pracuje s načtenými [`Library`].
 //!
-//! [en] Element libraries available in the program: the built-in teaching library,
-//! personal libraries (default folder `Documents/LogicFlow/Knihovny`) and shared
+//! [en] Element libraries available in the program: the built-in libraries (teaching
+//! and internal circuits of function blocks), personal libraries (default folder `Documents/LogicFlow/Knihovny`) and shared
 //! folders from the settings file.
 //!
 //! This is the only place where the program reads libraries from files (see
@@ -15,7 +16,10 @@
 
 use std::path::{Path, PathBuf};
 
+use std::sync::OnceLock;
+
 use logicflow_core::library::{CATEGORIES, Library, LibraryError, LibraryItem, builtin_category};
+use logicflow_core::{BlockKind, SubcircuitDef};
 
 use crate::i18n::{Lang, T, tr};
 use crate::settings::{Settings, SharedFolder};
@@ -24,6 +28,13 @@ use crate::settings::{Settings, SharedFolder};
 ///
 /// [en] The built-in teaching library “Digital electronics” (embedded at build time).
 const BUILTIN: &str = include_str!("../../../docs/knihovny/cislicova-technika.lflib");
+
+/// Vestavěná knihovna „Funkční bloky – vnitřní zapojení“: pro každý funkční blok
+/// zapojení z hradel (otevře ho Tab na bloku).
+///
+/// [en] The built-in library “Function blocks – internal circuits”: a gate-level
+/// circuit for every function block (opened by Tab on a block).
+const BUILTIN_BLOCKS: &str = include_str!("../../../docs/knihovny/funkcni-bloky.lflib");
 
 /// Podsložka osobních knihoven ve složce dokumentů.
 ///
@@ -110,9 +121,9 @@ impl Problem {
 /// [en] All libraries available in the program.
 #[derive(Clone, Debug, Default)]
 pub struct Libraries {
-    /// Načtené knihovny: nejdřív vestavěná, pak osobní podle názvu souboru.
+    /// Načtené knihovny: nejdřív vestavěné, pak osobní podle názvu souboru.
     ///
-    /// [en] Loaded libraries: the built-in one first, then personal ones by file name.
+    /// [en] Loaded libraries: the built-in ones first, then personal ones by file name.
     pub list: Vec<Loaded>,
     /// Soubory, které se nepodařilo načíst: název souboru a důvod.
     ///
@@ -151,7 +162,7 @@ impl Libraries {
     ///
     /// [en] Reloads the libraries (after the files in the folders changed).
     pub fn reload(&mut self) {
-        self.list = vec![builtin()];
+        self.list = builtins();
         self.problems.clear();
         if let Some(dir) = &self.folder {
             let (list, problems) = read_folder(dir, Source::Personal);
@@ -173,14 +184,59 @@ impl Libraries {
     }
 }
 
-/// Vestavěná knihovna.
+/// Vestavěné knihovny: výuková a vnitřní zapojení funkčních bloků.
 ///
-/// [en] The built-in library.
-pub fn builtin() -> Loaded {
-    Loaded {
-        library: Library::from_json(BUILTIN).expect("vestavěná knihovna je platná"),
-        source: Source::Builtin,
+/// [en] The built-in libraries: the teaching one and the internal circuits of function blocks.
+pub fn builtins() -> Vec<Loaded> {
+    vec![
+        Loaded {
+            library: Library::from_json(BUILTIN).expect("vestavěná knihovna je platná"),
+            source: Source::Builtin,
+        },
+        Loaded {
+            library: block_library().clone(),
+            source: Source::Builtin,
+        },
+    ]
+}
+
+/// Knihovna vnitřních zapojení funkčních bloků (načte se jednou).
+///
+/// [en] The library of internal circuits of function blocks (loaded once).
+pub fn block_library() -> &'static Library {
+    static LIB: OnceLock<Library> = OnceLock::new();
+    LIB.get_or_init(|| Library::from_json(BUILTIN_BLOCKS).expect("knihovna bloků je platná"))
+}
+
+/// Vnitřní zapojení bloku: definice podobvodů (prvek bloku a vše, co používá,
+/// s názvy v jazyce `lang`) a číslo definice prvku bloku. `None`, když blok
+/// v knihovně chybí.
+///
+/// [en] Internal circuit of a block: subcircuit definitions (the block's item and
+/// everything it uses, with names in the language `lang`) and the number of the
+/// block item's definition. `None` when the block is missing in the library.
+pub fn block_equivalent(block: BlockKind, lang: Lang) -> Option<(Vec<SubcircuitDef>, u32)> {
+    let lib = block_library();
+    let uid = block.library_uid();
+    let item = lib.item(&uid)?;
+    let mut defs = lib.item_with_dependencies(&uid)?;
+    for d in &mut defs {
+        if let Some(i) = lib.items.iter().find(|i| i.id == d.id) {
+            d.name = i.display_name(lang.code()).to_owned();
+        }
     }
+    Some((defs, item.id))
+}
+
+/// Text pro vložení vnitřního zapojení bloku do projektu jako upravitelného
+/// podobvodu (stejně jako prvek z panelu knihoven): identita prvku a text.
+///
+/// [en] Text for inserting the internal circuit of a block into the project as an
+/// editable subcircuit (like an item from the library panel): item identity and text.
+pub fn block_insertion(block: BlockKind, lang: Lang) -> Option<(String, String)> {
+    let uid = block.library_uid();
+    let text = block_library().insertion_text(&uid, lang.code())?;
+    Some((uid, text))
 }
 
 /// Načte všechny soubory `.lflib` ve složce (seřazené podle názvu); `source` určí
@@ -317,7 +373,7 @@ mod tests {
 
     #[test]
     fn builtin_library_loads() {
-        let b = builtin();
+        let b = builtins().swap_remove(0);
         assert_eq!(b.source, Source::Builtin);
         assert!(b.library.items.len() >= 30);
         // Skupiny v pořadí vestavěných kategorií, česky i anglicky.
@@ -339,6 +395,54 @@ mod tests {
         let en = by_category(&b.library, Lang::En);
         assert_eq!(en[0].0, "Combinational circuits");
         assert_eq!(en[0].1[0].display_name("en"), "NOT from NAND");
+    }
+
+    #[test]
+    fn every_block_has_an_equivalent() {
+        for block in BlockKind::variants() {
+            let (defs, root) = block_equivalent(block, Lang::Cs).expect("ekvivalent bloku");
+            let def = defs.iter().find(|d| d.id == root).unwrap();
+            // Stejné názvy vývodů jako blok (pořadí podle popisků).
+            // [en] The same pin names as the block (order by labels).
+            let (ins, outs) = def.pin_names();
+            let mut want = block.input_names();
+            want.sort();
+            let mut got = ins.clone();
+            got.sort();
+            assert_eq!(got, want, "{block:?}");
+            assert_eq!(outs.len(), block.output_names().len(), "{block:?}");
+            // Název jako v Knihovně součástek (čítač navíc se směrem).
+            // [en] The name as in the component library (the counter with its direction too).
+            for lang in [Lang::Cs, Lang::En] {
+                let (defs, root) = block_equivalent(block, lang).unwrap();
+                let name = &defs.iter().find(|d| d.id == root).unwrap().name;
+                assert!(
+                    name.starts_with(&crate::catalog::block_name(block, lang)),
+                    "{name}"
+                );
+            }
+            // Všechny použité podobvody jsou mezi definicemi.
+            // [en] All used subcircuits are among the definitions.
+            for d in &defs {
+                for c in &d.circuit.components {
+                    if let logicflow_core::ComponentKind::Subcircuit { id, .. } = c.kind {
+                        assert!(defs.iter().any(|x| x.id == id), "{block:?}");
+                    }
+                }
+            }
+        }
+        let (defs, root) = block_equivalent(
+            BlockKind::Counter {
+                bits: 4,
+                down: false,
+            },
+            Lang::En,
+        )
+        .unwrap();
+        let name = |id: u32| defs.iter().find(|d| d.id == id).unwrap().name.clone();
+        assert_eq!(name(root), "Counter 4-bit up");
+        assert_eq!(defs.len(), 3);
+        assert!(block_insertion(BlockKind::BcdTo7Seg, Lang::Cs).is_some());
     }
 
     #[test]
@@ -383,11 +487,11 @@ mod tests {
             },
         ];
         let libs = Libraries::load(&settings);
-        // Vestavěná + jedna ze sdílené složky; nedostupná složka je problém.
-        // [en] Built-in + one from the shared folder; an unavailable folder is a problem.
-        assert_eq!(libs.list.len(), 2);
+        // Dvě vestavěné + jedna ze sdílené složky; nedostupná složka je problém.
+        // [en] Two built-in + one from the shared folder; an unavailable folder is a problem.
+        assert_eq!(libs.list.len(), 3);
         assert!(matches!(
-            &libs.list[1].source,
+            &libs.list[2].source,
             Source::Shared { read_only: true, file } if file.ends_with("vzor.lflib")
         ));
         assert_eq!(libs.problems.len(), 1);

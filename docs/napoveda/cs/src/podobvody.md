@@ -26,6 +26,7 @@ Podobvod je samostatný obvod, který vložíte do jiného jako jednu součástk
 Hotová zapojení najdete v oblasti **Knihovna součástek** pod nadpisem **Knihovny prvků**. Prvky jsou rozdělené podle kategorií (Kombinační obvody, Aritmetika, Sekvenční obvody…) a hledání je najde podle názvu i kategorie.
 
 - **Vestavěná knihovna „Číslicová technika – výukové prvky“** obsahuje 36 zapojení běžných úloh: hradla z NAND a NOR, multiplexory, dekodér, komparátory, převodníky Grayova kódu, sčítačky a odčítačky, klopné obvody, čítače, registry, alarm a semafor.
+- **Vestavěná knihovna „Funkční bloky – vnitřní zapojení“** obsahuje zapojení všech funkčních bloků z hradel (viz další část).
 - Prvek vložíte stejně jako součástku: klikněte na něj a pak do schématu. Objeví se u ukazatele myši a kliknutím ho položíte.
 - Vložený prvek je **podobvod projektu** (kopie). Tabem ho otevřete, upravíte a uloží se s projektem. Prvky, které používá (např. úplné sčítačky ve 4bitové sčítačce), se vloží s ním.
 - Pod vybraným prvkem uvidíte jeho popis, vývody, autora a licenci.
@@ -35,3 +36,15 @@ Hotová zapojení najdete v oblasti **Knihovna součástek** pod nadpisem **Knih
 > **Připravuje se:** export podobvodu do knihovny a školní knihovny.
 
 > **Hotový příklad:** Soubor → Příklady → Úplná sčítačka ze dvou podobvodů.
+
+## Vnitřní zapojení funkčních bloků
+
+Každý funkční blok (multiplexor, dekodér, kodér, sčítačka, komparátor, převodník BCD na 7 segmentů, čítač, registr, posuvný registr) jde rozkliknout až na hradla.
+
+- Vyberte blok ve schématu a stiskněte **Tab** (nebo pravé tlačítko → **Otevřít vnitřní zapojení**). Otevře se jeho zapojení z hradel se stejně pojmenovanými vývody.
+- Zapojení je **jen pro čtení**: vlevo nahoře je štítek s názvem bloku, vstupy jde přepínat a simulovat, ale schéma nejde měnit. Projekt zůstane beze změny.
+- Sekvenční bloky jsou z klopných obvodů T a D. **Tab** na klopném obvodu jde hlouběji – klopný obvod D je ze šesti hradel NAND (zapojení obvodu 7474).
+- **Tab** v prázdném místě vrátí o úroveň výš, z nejvyšší úrovně zpět do projektu. Rovnou do projektu vede tlačítko **Zpět do projektu** v Hierarchii nebo odkaz **Hlavní obvod** v záhlaví schématu.
+- Tlačítko **Vložit do projektu jako podobvod** v Hierarchii zkopíruje zapojení do projektu jako upravitelný podobvod (vloží se u ukazatele myši jako prvek z knihovny).
+- Zapojení z hradel se od bloku liší ve dvou věcech: nepřipojené vstupy **EN** a **R** mají hodnotu X (blok bere EN jako 1 a R jako 0) a sekvenční zapojení je po spuštění v neznámém stavu X, dokud ho **R = 1** nevynuluje (blok začíná ve stavu 0).
+- Všechna zapojení najdete i v panelu knihoven v knihovně **Funkční bloky – vnitřní zapojení**.

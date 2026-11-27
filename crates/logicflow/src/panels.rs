@@ -117,7 +117,14 @@ fn component_properties(
     // [en] In simulation mode only the switch and the clock frequency can be changed.
     let editable = project.can_edit();
     if !editable {
-        ui.label(weak(tr(lang, T::PropsLocked)));
+        ui.label(weak(tr(
+            lang,
+            if project.viewed_block().is_some() {
+                T::BlockViewLocked
+            } else {
+                T::PropsLocked
+            },
+        )));
         ui.add_space(4.0);
     }
 
@@ -642,6 +649,49 @@ fn component_properties(
     }
 }
 
+/// Informace o prohlíženém vnitřním zapojení bloku a tlačítka Zpět do projektu
+/// a Vložit do projektu jako podobvod.
+///
+/// [en] Information about the internal circuit of a block being viewed and the buttons
+/// Back to the project and Insert into the project as a subcircuit.
+fn block_view_notice(ui: &mut Ui, project: &mut Project, lang: Lang, block: BlockKind) {
+    ui.label(
+        RichText::new(format!(
+            "{} – {}",
+            crate::catalog::block_name(block, lang),
+            tr(lang, T::BlockViewTitle)
+        ))
+        .strong()
+        .color(colors::ACCENT),
+    );
+    if let Some(name) = project.sheet_name() {
+        ui.label(weak(&name));
+    }
+    ui.label(
+        RichText::new(tr(lang, T::BlockViewHint))
+            .small()
+            .color(colors::TEXT_WEAK),
+    );
+    ui.horizontal_wrapped(|ui| {
+        // Bez zkratky: Tab vrací jen o úroveň výš, tlačítko rovnou do projektu.
+        // [en] No shortcut: Tab goes only one level up, the button straight to the project.
+        if ui.button(tr(lang, T::BlockViewBack)).clicked() {
+            project.leave_block();
+        }
+        if ui
+            .add_enabled(
+                project.mode_allows_edits(),
+                egui::Button::new(tr(lang, T::BlockViewInsert)),
+            )
+            .on_hover_text(tr(lang, T::BlockViewInsertHint))
+            .on_disabled_hover_text(tr(lang, T::LockedHint))
+            .clicked()
+        {
+            project.insert_viewed_block(lang);
+        }
+    });
+}
+
 /// Listy projektu: hlavní obvod a podobvody; přepínání, přejmenování a mazání.
 ///
 /// [en] Project sheets: main circuit and subcircuits; switching, renaming and deleting.
@@ -650,6 +700,12 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
         .id_salt("sheets")
         .default_open(true)
         .show(ui, |ui| {
+            // Náhled vnitřního zapojení bloku: listy projektu jsou odložené.
+            // [en] Internal circuit of a block: the project sheets are put aside.
+            if let Some(block) = project.viewed_block() {
+                block_view_notice(ui, project, lang, block);
+                return;
+            }
             let mut open = None;
             if ui
                 .add(egui::Button::selectable(
@@ -688,7 +744,7 @@ fn sheets(ui: &mut Ui, project: &mut Project, lang: Lang) {
                     let del = if used {
                         del.on_disabled_hover_text(tr(lang, T::SubcircuitUsed))
                     } else {
-                        del.on_disabled_hover_text(tr(lang, T::LockedHint))
+                        del.on_disabled_hover_text(tr(lang, project.locked_hint()))
                     };
                     if del.clicked() {
                         project.delete_subcircuit(id);
@@ -925,10 +981,10 @@ fn component_context_menu(
             project.toggle_switch(id);
             ui.close();
         }
-        if project.selected_subcircuit().is_some()
+        if (project.selected_subcircuit().is_some() || project.selected_block().is_some())
             && commands::menu_item(ui, Command::Subcircuit, lang, project)
         {
-            project.toggle_subcircuit();
+            project.toggle_subcircuit(lang);
             ui.close();
         }
         ui.separator();
@@ -959,7 +1015,14 @@ pub fn library(
         // V režimu simulace se součástky nepřidávají.
         // [en] Components are not added in simulation mode.
         if !project.can_edit() {
-            ui.label(weak(tr(lang, T::LibraryLocked)));
+            ui.label(weak(tr(
+                lang,
+                if project.viewed_block().is_some() {
+                    T::BlockViewLocked
+                } else {
+                    T::LibraryLocked
+                },
+            )));
             ui.add_space(4.0);
             ui.disable();
         }

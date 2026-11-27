@@ -12,7 +12,7 @@
 | A, Alt+A | vybrat vše, zrušit výběr |
 | Esc | zrušit nástroj nebo výběr; v simulaci zpět k úpravám |
 | Home | zobrazit celé schéma |
-| Tab | otevřít vybraný podobvod, zpět o úroveň výš |
+| Tab | otevřít vybraný podobvod nebo vnitřní zapojení bloku, zpět o úroveň výš |
 | kolečko myši | zoom |
 | prostřední nebo pravé tlačítko + tažení | posun pohledu |
 | Ctrl + tažení | začít vodič kdekoli |

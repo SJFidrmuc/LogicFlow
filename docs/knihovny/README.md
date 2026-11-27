@@ -2,7 +2,7 @@
 
 **Česky** · [English](#english)
 
-Knihovna je soubor hotových podobvodů – **prvků** –, které jde vložit do libovolného projektu (sčítačky, převodníky kódů, čítače, vlastní bloky). Program knihovny ukazuje v oblasti **Knihovna součástek** pod nadpisem **Knihovny prvků**: vestavěnou výukovou knihovnu a osobní knihovny ze složky `Dokumenty/LogicFlow/Knihovny` (načítá je `crates/logicflow/src/libraries.rs`). Export podobvodu do knihovny a sdílené složky přijdou v dalších krocích etapy K1. V jádře ho čte a zapisuje modul `crates/logicflow-core/src/library.rs`.
+Knihovna je soubor hotových podobvodů – **prvků** –, které jde vložit do libovolného projektu (sčítačky, převodníky kódů, čítače, vlastní bloky). Program knihovny ukazuje v oblasti **Knihovna součástek** pod nadpisem **Knihovny prvků**: dvě vestavěné knihovny (výukovou a vnitřní zapojení funkčních bloků) a osobní knihovny ze složky `Dokumenty/LogicFlow/Knihovny` (načítá je `crates/logicflow/src/libraries.rs`). Sdílené složky se přidávají v Nastavení; export podobvodu do knihovny přijde v dalším kroku etapy K1. V jádře ho čte a zapisuje modul `crates/logicflow-core/src/library.rs`.
 
 Vzor: [`vzor.lflib`](vzor.lflib) – úplná sčítačka 1 bit a 2bitová sčítačka, která ji dvakrát používá. Test v jádře ověřuje, že se vzor načte, že oba prvky správně sčítají (všechny kombinace vstupů) a že ho program uloží beze změny.
 
@@ -27,6 +27,18 @@ LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test vyukova_knihovna
 ```
 
 Prvky lze prohlédnout i jako samostatné projekty: `LOGICFLOW_NAHLED=<složka> cargo test -p logicflow-core --test vyukova_knihovna nahled` zapíše každý prvek jako samostatný `.logicflow` a katalog `cislicova-technika.logicflow` se všemi prvky jako podobvody.
+
+## Knihovna „Funkční bloky – vnitřní zapojení“
+
+[`funkcni-bloky.lflib`](funkcni-bloky.lflib) – pro každý funkční blok programu se všemi hodnotami parametru (45 bloků: multiplexor 2:1–8:1, dekodér 1:2–3:8, prioritní kodér 4:2 a 8:3, sčítačka 1–4 bity, komparátor 1–4 bity, převodník BCD na 7 segmentů, čítač 2–8 bitů nahoru i dolů, registr a posuvný registr 2–8 bitů) zapojení z hradel se **stejně pojmenovanými vývody** jako blok. Sekvenční bloky jsou z pomocných prvků **Klopný obvod T s nulováním** (klopný obvod D a XOR) a **Klopný obvod D s nulováním** ze šesti hradel NAND (zapojení 7474), takže jde každý blok Tabem rozkliknout až na hradla. Program tuto knihovnu otevře **Tabem na bloku** (jen pro čtení) a ukazuje ji i v panelu knihoven.
+
+Identita prvku bloku je odvozená z druhu a parametru bloku (`BlockKind::library_uid`, knihovna `BLOCK_LIBRARY_UID` v `block.rs`), takže se nikdy nemění. Rozhraní je seřazené podle popisků (jako u každého podobvodu), proto se pořadí vývodů může od bloku lišit (u MUX jsou D před S). Rozdíly proti bloku: nepřipojené EN a R mají hodnotu X (blok: EN = 1, R = 0) a sekvenční zapojení je po spuštění ve stavu X, dokud ho R = 1 nevynuluje.
+
+Knihovnu generuje test `crates/logicflow-core/tests/funkcni_bloky.rs` a **každý prvek porovná se simulací bloku**: kombinační bloky pro všechny kombinace vstupů, sekvenční na 600 krocích pseudonáhodných změn hodin, nulování, povolení a dat. Převodník BCD na 7 segmentů je minimalizovaný metodou Quine–McCluskey. Po změně:
+
+```sh
+LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test funkcni_bloky
+```
 
 ## Stavba souboru
 
@@ -115,7 +127,7 @@ Prvek se do projektu vkládá **jako kopie** – stejně jako Ctrl+V: jádro př
 
 ## English
 
-A library is a file of ready-made subcircuits – **items** – that can be inserted into any project. The program shows libraries in the **Component library** area under **Element libraries**: the built-in teaching library and personal libraries from the folder `Documents/LogicFlow/Knihovny` (loaded by `crates/logicflow/src/libraries.rs`). The core reads and writes it in `crates/logicflow-core/src/library.rs`; [`vzor.lflib`](vzor.lflib) is a sample (a 1-bit full adder and a 2-bit adder that uses it twice).
+A library is a file of ready-made subcircuits – **items** – that can be inserted into any project. The program shows libraries in the **Component library** area under **Element libraries**: two built-in libraries (the teaching one and the internal circuits of function blocks) and personal libraries from the folder `Documents/LogicFlow/Knihovny` (loaded by `crates/logicflow/src/libraries.rs`). The core reads and writes it in `crates/logicflow-core/src/library.rs`; [`vzor.lflib`](vzor.lflib) is a sample (a 1-bit full adder and a 2-bit adder that uses it twice).
 
 - The normative description, including the version each field is supported since, is the **specification [docs/formaty/lflib.en.md](../formaty/lflib.en.md)** with the schema [lflib.schema.json](../formaty/lflib.schema.json).
 - The file is JSON like `.logicflow`, with `"type": "logicflow-library"`, a `library` header and a list of `items`.
@@ -127,3 +139,5 @@ A library is a file of ready-made subcircuits – **items** – that can be inse
 - An item is inserted into a project **as a copy**, the same way as Ctrl+V (`Library::insertion_text`, názvy podobvodů v jazyce rozhraní).
 
 **Teaching library “Digital electronics”** – [`cislicova-technika.lflib`](cislicova-technika.lflib): 36 gate-level circuits of common tasks (gates from NAND/NOR, multiplexers, decoder, comparators, Gray code converters, parity, adders and subtractors, RS/D flip-flops, asynchronous, synchronous, BCD and up/down counters, shift register, Johnson and ring counters, alarm, fan indicator, traffic light), with Czech and English names. It is generated and verified by simulation in `crates/logicflow-core/tests/vyukova_knihovna.rs`; regenerate with `LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test vyukova_knihovna`.
+
+**Library “Function blocks – internal circuits”** – [`funkcni-bloky.lflib`](funkcni-bloky.lflib): for every function block of the program with all values of its parameter (45 blocks) a gate-level circuit with **pins of the same names** as the block. Sequential blocks are made of the helper items **T flip-flop with reset** (a D flip-flop and XOR) and **D flip-flop with reset** from six NAND gates (the 7474 circuit), so every block can be opened with Tab down to gates. The program opens this library with **Tab on a block** (read-only) and also shows it in the library panel. Item identities are derived from the block kind and parameter (`BlockKind::library_uid`). The interface is ordered by labels like every subcircuit, so the pin order may differ from the block. Differences from the block: unconnected EN and R are X (block: EN = 1, R = 0) and a sequential circuit starts in state X until R = 1. It is generated in `crates/logicflow-core/tests/funkcni_bloky.rs`, which **compares every item with the simulation of the block** (all input combinations, 600 pseudo-random steps for sequential blocks); regenerate with `LOGICFLOW_ZAPSAT_KNIHOVNU=1 cargo test -p logicflow-core --test funkcni_bloky`.

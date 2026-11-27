@@ -148,7 +148,7 @@ pub struct SchematicView {
     /// List, který byl zobrazený naposledy (při změně se pohled přizpůsobí).
     ///
     /// [en] Sheet shown last time (the view adapts when it changes).
-    shown_sheet: Option<Option<u32>>,
+    shown_sheet: Option<(bool, Option<u32>)>,
     /// Do kdy (čas egui v s) ukazovat hlášku „Pro úpravy zastavte simulaci“.
     ///
     /// [en] Until when (egui time in s) to show the "Stop the simulation to edit" message.
@@ -243,12 +243,12 @@ impl SchematicView {
         let response = ui.allocate_rect(rect, Sense::click_and_drag());
         let painter = ui.painter_at(rect);
 
-        if self.shown_sheet != Some(project.sheet) {
+        if self.shown_sheet != Some(project.sheet_key()) {
             if self.shown_sheet.is_some() {
                 self.tool = Tool::Idle;
                 self.add_menu = None;
             }
-            self.shown_sheet = Some(project.sheet);
+            self.shown_sheet = Some(project.sheet_key());
             self.needs_fit = true;
         }
         if self.needs_fit && rect.width() > 10.0 {
@@ -326,7 +326,7 @@ impl SchematicView {
         }
 
         if response.hovered() && !ui.ctx().egui_wants_keyboard_input() {
-            self.keyboard(ui, rect, project, mouse_pt);
+            self.keyboard(ui, rect, project, mouse_pt, lang);
         }
         // Pravé tlačítko během rozdělané akce ji ruší (viz `pointer`) – nabídka se neotevře.
         // [en] The right button during an action in progress cancels it (see `pointer`) – no menu opens.
@@ -406,6 +406,7 @@ impl SchematicView {
         rect: Rect,
         project: &mut Project,
         mouse_pt: Option<Point>,
+        lang: Lang,
     ) {
         let mut pressed = commands::take_pressed(ui.ctx(), Scope::Schematic);
         // Tab přichází zvlášť (raw_input_hook v app.rs), aby ho egui nepoužilo k přesunu fokusu.
@@ -414,7 +415,7 @@ impl SchematicView {
             pressed.push(Command::Subcircuit);
         }
         for cmd in pressed {
-            self.run_command(cmd, ui, rect, project, mouse_pt);
+            self.run_command(cmd, ui, rect, project, mouse_pt, lang);
         }
     }
 
@@ -430,6 +431,7 @@ impl SchematicView {
         rect: Rect,
         project: &mut Project,
         mouse_pt: Option<Point>,
+        lang: Lang,
     ) {
         if cmd.blocked_by_simulation(project) {
             self.show_locked_hint(ui);
@@ -467,7 +469,7 @@ impl SchematicView {
             _ if busy => {}
             // Tab: do vybraného podobvodu a zpět (jako skupiny uzlů v Blenderu).
             // [en] Tab: into the selected subcircuit and back (like node groups in Blender).
-            Command::Subcircuit => project.toggle_subcircuit(),
+            Command::Subcircuit => project.toggle_subcircuit(lang),
             Command::Add => self.add_menu = ui.input(|i| i.pointer.hover_pos()),
             Command::SelectAll => project.select_all(),
             Command::SelectNone => project.selection.clear(),
@@ -574,9 +576,26 @@ impl SchematicView {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
         }
+        // Náhled vnitřního zapojení bloku: štítek jen pro čtení vlevo nahoře.
+        // [en] Internal circuit of a block: a read-only badge at the top left.
+        if let Some(block) = project.viewed_block() {
+            let text = format!(
+                "{} – {}",
+                crate::catalog::block_name(block, lang),
+                tr(lang, T::BlockViewTitle)
+            );
+            let galley = painter.layout_no_wrap(text, FontId::proportional(12.0), Color32::BLACK);
+            let pos = rect.left_top() + vec2(12.0, 10.0);
+            painter.rect_filled(
+                Rect::from_min_size(pos, galley.size()).expand2(vec2(7.0, 3.0)),
+                4.0,
+                colors::ACCENT,
+            );
+            painter.galley(pos, galley, Color32::BLACK);
+        }
         if ui.input(|i| i.time) < self.locked_hint_until {
             let galley = painter.layout_no_wrap(
-                tr(lang, T::LockedHint).to_owned(),
+                tr(lang, project.locked_hint()).to_owned(),
                 FontId::proportional(14.0),
                 colors::TEXT,
             );
@@ -1195,7 +1214,7 @@ impl SchematicView {
                     });
                 })
                 .response
-                .on_disabled_hover_text(tr(lang, T::LockedHint));
+                .on_disabled_hover_text(tr(lang, project.locked_hint()));
                 if let Some(kind) = chosen {
                     project.add_component_at(kind, self.menu_point, Rotation::R0);
                     ui.close();
@@ -1249,6 +1268,7 @@ impl SchematicView {
         kind: ComponentKind,
     ) {
         let can_edit = project.can_edit();
+        let hint = project.locked_hint();
         let mut new_kind = kind;
         match kind {
             ComponentKind::Switch { .. } => {
@@ -1259,7 +1279,7 @@ impl SchematicView {
             }
             ComponentKind::Subcircuit { .. } => {
                 if commands::menu_item(ui, Command::Subcircuit, lang, project) {
-                    project.toggle_subcircuit();
+                    project.toggle_subcircuit(lang);
                     ui.close();
                 }
             }
@@ -1285,7 +1305,7 @@ impl SchematicView {
                 });
             }
             ComponentKind::Gate { gate, inputs } if !gate.is_unary() => {
-                edit_submenu(ui, can_edit, lang, tr(lang, T::InputCount), |ui| {
+                edit_submenu(ui, (can_edit, hint), lang, tr(lang, T::InputCount), |ui| {
                     for n in ComponentKind::MIN_INPUTS..=ComponentKind::MAX_INPUTS {
                         if ui
                             .add(egui::Button::selectable(inputs == n, n.to_string()))
@@ -1297,50 +1317,74 @@ impl SchematicView {
                 });
             }
             ComponentKind::SevenSegment { pins } | ComponentKind::HexDisplay { pins } => {
-                edit_submenu(ui, can_edit, lang, tr(lang, T::PinSideLabel), |ui| {
-                    for p in logicflow_core::PinSide::ALL {
-                        let name = tr(
-                            lang,
-                            match p {
-                                logicflow_core::PinSide::Left => T::SideLeft,
-                                logicflow_core::PinSide::Right => T::SideRight,
-                                logicflow_core::PinSide::Top => T::SideTop,
-                                logicflow_core::PinSide::Bottom => T::SideBottom,
-                            },
-                        );
-                        if ui.add(egui::Button::selectable(pins == p, name)).clicked() {
-                            new_kind = match kind {
-                                ComponentKind::SevenSegment { .. } => {
-                                    ComponentKind::SevenSegment { pins: p }
-                                }
-                                _ => ComponentKind::HexDisplay { pins: p },
-                            };
+                edit_submenu(
+                    ui,
+                    (can_edit, hint),
+                    lang,
+                    tr(lang, T::PinSideLabel),
+                    |ui| {
+                        for p in logicflow_core::PinSide::ALL {
+                            let name = tr(
+                                lang,
+                                match p {
+                                    logicflow_core::PinSide::Left => T::SideLeft,
+                                    logicflow_core::PinSide::Right => T::SideRight,
+                                    logicflow_core::PinSide::Top => T::SideTop,
+                                    logicflow_core::PinSide::Bottom => T::SideBottom,
+                                },
+                            );
+                            if ui.add(egui::Button::selectable(pins == p, name)).clicked() {
+                                new_kind = match kind {
+                                    ComponentKind::SevenSegment { .. } => {
+                                        ComponentKind::SevenSegment { pins: p }
+                                    }
+                                    _ => ComponentKind::HexDisplay { pins: p },
+                                };
+                            }
                         }
-                    }
-                });
+                    },
+                );
             }
             ComponentKind::Led { color } | ComponentKind::LedAk { color } => {
-                edit_submenu(ui, can_edit, lang, tr(lang, T::LedColorLabel), |ui| {
-                    for c in logicflow_core::LedColor::ALL {
-                        let name = catalog::led_color_name(c, lang);
-                        if ui.add(egui::Button::selectable(color == c, name)).clicked() {
-                            new_kind = kind.with_led_color(c);
+                edit_submenu(
+                    ui,
+                    (can_edit, hint),
+                    lang,
+                    tr(lang, T::LedColorLabel),
+                    |ui| {
+                        for c in logicflow_core::LedColor::ALL {
+                            let name = catalog::led_color_name(c, lang);
+                            if ui.add(egui::Button::selectable(color == c, name)).clicked() {
+                                new_kind = kind.with_led_color(c);
+                            }
                         }
-                    }
-                });
+                    },
+                );
                 let two = matches!(kind, ComponentKind::LedAk { .. });
-                edit_submenu(ui, can_edit, lang, tr(lang, T::PinSideLabel), |ui| {
-                    for (t, label) in [(false, T::LedPinsOne), (true, T::LedPinsTwo)] {
-                        if ui
-                            .add(egui::Button::selectable(two == t, tr(lang, label)))
-                            .clicked()
-                        {
-                            new_kind = kind.with_led_two_pins(t);
+                edit_submenu(
+                    ui,
+                    (can_edit, hint),
+                    lang,
+                    tr(lang, T::PinSideLabel),
+                    |ui| {
+                        for (t, label) in [(false, T::LedPinsOne), (true, T::LedPinsTwo)] {
+                            if ui
+                                .add(egui::Button::selectable(two == t, tr(lang, label)))
+                                .clicked()
+                            {
+                                new_kind = kind.with_led_two_pins(t);
+                            }
                         }
-                    }
-                });
+                    },
+                );
             }
             ComponentKind::Block { block } => {
+                // Tab: vnitřní zapojení bloku z hradel (jen pro čtení).
+                // [en] Tab: the block's gate-level internal circuit (read-only).
+                if commands::menu_item(ui, Command::Subcircuit, lang, project) {
+                    project.toggle_subcircuit(lang);
+                    ui.close();
+                }
                 if let Some(n) = block.param() {
                     let (lo, hi) = block.param_range();
                     let title = if matches!(
@@ -1352,7 +1396,7 @@ impl SchematicView {
                     } else {
                         T::Bits
                     };
-                    edit_submenu(ui, can_edit, lang, tr(lang, title), |ui| {
+                    edit_submenu(ui, (can_edit, hint), lang, tr(lang, title), |ui| {
                         for m in lo..=hi {
                             if ui
                                 .add(egui::Button::selectable(n == m, m.to_string()))
@@ -1366,18 +1410,24 @@ impl SchematicView {
                     });
                 }
                 if let logicflow_core::BlockKind::Counter { bits, down } = block {
-                    edit_submenu(ui, can_edit, lang, tr(lang, T::CountDirection), |ui| {
-                        for (d, t) in [(false, T::CountUp), (true, T::CountDown)] {
-                            if ui
-                                .add(egui::Button::selectable(down == d, tr(lang, t)))
-                                .clicked()
-                            {
-                                new_kind = ComponentKind::Block {
-                                    block: logicflow_core::BlockKind::Counter { bits, down: d },
-                                };
+                    edit_submenu(
+                        ui,
+                        (can_edit, hint),
+                        lang,
+                        tr(lang, T::CountDirection),
+                        |ui| {
+                            for (d, t) in [(false, T::CountUp), (true, T::CountDown)] {
+                                if ui
+                                    .add(egui::Button::selectable(down == d, tr(lang, t)))
+                                    .clicked()
+                                {
+                                    new_kind = ComponentKind::Block {
+                                        block: logicflow_core::BlockKind::Counter { bits, down: d },
+                                    };
+                                }
                             }
-                        }
-                    });
+                        },
+                    );
                 }
             }
             _ => {}
@@ -1401,7 +1451,7 @@ impl SchematicView {
     ) {
         if commands::menu_item(ui, cmd, lang, project) {
             let at = Some(self.menu_point);
-            self.run_command(cmd, ui, rect, project, at);
+            self.run_command(cmd, ui, rect, project, at, lang);
             ui.close();
         }
     }
@@ -1463,19 +1513,22 @@ impl SchematicView {
 /// Returns `true` when clicked.
 fn edit_button(ui: &mut Ui, project: &Project, lang: Lang, text: &str) -> bool {
     ui.add_enabled(project.can_edit(), egui::Button::new(text))
-        .on_disabled_hover_text(tr(lang, T::LockedHint))
+        .on_disabled_hover_text(tr(lang, project.locked_hint()))
         .clicked()
 }
 
 /// Podnabídka úprav (počet vstupů, bity…): v režimu simulace zašedlá s vysvětlením.
 ///
 /// [en] Edit submenu (inputs, bits…): greyed out with an explanation in simulation mode.
-fn edit_submenu(ui: &mut Ui, can_edit: bool, lang: Lang, title: &str, add: impl FnOnce(&mut Ui)) {
-    ui.add_enabled_ui(can_edit, |ui| {
+/// `edit` je (lze upravovat, vysvětlení při zamčení).
+///
+/// [en] `edit` is (can be edited, explanation when locked).
+fn edit_submenu(ui: &mut Ui, edit: (bool, T), lang: Lang, title: &str, add: impl FnOnce(&mut Ui)) {
+    ui.add_enabled_ui(edit.0, |ui| {
         ui.menu_button(title, add);
     })
     .response
-    .on_disabled_hover_text(tr(lang, T::LockedHint));
+    .on_disabled_hover_text(tr(lang, edit.1));
 }
 
 /// Klíč pro předání stisku Tab mezi snímky.

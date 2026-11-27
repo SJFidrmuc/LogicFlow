@@ -12,7 +12,7 @@
 | A, Alt+A | select all, deselect |
 | Esc | cancel tool or selection; in simulation back to editing |
 | Home | fit the whole schematic |
-| Tab | open selected subcircuit, go back one level |
+| Tab | open selected subcircuit or internal circuit of a block, go back one level |
 | mouse wheel | zoom |
 | middle or right button + drag | pan |
 | Ctrl + drag | start a wire anywhere |

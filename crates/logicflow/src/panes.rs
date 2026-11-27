@@ -229,6 +229,14 @@ impl Behavior<Pane> for AreaBehavior<'_> {
                                 self.project.open_sheet(None);
                             }
                             ui.label(RichText::new(format!("/  {name}")).color(colors::ACCENT));
+                            // Vnitřní zapojení bloku je jen pro čtení.
+                            // [en] The internal circuit of a block is read-only.
+                            if self.project.viewed_block().is_some() {
+                                ui.label(
+                                    RichText::new(tr(lang, T::BlockViewTitle))
+                                        .color(colors::TEXT_WEAK),
+                                );
+                            }
                         }
                     }
 

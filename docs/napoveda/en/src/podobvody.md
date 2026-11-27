@@ -24,6 +24,7 @@ A subcircuit is a circuit you insert into another one as a single component – 
 Ready-made circuits are in the **Component library** area under **Element libraries**. The elements are sorted into categories (Combinational circuits, Arithmetic, Sequential circuits…) and the search finds them by name and category.
 
 - **The built-in library “Digital electronics – teaching elements”** contains 36 circuits of common tasks: gates from NAND and NOR, multiplexers, a decoder, comparators, Gray code converters, adders and subtractors, flip-flops, counters, registers, an alarm and a traffic light.
+- **The built-in library “Function blocks – internal circuits”** contains gate-level circuits of all function blocks (see the next part).
 - Insert an element like a component: click it, then click in the schematic. It appears at the mouse pointer and a click drops it.
 - An inserted element is a **project subcircuit** (a copy). Open it with Tab and edit it; it is saved with the project. The elements it uses (e.g. the full adders in the 4-bit adder) are inserted with it.
 - Below the chosen element you see its description, pins, author and licence.
@@ -33,3 +34,15 @@ Ready-made circuits are in the **Component library** area under **Element librar
 > **Coming soon:** exporting a subcircuit into a library and school libraries.
 
 > **Ready-made example:** File → Examples → Full adder from two subcircuits.
+
+## Internal circuits of function blocks
+
+Every function block (multiplexer, decoder, encoder, adder, comparator, BCD to 7-segment decoder, counter, register, shift register) can be opened all the way down to gates.
+
+- Select a block in the schematic and press **Tab** (or right-click → **Open internal circuit**). Its gate-level circuit with pins of the same names opens.
+- The circuit is **read-only**: a badge with the block's name is at the top left, inputs can be switched and simulated, but the schematic cannot be changed. The project stays unchanged.
+- Sequential blocks are made of T and D flip-flops. **Tab** on a flip-flop goes deeper – the D flip-flop is made of six NAND gates (the circuit of the 7474).
+- **Tab** on an empty spot goes one level up, from the top level back to the project. The **Back to the project** button in the Hierarchy or the **Main circuit** link in the schematic header goes straight to the project.
+- The **Insert into the project as a subcircuit** button in the Hierarchy copies the circuit into the project as an editable subcircuit (inserted at the mouse pointer like an item from a library).
+- The gate-level circuit differs from the block in two things: unconnected **EN** and **R** inputs have the value X (the block treats EN as 1 and R as 0), and a sequential circuit is in the unknown state X after start until **R = 1** resets it (the block starts in state 0).
+- All the circuits are also in the library panel in the library **Function blocks – internal circuits**.

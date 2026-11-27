@@ -207,6 +207,16 @@ impl Sestavovac {
         self.vystupy(p)
     }
 
+    /// Instance podobvodu ve zvoleném sloupci s nepřipojenými vstupy (pro zpětné
+    /// vazby; připojí se přes [`Sestavovac::spoj`]).
+    ///
+    /// [en] Subcircuit instance in a chosen column with unconnected inputs (for
+    /// feedback loops; connected via [`Sestavovac::spoj`]).
+    #[allow(dead_code)]
+    pub fn podobvod_bez(&mut self, col: usize, def: &SubcircuitDef) -> Part {
+        self.add(def.kind(), Some(col), "")
+    }
+
     /// Připojí signál na vstup `pin` součástky.
     ///
     /// [en] Connects a signal to input `pin` of a component.
