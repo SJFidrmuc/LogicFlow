@@ -8,6 +8,22 @@
 - Před zavřením programu nebo otevřením jiného obvodu se program zeptá na neuložené změny.
 - Soubor jde otevřít i z příkazové řádky: `logicflow obvod.logicflow`
 
+## Kterou verzí programu soubor otevřete
+
+Soubor `.logicflow` otevře každá verze LogicFlow, která zná **všechny součástky** v něm použité. Novější verze otevře soubor z libovolné starší verze.
+
+| Obvod obsahuje | Otevře LogicFlow |
+| --- | --- |
+| hradla, přepínače, tlačítka, konstanty, LED | od 0.1 |
+| klopné obvody, generátor hodin | od 0.2 |
+| funkční bloky, sedmisegmentovku, hex displej, podobvody | od 0.3 |
+| napájení VCC a zem GND | od 0.4 |
+| vlastnosti obvodu (autor, licence…) | otevře i starší verze, ale před 0.4 je při uložení zahodí |
+
+Starší verze soubor s neznámou součástkou **odmítne otevřít** s chybovou hláškou – nic se nepoškodí. Pokud obvod odevzdáváte nebo posíláte někomu se starší verzí, použijte jen součástky, které jeho verze zná. Knihovny prvků (`.lflib`) umí program od verze 0.4.
+
+Přesný popis obou formátů – pro autory skriptů a dalších programů – je v repozitáři projektu ve složce [docs/formaty](https://github.com/SJFidrmuc/LogicFlow/tree/main/docs/formaty).
+
 ## Vlastnosti obvodu – autor a licence
 
 Okno **Soubor → Vlastnosti obvodu…** (nebo kliknutí na informace nahoře v panelu Hierarchie) ukládá do souboru obvodu informace o něm:

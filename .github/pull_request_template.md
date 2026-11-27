@@ -13,3 +13,4 @@
 - [ ] Snímky obrazovky v nápovědě jsou aktuální (`scripts/snimky-napovedy.sh`), pokud se změnil vzhled
 - [ ] Přehled změn: řádek v sekci Nevydáno v `CHANGELOG.md` i `CHANGELOG.en.md` (u změn viditelných pro uživatele)
 - [ ] README / plán vývoje upraveny, pokud jde o novou funkci
+- [ ] Formáty souborů: nová nebo změněná součástka, hodnota či pole je popsaná v `docs/formaty` česky i anglicky se sloupcem **Od verze**, ve schématu a v testu `formaty.rs` (`python3 scripts/formaty.py kontrola`) – nebo se formát souborů nemění
