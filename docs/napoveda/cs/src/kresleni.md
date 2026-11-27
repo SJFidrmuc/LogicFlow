@@ -49,7 +49,7 @@
 
 | Kam kliknete | Co nabídka nabízí |
 | --- | --- |
-| součástka | podle druhu: Přepnout (přepínač), Frekvence (hodiny), Počet vstupů (hradlo), Strana vývodů (zobrazovač), Počet bitů a Směr čítání (funkční blok), Otevřít podobvod; dále popisek, Otočit, Duplikovat, Přesunout, Kopírovat, Vyjmout, Smazat |
+| součástka | podle druhu: Přepnout (přepínač), Frekvence (hodiny), Počet vstupů (hradlo), Strana vývodů (zobrazovač), Barva a Vývody (LED), Počet bitů a Směr čítání (funkční blok), Otevřít podobvod; dále popisek, Otočit, Duplikovat, Přesunout, Kopírovat, Vyjmout, Smazat |
 | vodič | Vybrat celou síť, Smazat úsek vodiče, Smazat celou síť |
 | výběr více prvků | Otočit, Duplikovat, Přesunout, Kopírovat, Vyjmout, Smazat, Zrušit výběr |
 | prázdné místo | Přidat součástku sem (vloží se na místo kliknutí), Vložit, Vybrat vše, Celé schéma, Zpět o úroveň výš (v podobvodu), ovládání simulace |

@@ -12,6 +12,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **LED colour** – red, green, yellow, blue or white (Properties and the context menu); an unlit LED has a dark shade of its colour. **Two-pin LED with an anode and a cathode:** it lights only at A = 1 and K = 0 like a real diode, useful for matrix circuits; switched by the Pins option or added from Shift+A → Outputs. It is not included in the truth table or in the pins of a subcircuit.
 - **Circuit properties** (File → Circuit properties…): title, authors, description, licence and school/class are stored in the circuit file (the `info` part, the same keys as in the online circuit library; unknown keys are kept). A new circuit gets the author and licence from the settings, saving records the modification date, and you can add yourself as a co-author of someone else's circuit. The information is shown at the top of the Hierarchy and in the preview of the open dialog.
 - **VCC supply and GND ground** with symbols as in electrical schematics (logic 1 and 0, no automatic label). Joining VCC to GND is a **power short**: the net turns red and the schematic and status bar show a message, even when the short is inside a subcircuit.
 - **Rolling build from the main branch:** the pre-release “Průběžné sestavení (main)” with packages for all platforms is replaced after every change – new features can be tried without waiting for a release. **Version archive** on the web: a table of all releases × platforms with download links.

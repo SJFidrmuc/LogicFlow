@@ -166,10 +166,37 @@ pub enum ComponentKind {
     ///
     /// [en] GND ground – logic 0 with a ground symbol.
     Gnd,
-    /// Svítivá dioda.
+    /// Svítivá dioda s jedním vývodem – svítí při 1 na vstupu. Je výstupem obvodu
+    /// (v podobvodu vývod značky).
     ///
-    /// [en] Light-emitting diode.
-    Led,
+    /// [en] Light-emitting diode with one pin – lights at 1 on its input. It is a
+    /// circuit output (a pin of the symbol in a subcircuit).
+    Led {
+        /// Barva svitu (jen vzhled, simulaci nemění). Výchozí červená se do souboru
+        /// nezapisuje, takže soubor zůstane čitelný i pro starší verze.
+        ///
+        /// [en] Colour of the light (appearance only, does not affect the simulation).
+        /// The default red is not written to the file, so the file stays readable
+        /// for older versions too.
+        #[serde(default, skip_serializing_if = "LedColor::is_default")]
+        color: LedColor,
+    },
+    /// Svítivá dioda se dvěma vývody – anodou A (vlevo) a katodou K (vpravo).
+    /// Svítí při A = 1 a K = 0, při X nebo Z na kterémkoli vývodu nesvítí. Hodí se
+    /// pro maticová zapojení; výstupem obvodu není. Samostatný druh (ne parametr
+    /// `led`), aby ji starší verze neotevřely jako LED s jedním vývodem.
+    ///
+    /// [en] Light-emitting diode with two pins – anode A (left) and cathode K (right).
+    /// It lights at A = 1 and K = 0; with X or Z on any pin it stays dark. Useful for
+    /// matrix circuits; it is not a circuit output. A separate kind (not a parameter
+    /// of `led`) so that older versions do not open it as a one-pin LED.
+    LedAk {
+        /// Barva svitu (jen vzhled).
+        ///
+        /// [en] Colour of the light (appearance only).
+        #[serde(default, skip_serializing_if = "LedColor::is_default")]
+        color: LedColor,
+    },
     /// Klopný obvod s výstupy Q a Q̄. `initial` je stav Q po spuštění simulace.
     ///
     /// [en] Flip-flop with outputs Q and Q̄. `initial` is the state of Q after the simulation starts.
@@ -247,6 +274,55 @@ pub enum ComponentKind {
         /// [en] Number of the symbol's outputs.
         outputs: u8,
     },
+}
+
+/// Barva svitu LED.
+///
+/// [en] Colour of an LED's light.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LedColor {
+    /// Červená (výchozí).
+    ///
+    /// [en] Red (default).
+    #[default]
+    Red,
+    /// Zelená.
+    ///
+    /// [en] Green.
+    Green,
+    /// Žlutá.
+    ///
+    /// [en] Yellow.
+    Yellow,
+    /// Modrá.
+    ///
+    /// [en] Blue.
+    Blue,
+    /// Bílá.
+    ///
+    /// [en] White.
+    White,
+}
+
+impl LedColor {
+    /// Všechny barvy v pořadí nabídky.
+    ///
+    /// [en] All colours in menu order.
+    pub const ALL: [Self; 5] = [
+        Self::Red,
+        Self::Green,
+        Self::Yellow,
+        Self::Blue,
+        Self::White,
+    ];
+
+    /// Je to výchozí barva (červená)? Výchozí barva se do souboru nezapisuje.
+    ///
+    /// [en] Is it the default colour (red)? The default colour is not written to the file.
+    pub fn is_default(&self) -> bool {
+        *self == Self::Red
+    }
 }
 
 /// Strana, na které má zobrazovač vývody (číslice zůstává vždy rovně).
@@ -419,6 +495,77 @@ impl ComponentKind {
         }
     }
 
+    /// Výchozí LED – jeden vývod, červená.
+    ///
+    /// [en] Default LED – one pin, red.
+    pub const LED: Self = Self::Led {
+        color: LedColor::Red,
+    };
+
+    /// Je to LED (s jedním i se dvěma vývody)?
+    ///
+    /// [en] Is it an LED (with one or two pins)?
+    pub fn is_led(&self) -> bool {
+        matches!(self, Self::Led { .. } | Self::LedAk { .. })
+    }
+
+    /// Barva LED; u jiných součástek `None`.
+    ///
+    /// [en] Colour of an LED; `None` for other components.
+    pub fn led_color(&self) -> Option<LedColor> {
+        match self {
+            Self::Led { color } | Self::LedAk { color } => Some(*color),
+            _ => None,
+        }
+    }
+
+    /// Stejná LED s jinou barvou; jiné součástky beze změny.
+    ///
+    /// [en] The same LED with another colour; other components unchanged.
+    pub fn with_led_color(self, color: LedColor) -> Self {
+        match self {
+            Self::Led { .. } => Self::Led { color },
+            Self::LedAk { .. } => Self::LedAk { color },
+            other => other,
+        }
+    }
+
+    /// Stejná LED s jedním (`false`) nebo dvěma vývody (`true`, anoda a katoda);
+    /// barva zůstane. Jiné součástky beze změny.
+    ///
+    /// [en] The same LED with one (`false`) or two pins (`true`, anode and cathode);
+    /// the colour stays. Other components unchanged.
+    pub fn with_led_two_pins(self, two: bool) -> Self {
+        match (self, two) {
+            (Self::Led { color } | Self::LedAk { color }, false) => Self::Led { color },
+            (Self::Led { color } | Self::LedAk { color }, true) => Self::LedAk { color },
+            (other, _) => other,
+        }
+    }
+
+    /// Stav LED podle hodnot na jejích vstupech: `One` = svítí, `Zero` = jistě
+    /// nesvítí, `X` / `Z` = neurčitý nebo nepřipojený vstup (nesvítí). U LED se dvěma
+    /// vývody svítí jen A = 1 a K = 0; při A = 0 nebo K = 1 jistě nesvítí, jinak X
+    /// (oba nepřipojené Z). U jiných součástek `None`.
+    ///
+    /// [en] State of an LED from the values on its inputs: `One` = lit, `Zero` =
+    /// certainly dark, `X` / `Z` = undefined or unconnected input (dark). A two-pin LED
+    /// lights only at A = 1 and K = 0; at A = 0 or K = 1 it is certainly dark,
+    /// otherwise X (both unconnected Z). `None` for other components.
+    pub fn led_state(&self, inputs: &[LogicValue]) -> Option<LogicValue> {
+        let at = |i: usize| inputs.get(i).copied().unwrap_or(LogicValue::Z);
+        match self {
+            Self::Led { .. } => Some(at(0)),
+            Self::LedAk { .. } => Some(match (at(0), at(1)) {
+                (LogicValue::One, LogicValue::Zero) => LogicValue::One,
+                (LogicValue::Zero, _) | (_, LogicValue::One) => LogicValue::Zero,
+                (LogicValue::Z, LogicValue::Z) => LogicValue::Z,
+                _ => LogicValue::X,
+            }),
+            _ => None,
+        }
+    }
+
     /// Výchozí generátor hodin (1 Hz).
     ///
     /// [en] Default clock generator (1 Hz).
@@ -462,7 +609,10 @@ impl ComponentKind {
     pub fn is_display(&self) -> bool {
         matches!(
             self,
-            Self::Led | Self::SevenSegment { .. } | Self::HexDisplay { .. }
+            Self::Led { .. }
+                | Self::LedAk { .. }
+                | Self::SevenSegment { .. }
+                | Self::HexDisplay { .. }
         )
     }
 
@@ -496,7 +646,10 @@ impl ComponentKind {
             Self::Switch { .. } | Self::Button => "",
             Self::Constant { .. } => "K",
             Self::Vcc | Self::Gnd => "",
-            Self::Led | Self::SevenSegment { .. } | Self::HexDisplay { .. } => "Y",
+            Self::Led { .. }
+            | Self::LedAk { .. }
+            | Self::SevenSegment { .. }
+            | Self::HexDisplay { .. } => "Y",
             Self::Block { .. } => "IO",
             Self::Subcircuit { .. } => "P",
             Self::FlipFlop { .. } => "KO",
@@ -523,7 +676,7 @@ impl ComponentKind {
             // [en] Symbol above the pin (VCC) / below the pin (GND), the pin points to the wire.
             Self::Vcc => (-1.0, -1.6, 1.0, 0.0),
             Self::Gnd => (-1.0, 0.0, 1.0, 1.2),
-            Self::Led => (-0.9, -0.9, 0.9, 0.9),
+            Self::Led { .. } | Self::LedAk { .. } => (-0.9, -0.9, 0.9, 0.9),
             Self::FlipFlop {
                 ff: FlipFlopKind::Jk,
                 ..
@@ -552,7 +705,10 @@ impl ComponentKind {
             Self::Switch { .. } | Self::Button | Self::Constant { .. } => (vec![], vec![(2, 0)]),
             Self::Vcc => (vec![], vec![(0, 1)]),
             Self::Gnd => (vec![], vec![(0, -1)]),
-            Self::Led => (vec![(-2, 0)], vec![]),
+            Self::Led { .. } => (vec![(-2, 0)], vec![]),
+            // Anoda vlevo, katoda vpravo – v ose jako schematická značka diody.
+            // [en] Anode on the left, cathode on the right – in line like a diode symbol.
+            Self::LedAk { .. } => (vec![(-2, 0), (2, 0)], vec![]),
             Self::FlipFlop {
                 ff: FlipFlopKind::Jk,
                 ..
@@ -1418,11 +1574,14 @@ fn route_is_clean(
 }
 
 impl Circuit {
-    /// Vstupy (přepínače, tlačítka) a výstupy (LED) obvodu seřazené podle popisku.
-    /// U podobvodu tvoří jeho rozhraní – vývody značky shora dolů.
+    /// Vstupy (přepínače, tlačítka) a výstupy (LED s jedním vývodem) obvodu seřazené
+    /// podle popisku. U podobvodu tvoří jeho rozhraní – vývody značky shora dolů.
+    /// LED se dvěma vývody výstupem není (ukazuje rozdíl dvou sítí, ne jednu hodnotu).
     ///
-    /// [en] Inputs (switches, buttons) and outputs (LEDs) of the circuit sorted by label.
-    /// For a subcircuit they form its interface – the symbol's pins from top to bottom.
+    /// [en] Inputs (switches, buttons) and outputs (one-pin LEDs) of the circuit sorted
+    /// by label. For a subcircuit they form its interface – the symbol's pins from top
+    /// to bottom. A two-pin LED is not an output (it shows the difference of two nets,
+    /// not a single value).
     pub fn io(&self) -> (Vec<&Component>, Vec<&Component>) {
         let mut ins: Vec<&Component> = self
             .components
@@ -1432,7 +1591,7 @@ impl Circuit {
         let mut outs: Vec<&Component> = self
             .components
             .iter()
-            .filter(|c| matches!(c.kind, ComponentKind::Led))
+            .filter(|c| matches!(c.kind, ComponentKind::Led { .. }))
             .collect();
         ins.sort_by(|a, b| natural_cmp(&a.label, &b.label));
         outs.sort_by(|a, b| natural_cmp(&a.label, &b.label));
@@ -1863,7 +2022,7 @@ mod tests {
         let a = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
         let b = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 4));
         let g = c.add_component(ComponentKind::gate(GateKind::And), Point::new(10, 1));
-        c.add_component(ComponentKind::Led, Point::new(20, 1));
+        c.add_component(ComponentKind::LED, Point::new(20, 1));
         // A (2,0) → (7,0); B (2,4) → (5,4) → (5,2) → (7,2); hradlo (13,1) → LED (18,1)
         // [en] A (2,0) → (7,0); B (2,4) → (5,4) → (5,2) → (7,2); gate (13,1) → LED (18,1)
         c.add_wire(Point::new(2, 0), Point::new(7, 0)).unwrap();
@@ -1921,7 +2080,117 @@ mod tests {
         }
         assert_eq!(ComponentKind::Vcc.supply_level(), Some(true));
         assert_eq!(ComponentKind::Gnd.supply_level(), Some(false));
-        assert_eq!(ComponentKind::Led.supply_level(), None);
+        assert_eq!(ComponentKind::LED.supply_level(), None);
+    }
+
+    #[test]
+    fn led_kinds_serde() {
+        // Výchozí červená se nezapisuje – soubor zůstane stejný jako ze starších verzí.
+        // [en] The default red is not written – the file stays the same as from older versions.
+        for (kind, json) in [
+            (ComponentKind::LED, r#"{"type":"led"}"#),
+            (
+                ComponentKind::Led {
+                    color: LedColor::Green,
+                },
+                r#"{"type":"led","color":"green"}"#,
+            ),
+            (
+                ComponentKind::LedAk {
+                    color: LedColor::Red,
+                },
+                r#"{"type":"led_ak"}"#,
+            ),
+            (
+                ComponentKind::LedAk {
+                    color: LedColor::White,
+                },
+                r#"{"type":"led_ak","color":"white"}"#,
+            ),
+        ] {
+            assert_eq!(serde_json::to_string(&kind).unwrap(), json);
+            assert_eq!(serde_json::from_str::<ComponentKind>(json).unwrap(), kind);
+        }
+    }
+
+    #[test]
+    fn led_helpers() {
+        let led = ComponentKind::Led {
+            color: LedColor::Yellow,
+        };
+        assert!(led.is_led() && led.is_display());
+        assert!(!ComponentKind::Vcc.is_led());
+        let ak = led.with_led_two_pins(true);
+        assert_eq!(
+            ak,
+            ComponentKind::LedAk {
+                color: LedColor::Yellow
+            }
+        );
+        assert_eq!(ak.input_count(), 2);
+        assert_eq!(ak.with_led_two_pins(false), led);
+        assert_eq!(
+            ak.with_led_color(LedColor::Blue).led_color(),
+            Some(LedColor::Blue)
+        );
+        assert_eq!(
+            ComponentKind::Vcc.with_led_color(LedColor::Blue),
+            ComponentKind::Vcc
+        );
+        assert_eq!(ak.label_prefix(), "Y");
+    }
+
+    #[test]
+    fn led_state_two_pins() {
+        use LogicValue::{One, X, Z, Zero};
+        let ak = ComponentKind::LedAk {
+            color: LedColor::Red,
+        };
+        for (a, k, lit) in [
+            (One, Zero, One),
+            (One, One, Zero),
+            (Zero, Zero, Zero),
+            (Zero, One, Zero),
+            (Zero, X, Zero),
+            (X, One, Zero),
+            (One, X, X),
+            (X, Zero, X),
+            (One, Z, X),
+            (Z, Z, Z),
+        ] {
+            assert_eq!(ak.led_state(&[a, k]), Some(lit), "A = {a}, K = {k}");
+        }
+        assert_eq!(ComponentKind::LED.led_state(&[One]), Some(One));
+        assert_eq!(ComponentKind::LED.led_state(&[]), Some(Z));
+        assert_eq!(ComponentKind::Vcc.led_state(&[One]), None);
+    }
+
+    #[test]
+    fn two_pin_led_in_circuit() {
+        // A → anoda, K → katoda; LED se dvěma vývody není výstupem obvodu.
+        // [en] A → anode, K → cathode; a two-pin LED is not a circuit output.
+        let mut c = Circuit::default();
+        c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
+        let k = c.add_component(ComponentKind::Switch { on: false }, Point::new(10, 4));
+        let led = c.add_component(
+            ComponentKind::LedAk {
+                color: LedColor::Green,
+            },
+            Point::new(6, 0),
+        );
+        c.add_wire(Point::new(2, 0), Point::new(4, 0));
+        c.add_wire(Point::new(8, 0), Point::new(8, 4));
+        c.add_wire(Point::new(8, 4), Point::new(12, 4));
+        let kind = c.component(led).unwrap().kind;
+        let mut sim = crate::Simulator::new(&c, None);
+        assert!(sim.run(1000));
+        assert_eq!(kind.led_state(&sim.inputs(led)), Some(LogicValue::One));
+        sim.set_source(k, LogicValue::One);
+        assert!(sim.run(1000));
+        assert_eq!(kind.led_state(&sim.inputs(led)), Some(LogicValue::Zero));
+        let (ins, outs) = c.io();
+        assert_eq!(ins.len(), 2);
+        assert!(outs.is_empty());
     }
 
     #[test]
@@ -1929,7 +2198,7 @@ mod tests {
         let mut c = Circuit::default();
         let a = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
         let b = c.add_component(ComponentKind::Button, Point::new(0, 4));
-        let y = c.add_component(ComponentKind::Led, Point::new(10, 0));
+        let y = c.add_component(ComponentKind::LED, Point::new(10, 0));
         let g = c.add_component(ComponentKind::gate(GateKind::Or), Point::new(5, 0));
         assert_eq!(c.component(a).unwrap().label, "A");
         assert_eq!(c.component(b).unwrap().label, "B");
@@ -1976,7 +2245,7 @@ mod tests {
         let text = ProjectFile::to_json(&c, &[]);
         let (mut loaded, _) = ProjectFile::from_json(&text).unwrap();
         assert_eq!(loaded, c);
-        let id = loaded.add_component(ComponentKind::Led, Point::new(8, 0));
+        let id = loaded.add_component(ComponentKind::LED, Point::new(8, 0));
         assert!(id.0 >= 2, "nové id nesmí kolidovat s načtenými");
     }
 
@@ -1984,7 +2253,7 @@ mod tests {
     fn moving_component_reroutes_wire() {
         let mut c = Circuit::default();
         let sw = c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
-        let led = c.add_component(ComponentKind::Led, Point::new(12, 0));
+        let led = c.add_component(ComponentKind::LED, Point::new(12, 0));
         c.add_wire(Point::new(2, 0), Point::new(10, 0));
         let m = c.moved(&[sw], &[], 0, 3);
         assert_eq!(m.component(sw).unwrap().pos, Point::new(0, 3));
@@ -2087,7 +2356,7 @@ mod tests {
         // [en] The wire runs over the LED's pin but does not end there.
         let mut c = Circuit::default();
         let sw = c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
-        let led = c.add_component(ComponentKind::Led, Point::new(6, 0));
+        let led = c.add_component(ComponentKind::LED, Point::new(6, 0));
         c.add_wire(Point::new(2, 0), Point::new(2, 3));
         c.add_wire(Point::new(4, -2), Point::new(4, 2));
         let mut sim = crate::Simulator::new(&c, None);
@@ -2100,7 +2369,7 @@ mod tests {
     fn moving_component_slides_corner() {
         let mut c = Circuit::default();
         let sw = c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
-        let led = c.add_component(ComponentKind::Led, Point::new(12, 6));
+        let led = c.add_component(ComponentKind::LED, Point::new(12, 6));
         // lomený vodič: (2,0) → (6,0) → (6,6) → (10,6)
         // [en] bent wire: (2,0) → (6,0) → (6,6) → (10,6)
         c.add_wire(Point::new(2, 0), Point::new(6, 0));

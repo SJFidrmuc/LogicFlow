@@ -17,8 +17,9 @@ A `.logicflow` file opens in every LogicFlow version that knows **all components
 | gates, switches, push buttons, constants, LEDs | 0.1 and later |
 | flip-flops, clock generator | 0.2 and later |
 | function blocks, seven-segment display, hex display, subcircuits | 0.3 and later |
-| VCC supply and GND ground | 0.4 and later |
+| VCC supply and GND ground, two-pin LED | 0.4 and later |
 | circuit properties (author, licence…) | older versions open it too, but before 0.4 they drop them on saving |
+| LED colour | older versions open it too, but show the LEDs in red |
 
 An older version **refuses to open** a file with an unknown component and shows an error – nothing gets damaged. If you hand in or send a circuit to someone with an older version, use only components their version knows. Element libraries (`.lflib`) are supported since version 0.4.
 

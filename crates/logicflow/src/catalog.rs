@@ -3,7 +3,7 @@
 //! [en] Component menu for Shift+A and the library.
 
 use crate::i18n::{Lang, T, tr};
-use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, PinSide};
+use logicflow_core::{BlockKind, ComponentKind, FlipFlopKind, GateKind, LedColor, PinSide};
 
 /// Kategorie součástek v nabídce (Vstupy, Hradla, …).
 ///
@@ -74,7 +74,13 @@ pub fn catalog(lang: Lang) -> Vec<Category> {
         Category {
             title: T::CatOutputs,
             items: vec![
-                (tr(lang, T::Led).to_owned(), ComponentKind::Led),
+                (tr(lang, T::Led).to_owned(), ComponentKind::LED),
+                (
+                    tr(lang, T::LedAk).to_owned(),
+                    ComponentKind::LedAk {
+                        color: LedColor::Red,
+                    },
+                ),
                 (
                     tr(lang, T::SevenSegment).to_owned(),
                     ComponentKind::SevenSegment {
@@ -141,7 +147,8 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
         }
         ComponentKind::Vcc => tr(lang, T::PowerVcc).to_owned(),
         ComponentKind::Gnd => tr(lang, T::PowerGnd).to_owned(),
-        ComponentKind::Led => tr(lang, T::Led).to_owned(),
+        ComponentKind::Led { .. } => tr(lang, T::Led).to_owned(),
+        ComponentKind::LedAk { .. } => tr(lang, T::LedAk).to_owned(),
         ComponentKind::FlipFlop { ff, .. } => {
             format!("{} {}", tr(lang, T::FlipFlop), ff_name(*ff, lang))
         }
@@ -151,6 +158,22 @@ pub fn kind_name(kind: &ComponentKind, lang: Lang) -> String {
         ComponentKind::HexDisplay { .. } => tr(lang, T::HexDisplay).to_owned(),
         ComponentKind::Subcircuit { .. } => tr(lang, T::Subcircuit).to_owned(),
     }
+}
+
+/// Název barvy LED (malým písmenem, jako hodnota v nabídce).
+///
+/// [en] Name of an LED colour (lower case, as a value in a menu).
+pub fn led_color_name(color: LedColor, lang: Lang) -> &'static str {
+    tr(
+        lang,
+        match color {
+            LedColor::Red => T::ColorRed,
+            LedColor::Green => T::ColorGreen,
+            LedColor::Yellow => T::ColorYellow,
+            LedColor::Blue => T::ColorBlue,
+            LedColor::White => T::ColorWhite,
+        },
+    )
 }
 
 /// Název funkčního bloku i s velikostí („Multiplexor 4:1“, „Čítač 4bitový“).

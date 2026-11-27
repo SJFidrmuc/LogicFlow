@@ -745,7 +745,8 @@ impl Simulator {
     fn evaluate(&mut self, i: usize) {
         let new: Vec<LogicValue> = match self.kinds[i] {
             ComponentKind::Gate { gate, .. } => vec![gate.eval(&self.input_values(i))],
-            ComponentKind::Led
+            ComponentKind::Led { .. }
+            | ComponentKind::LedAk { .. }
             | ComponentKind::SevenSegment { .. }
             | ComponentKind::HexDisplay { .. } => {
                 return;
@@ -1005,7 +1006,7 @@ mod tests {
             c.add_wire(Point::new(x, 0), Point::new(x + 1, 0));
             x = c.component(id).unwrap().output_pin().unwrap().x;
         }
-        let led = c.add_component(ComponentKind::Led, Point::new(x + 3, 0));
+        let led = c.add_component(ComponentKind::LED, Point::new(x + 3, 0));
         c.add_wire(Point::new(x, 0), Point::new(x + 1, 0));
         (c, sw, led)
     }
@@ -1033,8 +1034,8 @@ mod tests {
         c.add_wire(Point::new(2, 10), Point::new(7, 10));
         c.add_wire(Point::new(5, 10), Point::new(5, 2));
         c.add_wire(Point::new(5, 2), Point::new(7, 2));
-        let s = c.add_component(ComponentKind::Led, Point::new(17, 1));
-        let k = c.add_component(ComponentKind::Led, Point::new(17, 9));
+        let s = c.add_component(ComponentKind::LED, Point::new(17, 1));
+        let k = c.add_component(ComponentKind::LED, Point::new(17, 9));
         c.add_wire(Point::new(13, 1), Point::new(15, 1));
         c.add_wire(Point::new(13, 9), Point::new(15, 9));
         c.component_mut(s).unwrap().label = "S".into();
@@ -1067,7 +1068,7 @@ mod tests {
         let y = c.add_component(ComponentKind::Switch { on: false }, ins[1].offset(-2, 0));
         let leds = outs
             .iter()
-            .map(|p| c.add_component(ComponentKind::Led, p.offset(2, 0)))
+            .map(|p| c.add_component(ComponentKind::LED, p.offset(2, 0)))
             .collect();
         (c, inst, x, y, leds)
     }
@@ -1164,7 +1165,7 @@ mod tests {
         };
         c.add_component(ComponentKind::Block { block }, Point::new(10, 0));
         c.add_wire(Point::new(2, 1), Point::new(6, 1));
-        c.add_component(ComponentKind::Led, Point::new(16, -3));
+        c.add_component(ComponentKind::LED, Point::new(16, -3));
         let def = SubcircuitDef {
             id: 7,
             name: "Čítač".into(),
@@ -1500,7 +1501,7 @@ mod tests {
         let mut c = Circuit::default();
         c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
         c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 4));
-        let l = c.add_component(ComponentKind::Led, Point::new(8, 0));
+        let l = c.add_component(ComponentKind::LED, Point::new(8, 0));
         c.add_wire(Point::new(2, 0), Point::new(6, 0));
         c.add_wire(Point::new(2, 4), Point::new(4, 4));
         // odbočka „T“ do prvního vodiče
@@ -1515,7 +1516,7 @@ mod tests {
     fn crossing_wires_do_not_connect() {
         let mut c = Circuit::default();
         let a = c.add_component(ComponentKind::Switch { on: true }, Point::new(0, 0));
-        let l = c.add_component(ComponentKind::Led, Point::new(12, 0));
+        let l = c.add_component(ComponentKind::LED, Point::new(12, 0));
         c.add_wire(Point::new(2, 0), Point::new(10, 0));
         // Svislý vodič přes střed vodorovného – jen křížení.
         // [en] A vertical wire across the middle of a horizontal one – just a crossing.
@@ -1537,7 +1538,7 @@ mod tests {
         // VCC na (0,0) má vývod (0,1); LED na (3,1) má vstup (1,1).
         // [en] VCC at (0,0) has its pin at (0,1); LED at (3,1) has its input at (1,1).
         let vcc = c.add_component(ComponentKind::Vcc, Point::new(0, 0));
-        let led = c.add_component(ComponentKind::Led, Point::new(3, 1));
+        let led = c.add_component(ComponentKind::LED, Point::new(3, 1));
         let gnd = c.add_component(ComponentKind::Gnd, Point::new(10, 0));
         c.add_wire(Point::new(0, 1), Point::new(1, 1)).unwrap();
         assert_eq!(c.component(vcc).unwrap().label, "", "napájení bez popisku");
@@ -1585,7 +1586,7 @@ mod tests {
         inner.add_component(ComponentKind::Vcc, Point::new(0, 0));
         inner.add_component(ComponentKind::Gnd, Point::new(4, 2));
         inner.add_wire(Point::new(0, 1), Point::new(4, 1)).unwrap();
-        let led = inner.add_component(ComponentKind::Led, Point::new(10, 0));
+        let led = inner.add_component(ComponentKind::LED, Point::new(10, 0));
         inner.component_mut(led).unwrap().label = "Y".into();
         let def = SubcircuitDef {
             id: 1,

@@ -126,8 +126,8 @@ fn two_gates(top: GateKind, bottom: GateKind, out_top: &str, out_bottom: &str) -
     c.add_component(ComponentKind::Switch { on: false }, p(0, 10));
     c.add_component(ComponentKind::gate(top), p(14, 1));
     c.add_component(ComponentKind::gate(bottom), p(14, 9));
-    let y1 = c.add_component(ComponentKind::Led, p(22, 1));
-    let y2 = c.add_component(ComponentKind::Led, p(22, 9));
+    let y1 = c.add_component(ComponentKind::LED, p(22, 1));
+    let y2 = c.add_component(ComponentKind::LED, p(22, 9));
     label(&mut c, y1, out_top);
     label(&mut c, y2, out_bottom);
     // A → horní vstup obou hradel
@@ -170,8 +170,8 @@ fn sr_latch() -> Circuit {
     label(&mut c, r, "R");
     c.add_component(ComponentKind::gate(GateKind::Nor), p(10, 0));
     c.add_component(ComponentKind::gate(GateKind::Nor), p(10, 10));
-    let qn = c.add_component(ComponentKind::Led, p(21, 0));
-    let q = c.add_component(ComponentKind::Led, p(21, 10));
+    let qn = c.add_component(ComponentKind::LED, p(21, 0));
+    let q = c.add_component(ComponentKind::LED, p(21, 10));
     label(&mut c, qn, "Qn");
     label(&mut c, q, "Q");
     wire_path(&mut c, &[(2, 0), (4, 0), (4, -1), (7, -1)]);
@@ -196,8 +196,8 @@ fn d_flip_flop() -> Circuit {
     label(&mut c, d, "D");
     c.add_component(ComponentKind::Clock { period_ms: 2000 }, p(0, 5));
     c.add_component(ComponentKind::flip_flop(FlipFlopKind::D), p(12, 0));
-    let q = c.add_component(ComponentKind::Led, p(20, -1));
-    let qn = c.add_component(ComponentKind::Led, p(20, 3));
+    let q = c.add_component(ComponentKind::LED, p(20, -1));
+    let qn = c.add_component(ComponentKind::LED, p(20, 3));
     label(&mut c, q, "Q");
     label(&mut c, qn, "Qn");
     wire_path(&mut c, &[(2, -1), (9, -1)]);
@@ -211,7 +211,7 @@ fn d_flip_flop() -> Circuit {
 ///
 /// [en] LED above a wire: its input points down to point (x, y + 2).
 fn led_above(c: &mut Circuit, x: i32, y: i32, text: &str) {
-    let id = c.add_component(ComponentKind::Led, p(x, y));
+    let id = c.add_component(ComponentKind::LED, p(x, y));
     rotate(c, id, Rotation::R270);
     label(c, id, text);
 }
@@ -299,7 +299,7 @@ pub fn multiplexer() -> Circuit {
         },
         p(14, 0),
     );
-    let y = c.add_component(ComponentKind::Led, p(22, -5));
+    let y = c.add_component(ComponentKind::LED, p(22, -5));
     label(&mut c, y, "Y");
     wire_path(&mut c, &[(18, -5), (20, -5)]);
     c
@@ -368,7 +368,7 @@ pub fn half_adder_subcircuit() -> Vec<SubcircuitDef> {
     let names: Vec<CompId> = c
         .components
         .iter()
-        .filter(|k| matches!(k.kind, ComponentKind::Led))
+        .filter(|k| matches!(k.kind, ComponentKind::Led { .. }))
         .map(|k| k.id)
         .collect();
     label(&mut c, names[0], "S");
@@ -409,10 +409,10 @@ pub fn full_adder() -> Circuit {
     wire_path(&mut c, &[(18, 2), (24, 2)]);
     wire_path(&mut c, &[(18, 0), (20, 0), (20, -6), (37, -6)]);
     wire_path(&mut c, &[(32, 2), (34, 2), (34, -4), (37, -4)]);
-    let s = c.add_component(ComponentKind::Led, p(36, 4));
+    let s = c.add_component(ComponentKind::LED, p(36, 4));
     label(&mut c, s, "S");
     wire_path(&mut c, &[(32, 4), (34, 4)]);
-    let co = c.add_component(ComponentKind::Led, p(47, -5));
+    let co = c.add_component(ComponentKind::LED, p(47, -5));
     label(&mut c, co, "CO");
     wire_path(&mut c, &[(43, -5), (45, -5)]);
     c
@@ -428,7 +428,7 @@ mod tests {
         assert!(sim.run(10_000));
         c.components
             .iter()
-            .filter(|k| matches!(k.kind, ComponentKind::Led))
+            .filter(|k| matches!(k.kind, ComponentKind::Led { .. }))
             .map(|k| sim.inputs(k.id)[0])
             .collect()
     }
