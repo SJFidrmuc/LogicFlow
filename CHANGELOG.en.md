@@ -132,6 +132,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 ### 0.5 (2027)
 - **Buses 1–64 bits wide:** splitter, tri-state buffer, number input, hex keypad, logic probe, function blocks with bus pins.
 - **School edition:** classroom settings with locking, Classroom administration, school libraries (teacher's and class exchange folder).
+- **Expanding the schematic:** right-click a subcircuit or block → Expand, or the whole schematic at once – one level or down to gates and flip-flops, in a read-only view with framed instances; saving the expanded circuit as a new project.
 
 ### 0.6 (2027)
 - ROM, RAM and EEPROM memories with a hex editor.
