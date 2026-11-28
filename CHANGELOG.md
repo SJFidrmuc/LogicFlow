@@ -131,6 +131,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 ### 0.5 (2027)
 - **Sběrnice 1–64 bitů:** rozdělovač, třístavový budič, vstup s číslem, hex klávesnice, logická sonda, funkční bloky se sběrnicovými vývody.
 - **Edice Škola:** nastavení pro učebnu se zamykáním, Správa učebny, školní knihovny (učitelská a výměnná složka třídy).
+- **Rozvinutí schématu:** pravé tlačítko na podobvodu nebo bloku → Rozvinout, nebo celé schéma najednou – o jednu úroveň nebo až po hradla a klopné obvody, v pohledu jen pro čtení s orámovanými instancemi; uložení rozvinutého obvodu jako nového projektu.
 
 ### 0.6 (2027)
 - Paměti ROM, RAM, EEPROM s hex editorem.
