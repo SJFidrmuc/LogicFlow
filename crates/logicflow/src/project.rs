@@ -273,6 +273,11 @@ pub struct Project {
     ///
     /// [en] Request to open the Circuit properties window (from the Hierarchy panel).
     pub properties_request: bool,
+    /// Hláška pro uživatele (např. výsledek vytvoření podobvodu z výběru); ukáže ji okno.
+    ///
+    /// [en] A message for the user (e.g. the result of creating a subcircuit from the
+    /// selection); a window shows it.
+    pub notice: Option<String>,
     /// Výběr ve schématu.
     ///
     /// [en] Selection in the schematic.
@@ -370,6 +375,7 @@ impl Project {
             modified: false,
             info: CircuitInfo::default(),
             properties_request: false,
+            notice: None,
             selection: Selection::default(),
             undo: Vec::new(),
             redo: Vec::new(),
@@ -1054,6 +1060,58 @@ impl Project {
         }
         self.touch();
         Ok(id)
+    }
+
+    /// Vytvoří z vybraných součástek nový podobvod a nahradí je jeho instancí
+    /// připojenou ke stejným sítím (Ctrl+G, viz `logicflow_core::group`). Přepínače,
+    /// tlačítka, hodiny, LED a zobrazovače zůstanou venku. Výsledek nebo důvod, proč
+    /// to nešlo, se uloží do `notice`. Vrací id nového podobvodu.
+    ///
+    /// [en] Creates a new subcircuit from the selected components and replaces them with
+    /// its instance connected to the same nets (Ctrl+G, see `logicflow_core::group`).
+    /// Switches, push buttons, clocks, LEDs and displays stay outside. The result or the
+    /// reason why it failed is stored in `notice`. Returns the id of the new subcircuit.
+    pub fn group_selection(&mut self, lang: Lang) -> Option<u32> {
+        use logicflow_core::group::{GroupError, group};
+        if !self.can_edit() || self.selection.comps.is_empty() {
+            return None;
+        }
+        self.store_sheet();
+        let id = self.subcircuits.iter().map(|d| d.id + 1).max().unwrap_or(1);
+        let g = match group(&self.circuit, &self.selection.comp_vec(), id) {
+            Ok(g) => g,
+            Err(e) => {
+                let key = match e {
+                    GroupError::Empty => T::GroupEmpty,
+                    GroupError::TooManyPins => T::GroupTooMany,
+                };
+                self.notice = Some(crate::i18n::tr(lang, key).to_owned());
+                return None;
+            }
+        };
+        self.checkpoint();
+        let prefix = crate::i18n::tr(lang, T::Subcircuit);
+        let name = (1..)
+            .map(|n| format!("{prefix} {n}"))
+            .find(|n| !self.subcircuits.iter().any(|d| &d.name == n))
+            .unwrap_or_default();
+        self.subcircuits.push(SubcircuitDef {
+            id,
+            name,
+            circuit: g.inner,
+        });
+        self.circuit = g.outer;
+        sync_instances(&mut self.circuit, &self.subcircuits);
+        self.selection.clear();
+        self.selection.comps.insert(g.instance);
+        self.after_structure_change();
+        if g.unconnected > 0 {
+            self.notice = Some(
+                crate::i18n::tr(lang, T::GroupUnconnected)
+                    .replace("{n}", &g.unconnected.to_string()),
+            );
+        }
+        Some(id)
     }
 
     /// Vyjmout: zkopíruje výběr jako text a smaže ho.
@@ -2247,6 +2305,52 @@ mod tests {
         // [en] The project saves to a file and loads again with all subcircuits.
         let q = Project::from_text(&p.to_text()).unwrap();
         assert_eq!(q.subcircuits.len(), 4);
+    }
+
+    #[test]
+    fn group_selection_creates_subcircuit() {
+        // A → NOT → Y: zabalí se hradlo, přepínač a LED zůstanou venku.
+        // [en] A → NOT → Y: the gate is grouped, the switch and the LED stay outside.
+        let mut c = Circuit::default();
+        let a = c.add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
+        let n = c.add_component(
+            ComponentKind::gate(logicflow_core::GateKind::Not),
+            Point::new(6, 0),
+        );
+        let y = c.add_component(ComponentKind::LED, Point::new(14, 0));
+        c.add_wire(Point::new(2, 0), Point::new(3, 0));
+        c.add_wire(Point::new(9, 0), Point::new(12, 0));
+        let mut p = Project::new(c);
+        assert_eq!(p.sim.inputs(y), vec![LogicValue::One]);
+        p.selection.comps.insert(n);
+        let id = p.group_selection(Lang::Cs).unwrap();
+        assert_eq!(p.subcircuit(id).unwrap().name, "Podobvod 1");
+        assert!(p.notice.is_none());
+        assert!(p.circuit.component(n).is_none());
+        let inst = p.selection.single_comp().unwrap();
+        assert!(matches!(
+            p.circuit.component(inst).unwrap().kind,
+            ComponentKind::Subcircuit {
+                inputs: 1,
+                outputs: 1,
+                ..
+            }
+        ));
+        // Obvod počítá stejně jako předtím.
+        // [en] The circuit computes the same as before.
+        assert_eq!(p.sim.inputs(y), vec![LogicValue::One]);
+        p.toggle_switch(a);
+        assert_eq!(p.sim.inputs(y), vec![LogicValue::Zero]);
+        // Zpět vrátí hradlo na místo.
+        // [en] Undo puts the gate back.
+        p.undo();
+        assert!(p.circuit.component(n).is_some());
+        // Výběr jen s přepínačem nic nezabalí a vysvětlí proč.
+        // [en] A selection with only the switch groups nothing and explains why.
+        p.selection.clear();
+        p.selection.comps.insert(a);
+        assert!(p.group_selection(Lang::Cs).is_none());
+        assert!(p.notice.is_some());
     }
 
     #[test]

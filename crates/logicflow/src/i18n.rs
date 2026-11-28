@@ -206,6 +206,11 @@ pub enum T {
     // Soubory
     // [en] Files
     OpenFile,
+    CmdGroup,
+    GroupEmpty,
+    GroupTooMany,
+    GroupUnconnected,
+    NoticeTitle,
     ImportFile,
     Import,
     CmdImportSubcircuit,
@@ -522,6 +527,17 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             TimingEmpty => "Časový diagram zobrazuje přepínače, tlačítka a LED.",
             TimeAxis => "čas [s]",
             OpenFile => "Otevřít obvod",
+            CmdGroup => "Vytvořit podobvod z výběru",
+            GroupEmpty => {
+                "Ve výběru nejsou součástky, které by šly zabalit do podobvodu. Přepínače, tlačítka, hodiny, LED a zobrazovače zůstávají vždy venku – vyberte i hradla nebo bloky mezi nimi."
+            }
+            GroupTooMany => {
+                "Podobvod by měl víc než 32 vstupů nebo výstupů. Vyberte menší část obvodu."
+            }
+            GroupUnconnected => {
+                "Podobvod je vytvořený, ale {n} jeho vývod(ů) se nepodařilo připojit bez dotyku s jinými vodiči. Připojte je ručně – volné vývody mají v simulaci hodnotu Z."
+            }
+            NoticeTitle => "Upozornění",
             ImportFile => "Importovat obvod jako podobvod",
             Import => "Importovat",
             CmdImportSubcircuit => "Importovat jako podobvod…",
@@ -846,6 +862,17 @@ pub fn tr(lang: Lang, key: T) -> &'static str {
             TimingEmpty => "The timing diagram shows switches, buttons and LEDs.",
             TimeAxis => "time [s]",
             OpenFile => "Open circuit",
+            CmdGroup => "Create subcircuit from selection",
+            GroupEmpty => {
+                "The selection has no components that could be packed into a subcircuit. Switches, push buttons, clocks, LEDs and displays always stay outside – select the gates or blocks between them too."
+            }
+            GroupTooMany => {
+                "The subcircuit would have more than 32 inputs or outputs. Select a smaller part of the circuit."
+            }
+            GroupUnconnected => {
+                "The subcircuit has been created, but {n} of its pins could not be connected without touching other wires. Connect them by hand – free pins have the value Z in the simulation."
+            }
+            NoticeTitle => "Notice",
             ImportFile => "Import circuit as a subcircuit",
             Import => "Import",
             CmdImportSubcircuit => "Import as subcircuit…",

@@ -12,6 +12,7 @@ Ready-made programs to download: [Releases](https://github.com/SJFidrmuc/LogicFl
 ## [Unreleased]
 
 ### Added
+- **Subcircuit from the selection** (Ctrl+G, context menu, Edit menu): the selected gates and blocks move into a new subcircuit and its symbol takes their place. The inputs and outputs are created from the wires leading out of the selection and the symbol is connected to them right away – the circuit computes the same as before. Switches, push buttons, clocks, LEDs and displays stay outside and give the pins their labels.
 - **Importing a finished circuit as a subcircuit** (File → Import as subcircuit…, Ctrl+I): a circuit from a `.logicflow` file is inserted into the project as a subcircuit together with the subcircuits it uses, and its symbol is placed with a click. Named after the circuit properties, otherwise the file; identical subcircuits are not duplicated.
 - **LED colour** – red, green, yellow, blue or white (Properties and the context menu); an unlit LED has a dark shade of its colour. **Two-pin LED with an anode and a cathode:** it lights only at A = 1 and K = 0 like a real diode, useful for matrix circuits; switched by the Pins option or added from Shift+A → Outputs. It is not included in the truth table or in the pins of a subcircuit.
 - **Circuit properties** (File → Circuit properties…): title, authors, description, licence and school/class are stored in the circuit file (the `info` part, the same keys as in the online circuit library; unknown keys are kept). A new circuit gets the author and licence from the settings, saving records the modification date, and you can add yourself as a co-author of someone else's circuit. The information is shown at the top of the Hierarchy and in the preview of the open dialog.
@@ -137,7 +138,7 @@ Approximate – the order and content may change. The detailed plan is kept by t
 ### 0.6 (2027)
 - ROM, RAM and EEPROM memories with a hex editor.
 - Toolbar with icons in two forms: compact, and large icons with tabs (touch, projector).
-- Subcircuit interface pads (subcircuit inputs and outputs with a name and order, also bus pads) and net labels – connection by name without wires, also for VCC and GND.
+- Subcircuit interface pads (subcircuit inputs and outputs with a name and order, also bus pads), LEDs inside a subcircuit as indicators on its symbol (a small dot next to the label) and net labels – connection by name without wires, also for VCC and GND.
 - **Matrix circuits:** 4×4 and 3×4 matrix keypad, 5×7 and 8×8 dot-matrix LED display with afterglow (scanning and display multiplexing).
 
 ### 0.7 (2027)

@@ -478,6 +478,9 @@ impl LogicFlowApp {
             Command::Cancel if self.project.is_simulating() => self.project.stop_simulation(),
             Command::Cancel => self.project.selection.clear(),
             Command::Subcircuit => self.project.toggle_subcircuit(self.lang),
+            Command::GroupSelection => {
+                self.project.group_selection(self.lang);
+            }
             Command::RunPause => self.project.toggle_run(),
             Command::Start => self.project.start_simulation(),
             Command::Stop => self.project.stop_simulation(),
@@ -623,6 +626,7 @@ impl LogicFlowApp {
                                 Some(Command::Delete),
                                 None,
                                 Some(Command::Subcircuit),
+                                Some(Command::GroupSelection),
                             ],
                         );
                         ui.separator();
@@ -1285,6 +1289,18 @@ impl LogicFlowApp {
                 ui.add_space(8.0);
                 if ui.button(tr(lang, T::Close)).clicked() {
                     self.error = None;
+                }
+            });
+        }
+
+        if let Some(text) = self.project.notice.clone() {
+            egui::Modal::new(egui::Id::unique("logicflow-notice")).show(ctx, |ui| {
+                ui.set_width(400.0);
+                ui.heading(tr(lang, T::NoticeTitle));
+                ui.label(text);
+                ui.add_space(8.0);
+                if ui.button(tr(lang, T::Close)).clicked() {
+                    self.project.notice = None;
                 }
             });
         }

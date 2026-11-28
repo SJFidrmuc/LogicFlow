@@ -161,6 +161,10 @@ pub enum Command {
     ///
     /// [en] Fit the whole schematic in view.
     FitView,
+    /// Vytvořit z výběru podobvod (rozhraní z vodičů, které vedou ven).
+    ///
+    /// [en] Create a subcircuit from the selection (interface from the wires leading out).
+    GroupSelection,
     /// Otevřít vybraný podobvod, nebo se vrátit o úroveň výš.
     ///
     /// [en] Open the selected subcircuit, or go one level up.
@@ -227,7 +231,7 @@ impl Command {
     /// Všechny příkazy (pořadí = pořadí v nápovědě).
     ///
     /// [en] All commands (order = order in the help).
-    pub const ALL: [Command; 31] = [
+    pub const ALL: [Command; 32] = [
         Command::New,
         Command::Open,
         Command::Save,
@@ -249,6 +253,7 @@ impl Command {
         Command::Cancel,
         Command::FitView,
         Command::Subcircuit,
+        Command::GroupSelection,
         Command::Start,
         Command::RunPause,
         Command::Step,
@@ -298,6 +303,7 @@ impl Command {
             Cancel => &[s!(NONE, Escape)],
             FitView => &[s!(NONE, Home)],
             Subcircuit => &[s!(NONE, Tab)],
+            GroupSelection => &[s!(CMD, G)],
             Start => &[s!(NONE, F5)],
             Stop => &[s!(Modifiers::SHIFT, F5)],
             RunPause => &[s!(NONE, Space)],
@@ -325,7 +331,7 @@ impl Command {
         use Command::*;
         match self {
             Add | Grab | Rotate | Delete | Duplicate | Copy | Cut | Paste | SelectAll
-            | SelectNone | Cancel | FitView | Subcircuit => Scope::Schematic,
+            | SelectNone | Cancel | FitView | Subcircuit | GroupSelection => Scope::Schematic,
             _ => Scope::Global,
         }
     }
@@ -381,6 +387,7 @@ impl Command {
                 Cancel => T::CmdCancel,
                 FitView => T::FitView,
                 Subcircuit => T::CmdSubcircuit,
+                GroupSelection => T::CmdGroup,
                 RunPause => T::CmdRunPause,
                 Start => T::CmdStart,
                 Stop => T::CmdStop,
@@ -440,6 +447,7 @@ impl Command {
             Grab | Rotate | Delete | Duplicate | Copy | Cut | SelectNone => {
                 !project.selection.is_empty()
             }
+            GroupSelection => !project.selection.comps.is_empty(),
             SelectAll => !project.circuit.components.is_empty(),
             Subcircuit => {
                 project.selected_subcircuit().is_some()
@@ -461,7 +469,16 @@ impl Command {
         use Command::*;
         matches!(
             self,
-            Add | Grab | Rotate | Delete | Duplicate | Cut | Paste | Undo | Redo | ImportSubcircuit
+            Add | Grab
+                | Rotate
+                | Delete
+                | Duplicate
+                | Cut
+                | Paste
+                | Undo
+                | Redo
+                | ImportSubcircuit
+                | GroupSelection
         )
     }
 

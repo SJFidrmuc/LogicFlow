@@ -307,6 +307,12 @@ const CS: &[Section] = &[
                 "Použitý podobvod nejde smazat – nejdřív odstraňte jeho instance.",
                 "Hodiny je potřeba přivést zvenku přes vstup podobvodu; generátor hodin uvnitř podobvodu stojí.",
             ]),
+            H("Podobvod z výběru"),
+            List(&[
+                "Vyberte hradla a bloky a stiskněte Ctrl+G (nebo pravé tlačítko > Vytvořit podobvod z výběru): vybrané součástky se přesunou do nového podobvodu a na jejich místo se postaví jeho značka.",
+                "Vstupy a výstupy vzniknou samy z vodičů, které z výběru vedou ven, a značka se k nim hned připojí – obvod počítá stejně jako předtím.",
+                "Přepínače, tlačítka, hodiny, LED a zobrazovače zůstanou venku; vývody dostanou jejich popisky. Vývod, který nejde připojit, zůstane volný a program na to upozorní. Ctrl+Z zabalení vrátí.",
+            ]),
             H("Hotový obvod jako podobvod"),
             List(&[
                 "Soubor > Importovat jako podobvod… (Ctrl+I) vloží obvod uložený v souboru .logicflow jako podobvod; značka se objeví u ukazatele myši a kliknutím ji položíte.",
@@ -414,6 +420,7 @@ const CS: &[Section] = &[
                 "Tab",
                 "otevřít vybraný podobvod nebo vnitřní zapojení bloku / zpět o úroveň výš",
             ),
+            ("Ctrl+G", "vytvořit podobvod z výběru"),
             ("kolečko myši", "zoom"),
             ("prostřední / pravé tlačítko + tažení", "posun pohledu"),
             ("F5", "spustit simulaci"),
@@ -700,6 +707,12 @@ const EN: &[Section] = &[
                 "A subcircuit in use cannot be deleted – remove its instances first.",
                 "Feed clocks in through a subcircuit input; a clock generator inside a subcircuit does not run.",
             ]),
+            H("Subcircuit from the selection"),
+            List(&[
+                "Select gates and blocks and press Ctrl+G (or right button > Create subcircuit from selection): the selected components move into a new subcircuit and its symbol takes their place.",
+                "The inputs and outputs are created from the wires leading out of the selection and the symbol is connected to them right away – the circuit computes the same as before.",
+                "Switches, push buttons, clocks, LEDs and displays stay outside; the pins take their labels. A pin that cannot be connected stays free and the program tells you. Ctrl+Z undoes the grouping.",
+            ]),
             H("A finished circuit as a subcircuit"),
             List(&[
                 "File > Import as subcircuit… (Ctrl+I) inserts a circuit saved in a .logicflow file as a subcircuit; the symbol appears at the mouse pointer and a click places it.",
@@ -807,6 +820,7 @@ const EN: &[Section] = &[
                 "Tab",
                 "open selected subcircuit or internal circuit of a block / go back one level",
             ),
+            ("Ctrl+G", "create a subcircuit from the selection"),
             ("mouse wheel", "zoom"),
             ("middle / right button + drag", "pan"),
             ("F5", "run the simulation"),
