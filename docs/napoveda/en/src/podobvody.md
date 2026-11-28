@@ -19,6 +19,19 @@ A subcircuit is a circuit you insert into another one as a single component – 
 - Gate delays are kept inside subcircuits and every instance has its own state (e.g. its own flip-flops).
 - The whole project including all subcircuits is saved in a single file.
 
+## A finished circuit as a subcircuit
+
+A circuit you already have saved in a `.logicflow` file (for example a tested half adder or an exercise from the online circuit library) can be inserted into the project as a subcircuit:
+
+1. **File → Import as subcircuit…** (**Ctrl+I**) and choose the file. The preview shows the circuit's title, author and licence.
+2. The subcircuit symbol appears at the mouse pointer – click to place it (Esc cancels placing; the subcircuit stays in the project).
+
+- The subcircuit gets the **circuit title** from its properties (File → Circuit properties), otherwise the file name. If the project already has a subcircuit with that name, a number is added, e.g. “Adder (2)”.
+- The inputs are the switches and buttons of the imported circuit, the outputs its LEDs – as with any subcircuit.
+- A **copy** is imported: later changes to the file do not affect the project and editing the subcircuit does not change the file.
+- Subcircuits used by the imported circuit come with it. Identical subcircuits the project already has are reused.
+- Importing is not possible in simulation mode – stop the simulation first (Esc).
+
 ## Element libraries
 
 Ready-made circuits are in the **Component library** area under **Element libraries**. The elements are sorted into categories (Combinational circuits, Arithmetic, Sequential circuits…) and the search finds them by name and category.

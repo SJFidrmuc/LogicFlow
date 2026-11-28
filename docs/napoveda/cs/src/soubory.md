@@ -7,6 +7,7 @@
 - Okno pro výběr souboru má tlačítka pro domovskou složku a Dokumenty, do řádku s cestou jde napsat libovolnou složku. Tlačítko **+ Nová složka** založí podsložku (třeba pro třídu nebo úlohu) a rovnou do ní přejde.
 - Před zavřením programu nebo otevřením jiného obvodu se program zeptá na neuložené změny.
 - Soubor jde otevřít i z příkazové řádky: `logicflow obvod.logicflow`
+- **Soubor → Importovat jako podobvod…** (**Ctrl+I**) vloží uložený obvod do otevřeného projektu jako podobvod (viz [Podobvody](podobvody.md)).
 
 ## Kterou verzí programu soubor otevřete
 

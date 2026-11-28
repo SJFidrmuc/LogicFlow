@@ -97,6 +97,10 @@ pub enum Command {
     ///
     /// [en] Save as.
     SaveAs,
+    /// Importovat hotový obvod ze souboru jako podobvod.
+    ///
+    /// [en] Import a finished circuit from a file as a subcircuit.
+    ImportSubcircuit,
     /// Ukončit program.
     ///
     /// [en] Quit the program.
@@ -223,11 +227,12 @@ impl Command {
     /// Všechny příkazy (pořadí = pořadí v nápovědě).
     ///
     /// [en] All commands (order = order in the help).
-    pub const ALL: [Command; 30] = [
+    pub const ALL: [Command; 31] = [
         Command::New,
         Command::Open,
         Command::Save,
         Command::SaveAs,
+        Command::ImportSubcircuit,
         Command::Quit,
         Command::Undo,
         Command::Redo,
@@ -276,6 +281,7 @@ impl Command {
             Open => &[s!(CMD, O)],
             Save => &[s!(CMD, S)],
             SaveAs => &[s!(CMD_SHIFT, S)],
+            ImportSubcircuit => &[s!(CMD, I)],
             Quit => &[s!(CMD, Q)],
             Undo => &[s!(CMD, Z)],
             Redo => &[s!(CMD_SHIFT, Z), s!(CMD, Y)],
@@ -358,6 +364,7 @@ impl Command {
                 Open => T::Open,
                 Save => T::Save,
                 SaveAs => T::SaveAs,
+                ImportSubcircuit => T::CmdImportSubcircuit,
                 Quit => T::Quit,
                 Undo => T::Undo,
                 Redo => T::Redo,
@@ -454,7 +461,7 @@ impl Command {
         use Command::*;
         matches!(
             self,
-            Add | Grab | Rotate | Delete | Duplicate | Cut | Paste | Undo | Redo
+            Add | Grab | Rotate | Delete | Duplicate | Cut | Paste | Undo | Redo | ImportSubcircuit
         )
     }
 

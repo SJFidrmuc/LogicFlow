@@ -11,7 +11,7 @@ use crate::help::{self, HelpWindow};
 use crate::i18n::{Lang, T, tr};
 use crate::panels::TruthCache;
 use crate::panes::{self, AreaBehavior, Pane, Workspace};
-use crate::project::Project;
+use crate::project::{ImportError, Project};
 use crate::settings::{self, Settings, SharedFolder};
 use crate::symbols::SymbolStyle;
 use crate::theme::{self, colors};
@@ -371,6 +371,42 @@ impl LogicFlowApp {
         }
     }
 
+    /// Importuje obvod ze souboru jako podobvod a nechá uživatele umístit jeho
+    /// instanci kliknutím (jako prvek z knihovny). Chyba se ukáže v okně.
+    ///
+    /// [en] Imports a circuit from a file as a subcircuit and lets the user place its
+    /// instance with a click (like a library element). An error is shown in a window.
+    fn import_subcircuit(&mut self, path: &std::path::Path) {
+        let text = match std::fs::read_to_string(path) {
+            Ok(t) => t,
+            Err(e) => {
+                self.error = Some(format!("{}\n{e}", path.display()));
+                return;
+            }
+        };
+        let stem = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        match self.project.import_subcircuit_text(&text, &stem) {
+            Ok(id) => {
+                if let Some(d) = self.project.subcircuit(id) {
+                    self.project.pending_place = Some(d.kind());
+                }
+            }
+            Err(ImportError::Empty) => {
+                self.error = Some(format!(
+                    "{}\n{}",
+                    path.display(),
+                    tr(self.lang, T::ImportEmpty)
+                ));
+            }
+            Err(ImportError::Read(e)) => {
+                self.error = Some(format!("{}\n{e}", path.display()));
+            }
+        }
+    }
+
     /// Uloží projekt; bez cesty (nebo s `save_as`) otevře okno pro soubory.
     ///
     /// [en] Saves the project; without a path (or with `save_as`) opens the file dialog.
@@ -425,6 +461,13 @@ impl LogicFlowApp {
             Command::Open => self.request(Pending::Open),
             Command::Save => self.save_file(false),
             Command::SaveAs => self.save_file(true),
+            Command::ImportSubcircuit => {
+                self.file_dialog = Some(FileDialog::new(
+                    filedialog::Mode::Import,
+                    self.last_dir.clone(),
+                    "",
+                ));
+            }
             Command::Quit => self.request(Pending::Quit),
             Command::Undo => self.project.undo(),
             Command::Redo => self.project.redo(),
@@ -548,7 +591,14 @@ impl LogicFlowApp {
                         });
                         self.menu_commands(
                             ui,
-                            &[None, Some(Command::Save), Some(Command::SaveAs), None],
+                            &[
+                                None,
+                                Some(Command::Save),
+                                Some(Command::SaveAs),
+                                None,
+                                Some(Command::ImportSubcircuit),
+                                None,
+                            ],
                         );
                         if ui.button(tr(lang, T::PropsMenu)).clicked() {
                             self.properties = Some(self.project.info.clone());
@@ -1172,6 +1222,7 @@ impl LogicFlowApp {
                             Ok(p) => self.replace_project(p),
                             Err(e) => self.error = Some(format!("{}\n{e}", path.display())),
                         },
+                        filedialog::Mode::Import => self.import_subcircuit(&path),
                         filedialog::Mode::Save => match self.project.save(&path) {
                             Ok(()) => {
                                 if let Some(next) = self.after_save.take() {

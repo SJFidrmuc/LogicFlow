@@ -927,46 +927,8 @@ impl Project {
         // Sloučení definic podobvodů.
         // [en] Merging subcircuit definitions.
         self.store_sheet();
-        let mut map: HashMap<u32, u32> = HashMap::new();
-        let mut added: Vec<SubcircuitDef> = Vec::new();
-        for d in &clip_defs {
-            let same = self.subcircuits.iter().find(|e| {
-                e.name == d.name
-                    && e.circuit.components == d.circuit.components
-                    && e.circuit.wires == d.circuit.wires
-            });
-            if let Some(e) = same {
-                map.insert(d.id, e.id);
-                continue;
-            }
-            let id = self
-                .subcircuits
-                .iter()
-                .chain(&added)
-                .map(|e| e.id + 1)
-                .max()
-                .unwrap_or(1);
-            let taken = |n: &str| self.subcircuits.iter().chain(&added).any(|e| e.name == n);
-            let name = if taken(&d.name) {
-                (2..)
-                    .map(|k| format!("{} ({k})", d.name))
-                    .find(|n| !taken(n))
-                    .unwrap_or_default()
-            } else {
-                d.name.clone()
-            };
-            map.insert(d.id, id);
-            added.push(SubcircuitDef {
-                id,
-                name,
-                circuit: d.circuit.clone(),
-            });
-        }
-        for d in &mut added {
-            remap_subcircuits(&mut d.circuit, &map);
-        }
+        let map = self.merge_subcircuits(&clip_defs);
         remap_subcircuits(&mut clip, &map);
-        self.subcircuits.extend(added);
         // Podobvod nesmí obsahovat sám sebe.
         // [en] A subcircuit must not contain itself.
         clip.components.retain(|c| match c.kind {
@@ -1001,6 +963,97 @@ impl Project {
         self.selection.wires = wires.into_iter().collect();
         self.after_structure_change();
         true
+    }
+
+    /// Přidá do projektu definice podobvodů z jiného souboru nebo ze schránky.
+    /// Stejný podobvod (název i zapojení), který projekt už má, se použije znovu;
+    /// nový dostane volné id a při shodě názvu se přejmenuje („Název (2)“). Odkazy
+    /// mezi přidanými definicemi se přečíslují. Vrací mapu staré id → id v projektu.
+    /// Rozpracovaný list musí být předtím uložený (`store_sheet`).
+    ///
+    /// [en] Adds subcircuit definitions from another file or the clipboard to the project.
+    /// An identical subcircuit (name and circuit) the project already has is reused; a
+    /// new one gets a free id and is renamed on a name clash (“Name (2)”). References
+    /// between the added definitions are renumbered. Returns a map old id → id in the
+    /// project. The sheet being edited must be stored first (`store_sheet`).
+    fn merge_subcircuits(&mut self, defs: &[SubcircuitDef]) -> HashMap<u32, u32> {
+        let mut map: HashMap<u32, u32> = HashMap::new();
+        let mut added: Vec<SubcircuitDef> = Vec::new();
+        for d in defs {
+            let same = self.subcircuits.iter().find(|e| {
+                e.name == d.name
+                    && e.circuit.components == d.circuit.components
+                    && e.circuit.wires == d.circuit.wires
+            });
+            if let Some(e) = same {
+                map.insert(d.id, e.id);
+                continue;
+            }
+            let id = self
+                .subcircuits
+                .iter()
+                .chain(&added)
+                .map(|e| e.id + 1)
+                .max()
+                .unwrap_or(1);
+            let name = unique_name(&d.name, self.subcircuits.iter().chain(&added));
+            map.insert(d.id, id);
+            added.push(SubcircuitDef {
+                id,
+                name,
+                circuit: d.circuit.clone(),
+            });
+        }
+        for d in &mut added {
+            remap_subcircuits(&mut d.circuit, &map);
+        }
+        self.subcircuits.extend(added);
+        map
+    }
+
+    /// Importuje hotový obvod (text souboru .logicflow) jako nový podobvod projektu
+    /// i se všemi jeho podobvody. Název je název obvodu z vlastností souboru, jinak
+    /// `fallback_name` (název souboru); při shodě s existujícím podobvodem se
+    /// přejmenuje. Vrací id nového podobvodu – instanci pak uživatel umístí kliknutím.
+    ///
+    /// [en] Imports a finished circuit (the text of a .logicflow file) as a new subcircuit
+    /// of the project together with all its subcircuits. The name is the circuit title
+    /// from the file properties, otherwise `fallback_name` (the file name); on a clash
+    /// with an existing subcircuit it is renamed. Returns the id of the new subcircuit –
+    /// the user then places an instance with a click.
+    pub fn import_subcircuit_text(
+        &mut self,
+        text: &str,
+        fallback_name: &str,
+    ) -> Result<u32, ImportError> {
+        let file = ProjectFile::parse(text).map_err(ImportError::Read)?;
+        let mut main = file.circuit;
+        if main.components.is_empty() {
+            return Err(ImportError::Empty);
+        }
+        self.store_sheet();
+        let map = self.merge_subcircuits(&file.subcircuits);
+        remap_subcircuits(&mut main, &map);
+        let id = self.subcircuits.iter().map(|d| d.id + 1).max().unwrap_or(1);
+        let title = file.info.title.trim();
+        let base = if title.is_empty() {
+            fallback_name.trim()
+        } else {
+            title
+        };
+        let name = unique_name(base, self.subcircuits.iter());
+        sync_instances(&mut main, &self.subcircuits);
+        self.subcircuits.push(SubcircuitDef {
+            id,
+            name,
+            circuit: main,
+        });
+        let defs = self.subcircuits.clone();
+        for d in &mut self.subcircuits {
+            sync_instances(&mut d.circuit, &defs);
+        }
+        self.touch();
+        Ok(id)
     }
 
     /// Vyjmout: zkopíruje výběr jako text a smaže ho.
@@ -1558,6 +1611,38 @@ fn half_period(period_ms: u32) -> f64 {
     f64::from(period_ms.max(2)) / 2000.0
 }
 
+/// Proč se obvod nepodařilo importovat jako podobvod.
+///
+/// [en] Why a circuit could not be imported as a subcircuit.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ImportError {
+    /// Soubor nejde přečíst (není to obvod LogicFlow, nebo je z novější verze).
+    ///
+    /// [en] The file cannot be read (it is not a LogicFlow circuit, or it is from a newer version).
+    Read(String),
+    /// Hlavní obvod souboru je prázdný.
+    ///
+    /// [en] The main circuit of the file is empty.
+    Empty,
+}
+
+/// Volný název podobvodu: `base`, při shodě „base (2)“, „base (3)“…
+///
+/// [en] A free subcircuit name: `base`, on a clash “base (2)”, “base (3)”…
+fn unique_name<'a>(
+    base: &str,
+    existing: impl Iterator<Item = &'a SubcircuitDef> + Clone,
+) -> String {
+    let taken = |n: &str| existing.clone().any(|e| e.name == n);
+    if !taken(base) {
+        return base.to_owned();
+    }
+    (2..)
+        .map(|k| format!("{base} ({k})"))
+        .find(|n| !taken(n))
+        .unwrap_or_default()
+}
+
 /// Id definic podobvodů, jejichž instance obvod přímo obsahuje.
 ///
 /// [en] Ids of the subcircuit definitions whose instances the circuit directly contains.
@@ -2068,6 +2153,131 @@ mod tests {
         let before = p.circuit.components.len();
         p.paste_text(&text, None);
         assert_eq!(p.circuit.components.len(), before);
+    }
+
+    /// Soubor s invertorem jako podobvodem „Invertor“, použitým v hlavním obvodu
+    /// (A → Invertor → Y), s názvem obvodu `title`.
+    ///
+    /// [en] A file with an inverter as the subcircuit “Invertor”, used in the main
+    /// circuit (A → Invertor → Y), with the circuit title `title`.
+    fn inverter_file(title: &str) -> String {
+        let mut p = small();
+        let id = p.new_subcircuit("Invertor");
+        p.subcircuits[0].name = "Invertor".into();
+        // Vývody se dotýkají přímo: A (2, 0) = vstup NOT, výstup NOT (8, 0) = LED.
+        // [en] The pins touch directly: A (2, 0) = NOT input, NOT output (8, 0) = LED.
+        p.circuit
+            .add_component(ComponentKind::Switch { on: false }, Point::new(0, 0));
+        p.circuit.add_component(
+            ComponentKind::gate(logicflow_core::GateKind::Not),
+            Point::new(5, 0),
+        );
+        p.circuit
+            .add_component(ComponentKind::LED, Point::new(10, 0));
+        p.after_structure_change();
+        p.leave_subcircuit();
+        // Hlavní obvod: A → instance invertoru → Y (instance má vývody (−4, 1) a (4, 1)).
+        // [en] Main circuit: A → inverter instance → Y (the instance has pins (−4, 1) and (4, 1)).
+        p.circuit = Circuit::default();
+        p.circuit
+            .add_component(ComponentKind::Switch { on: false }, Point::new(0, 1));
+        let kind = p.subcircuit(id).unwrap().kind();
+        p.circuit.add_component(kind, Point::new(10, 0));
+        p.circuit
+            .add_component(ComponentKind::LED, Point::new(18, 1));
+        p.circuit.add_wire(Point::new(2, 1), Point::new(6, 1));
+        p.circuit.add_wire(Point::new(14, 1), Point::new(16, 1));
+        p.info.title = title.into();
+        p.to_text()
+    }
+
+    #[test]
+    fn import_circuit_as_subcircuit() {
+        let text = inverter_file("Negace");
+        let mut p = small();
+        let id = p.import_subcircuit_text(&text, "soubor").unwrap();
+        // Hlavní obvod souboru i jeho podobvod jsou v projektu; název z vlastností.
+        // [en] The file's main circuit and its subcircuit are in the project; name from the properties.
+        assert_eq!(p.subcircuits.len(), 2);
+        let def = p.subcircuit(id).unwrap();
+        assert_eq!(def.name, "Negace");
+        assert_eq!(
+            def.kind(),
+            ComponentKind::Subcircuit {
+                id,
+                inputs: 1,
+                outputs: 1
+            }
+        );
+        // Instance uvnitř odkazuje na přečíslovaný podobvod Invertor.
+        // [en] The instance inside refers to the renumbered subcircuit Invertor.
+        let inner = subcircuit_ids(&def.circuit);
+        assert_eq!(inner.len(), 1);
+        assert_eq!(p.subcircuit(inner[0]).unwrap().name, "Invertor");
+        assert!(p.modified);
+
+        // Umístěná instance počítá: A = 0 → Y = ¬0 = 1.
+        // [en] A placed instance computes: A = 0 → Y = ¬0 = 1.
+        let kind = p.subcircuit(id).unwrap().kind();
+        p.add_component_at(kind, Point::new(30, 0), Rotation::R0);
+        // Vývody instance (26, 1) a (34, 1) se dotýkají přepínače a LED.
+        // [en] The instance pins (26, 1) and (34, 1) touch the switch and the LED.
+        let a = p.add_component_at(
+            ComponentKind::Switch { on: false },
+            Point::new(24, 1),
+            Rotation::R0,
+        );
+        let y = p.add_component_at(ComponentKind::LED, Point::new(36, 1), Rotation::R0);
+        assert_eq!(p.sim.inputs(y), vec![LogicValue::One]);
+        p.toggle_switch(a);
+        assert_eq!(p.sim.inputs(y), vec![LogicValue::Zero]);
+
+        // Druhý import: stejný vnořený podobvod se použije znovu, hlavní se přejmenuje.
+        // [en] Second import: the same nested subcircuit is reused, the main one is renamed.
+        let id2 = p.import_subcircuit_text(&text, "soubor").unwrap();
+        assert_eq!(p.subcircuits.len(), 3);
+        assert_eq!(p.subcircuit(id2).unwrap().name, "Negace (2)");
+        // Bez názvu obvodu se použije název souboru.
+        // [en] Without a circuit title the file name is used.
+        let id3 = p
+            .import_subcircuit_text(&inverter_file(""), "negace.logicflow")
+            .unwrap();
+        assert_eq!(p.subcircuit(id3).unwrap().name, "negace.logicflow");
+        // Do souboru se projekt uloží a znovu načte se všemi podobvody.
+        // [en] The project saves to a file and loads again with all subcircuits.
+        let q = Project::from_text(&p.to_text()).unwrap();
+        assert_eq!(q.subcircuits.len(), 4);
+    }
+
+    #[test]
+    fn import_rejects_empty_and_invalid() {
+        let mut p = small();
+        let empty = Project::new(Circuit::default()).to_text();
+        assert_eq!(
+            p.import_subcircuit_text(&empty, "x"),
+            Err(ImportError::Empty)
+        );
+        assert!(matches!(
+            p.import_subcircuit_text("není to obvod", "x"),
+            Err(ImportError::Read(_))
+        ));
+        assert!(p.subcircuits.is_empty());
+        assert!(!p.modified);
+    }
+
+    #[test]
+    fn import_into_open_subcircuit() {
+        // Import z otevřeného podobvodu: rozpracovaný list se neztratí.
+        // [en] Importing while a subcircuit is open: the sheet being edited is not lost.
+        let mut p = small();
+        let id = p.new_subcircuit("Blok");
+        p.circuit
+            .add_component(ComponentKind::LED, Point::new(4, 0));
+        p.after_structure_change();
+        let new = p.import_subcircuit_text(&inverter_file("N"), "x").unwrap();
+        assert!(p.can_place_subcircuit(new));
+        p.leave_subcircuit();
+        assert_eq!(p.subcircuit(id).unwrap().circuit.components.len(), 1);
     }
 
     #[test]

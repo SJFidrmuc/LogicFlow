@@ -27,6 +27,10 @@ pub enum Mode {
     ///
     /// [en] Saving a file.
     Save,
+    /// Výběr obvodu, který se vloží jako podobvod (jako otevření, i s náhledem).
+    ///
+    /// [en] Choosing a circuit to insert as a subcircuit (like opening, with a preview).
+    Import,
     /// Výběr složky (vybere se složka, ve které okno právě je).
     ///
     /// [en] Choosing a folder (the folder the dialog is currently in is chosen).
@@ -196,6 +200,7 @@ impl FileDialog {
             lang,
             match self.mode {
                 Mode::Open => T::OpenFile,
+                Mode::Import => T::ImportFile,
                 Mode::Save => T::SaveFile,
                 Mode::Folder => T::ChooseFolder,
             },
@@ -330,7 +335,7 @@ impl FileDialog {
                     }
                 });
             }
-            if self.mode == Mode::Open {
+            if matches!(self.mode, Mode::Open | Mode::Import) {
                 self.show_preview(ui, lang);
             }
             if self.mode == Mode::Save
@@ -352,6 +357,7 @@ impl FileDialog {
                     lang,
                     match self.mode {
                         Mode::Open => T::Open,
+                        Mode::Import => T::Import,
                         Mode::Save => T::Save,
                         Mode::Folder => T::ChooseThisFolder,
                     },

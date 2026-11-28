@@ -26,5 +26,6 @@
 | Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y | zpět, znovu |
 | Ctrl+N, Ctrl+O, Ctrl+S | nový, otevřít, uložit |
 | Ctrl+Shift+S | uložit jako |
+| Ctrl+I | importovat obvod jako podobvod |
 | Ctrl+PageUp, Ctrl+PageDown | předchozí, další pracovní plocha |
 | Ctrl+Q | ukončit |

@@ -307,6 +307,12 @@ const CS: &[Section] = &[
                 "Použitý podobvod nejde smazat – nejdřív odstraňte jeho instance.",
                 "Hodiny je potřeba přivést zvenku přes vstup podobvodu; generátor hodin uvnitř podobvodu stojí.",
             ]),
+            H("Hotový obvod jako podobvod"),
+            List(&[
+                "Soubor > Importovat jako podobvod… (Ctrl+I) vloží obvod uložený v souboru .logicflow jako podobvod; značka se objeví u ukazatele myši a kliknutím ji položíte.",
+                "Podobvod dostane název obvodu z jeho vlastností, jinak název souboru; při shodě názvu se přidá číslo (2), (3)…",
+                "Importuje se kopie i s podobvody, které obvod používá; stejné podobvody, které projekt už má, se použijí znovu.",
+            ]),
             H("Knihovny prvků"),
             List(&[
                 "Hotová zapojení jsou v Knihovně součástek pod nadpisem Knihovny prvků, rozdělená podle kategorií; hledání je najde podle názvu i kategorie.",
@@ -420,6 +426,7 @@ const CS: &[Section] = &[
             ("Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y", "zpět / znovu"),
             ("Ctrl+N / O / S", "nový / otevřít / uložit"),
             ("Ctrl+Shift+S", "uložit jako"),
+            ("Ctrl+I", "importovat obvod jako podobvod"),
             (
                 "Ctrl+PageUp / PageDown",
                 "předchozí / další pracovní plocha",
@@ -693,6 +700,12 @@ const EN: &[Section] = &[
                 "A subcircuit in use cannot be deleted – remove its instances first.",
                 "Feed clocks in through a subcircuit input; a clock generator inside a subcircuit does not run.",
             ]),
+            H("A finished circuit as a subcircuit"),
+            List(&[
+                "File > Import as subcircuit… (Ctrl+I) inserts a circuit saved in a .logicflow file as a subcircuit; the symbol appears at the mouse pointer and a click places it.",
+                "The subcircuit gets the circuit title from its properties, otherwise the file name; on a name clash a number (2), (3)… is added.",
+                "A copy is imported together with the subcircuits the circuit uses; identical subcircuits the project already has are reused.",
+            ]),
             H("Element libraries"),
             List(&[
                 "Ready-made circuits are in the Component library under Element libraries, sorted into categories; the search finds them by name and category.",
@@ -806,6 +819,7 @@ const EN: &[Section] = &[
             ("Ctrl+Z / Ctrl+Shift+Z, Ctrl+Y", "undo / redo"),
             ("Ctrl+N / O / S", "new / open / save"),
             ("Ctrl+Shift+S", "save as"),
+            ("Ctrl+I", "import a circuit as a subcircuit"),
             ("Ctrl+PageUp / PageDown", "previous / next workspace"),
             ("Ctrl+Q", "quit"),
         ])],
