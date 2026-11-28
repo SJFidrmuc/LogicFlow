@@ -474,6 +474,9 @@ impl SchematicView {
             Command::SelectAll => project.select_all(),
             Command::SelectNone => project.selection.clear(),
             Command::Delete => project.delete_selection(),
+            Command::GroupSelection => {
+                project.group_selection(lang);
+            }
             Command::Duplicate => {
                 if let Some(start) = mouse_pt
                     && !project.selection.is_empty()
@@ -1138,6 +1141,7 @@ impl SchematicView {
                     Command::Copy,
                     Command::Cut,
                     Command::Delete,
+                    Command::GroupSelection,
                 ] {
                     self.menu_command(ui, cmd, rect, project, lang);
                 }
@@ -1182,6 +1186,7 @@ impl SchematicView {
                     Command::Cut,
                     Command::Delete,
                     Command::SelectNone,
+                    Command::GroupSelection,
                 ] {
                     self.menu_command(ui, cmd, rect, project, lang);
                 }

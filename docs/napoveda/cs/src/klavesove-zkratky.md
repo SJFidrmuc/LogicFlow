@@ -13,6 +13,7 @@
 | Esc | zrušit nástroj nebo výběr; v simulaci zpět k úpravám |
 | Home | zobrazit celé schéma |
 | Tab | otevřít vybraný podobvod nebo vnitřní zapojení bloku, zpět o úroveň výš |
+| Ctrl+G | vytvořit podobvod z výběru |
 | kolečko myši | zoom |
 | prostřední nebo pravé tlačítko + tažení | posun pohledu |
 | Ctrl + tažení | začít vodič kdekoli |

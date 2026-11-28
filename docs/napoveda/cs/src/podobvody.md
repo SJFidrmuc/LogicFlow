@@ -21,6 +21,22 @@ Podobvod je samostatný obvod, který vložíte do jiného jako jednu součástk
 - Simulace zachovává zpoždění hradel i uvnitř podobvodů a každá instance má vlastní stav (např. vlastní klopné obvody).
 - Celý projekt včetně všech podobvodů se ukládá do jednoho souboru.
 
+## Podobvod z výběru
+
+Část schématu, kterou už máte nakreslenou, zabalíte do podobvodu přímo na místě:
+
+1. Vyberte hradla a bloky, které mají být uvnitř (tažením myší nebo klikáním se Shiftem). Přepínače a LED klidně vyberte také.
+2. **Ctrl+G** (nebo pravé tlačítko → **Vytvořit podobvod z výběru**, případně nabídka Úpravy).
+
+- Vybrané součástky se přesunou do nového podobvodu „Podobvod 1“ (přejmenujete ho v Hierarchii) a na jejich místo se postaví jeho značka.
+- **Vstupy a výstupy vzniknou samy** z vodičů, které z výběru vedou ven: co se do výběru přivádí, je vstup, co z něj vychází, je výstup. Značka se k těmto vodičům hned připojí, takže obvod počítá stejně jako předtím.
+- **Přepínače, tlačítka, hodiny, LED a zobrazovače zůstanou venku**, i když jsou ve výběru – obvod dál ovládáte a čtete stejně. Vývody podobvodu dostanou jejich popisky (A, B, Y1…), ostatní se pojmenují A, B, C… a Y1, Y2…
+- Uvnitř podobvodu jsou přepínače a LED rozhraní na místech, kde vodiče vedly ven – zapojení vypadá jako předtím.
+- Když některý vývod nejde připojit bez dotyku s jiným vodičem, program ho nechá volný a upozorní na to. Připojte ho pak ručně.
+- **Ctrl+Z** vrátí schéma do stavu před zabalením.
+
+![Hradla AND a OR zabalená do podobvodu – přepínače a LED zůstaly venku](obrazky/podobvod-z-vyberu.png)
+
 ## Hotový obvod jako podobvod
 
 Obvod, který už máte uložený v souboru `.logicflow` (třeba vyzkoušenou poloviční sčítačku nebo úlohu z online knihovny obvodů), vložíte do projektu jako podobvod:

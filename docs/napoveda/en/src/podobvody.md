@@ -19,6 +19,20 @@ A subcircuit is a circuit you insert into another one as a single component – 
 - Gate delays are kept inside subcircuits and every instance has its own state (e.g. its own flip-flops).
 - The whole project including all subcircuits is saved in a single file.
 
+## Subcircuit from the selection
+
+A part of the schematic you have already drawn can be packed into a subcircuit right in place:
+
+1. Select the gates and blocks that should be inside (by dragging the mouse or by clicking with Shift). You may select the switches and LEDs too.
+2. **Ctrl+G** (or right button → **Create subcircuit from selection**, or the Edit menu).
+
+- The selected components move into a new subcircuit “Subcircuit 1” (rename it in the Hierarchy) and its symbol takes their place.
+- **The inputs and outputs are created automatically** from the wires leading out of the selection: what is fed into the selection is an input, what comes out of it is an output. The symbol is connected to these wires right away, so the circuit computes the same as before.
+- **Switches, push buttons, clocks, LEDs and displays stay outside** even if they are selected – you operate and read the circuit the same way. The subcircuit pins take their labels (A, B, Y1…); the others are named A, B, C… and Y1, Y2…
+- Inside the subcircuit, the interface switches and LEDs sit where the wires led out – the circuit looks as before.
+- If a pin cannot be connected without touching another wire, the program leaves it free and tells you. Connect it by hand then.
+- **Ctrl+Z** returns the schematic to the state before grouping.
+
 ## A finished circuit as a subcircuit
 
 A circuit you already have saved in a `.logicflow` file (for example a tested half adder or an exercise from the online circuit library) can be inserted into the project as a subcircuit:

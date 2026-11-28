@@ -45,9 +45,9 @@
 
 | Where you click | What the menu offers |
 | --- | --- |
-| component | by kind: Toggle (switch), Frequency (clock), Inputs (gate), Pins (display), Colour and Pins (LED), Bits and Count direction (function block), Open subcircuit; then the label, Rotate, Duplicate, Move, Copy, Cut, Delete |
+| component | by kind: Toggle (switch), Frequency (clock), Inputs (gate), Pins (display), Colour and Pins (LED), Bits and Count direction (function block), Open subcircuit; then the label, Rotate, Duplicate, Move, Copy, Cut, Delete, Create subcircuit from selection |
 | wire | Select the whole net, Delete wire segment, Delete the whole net |
-| several selected items | Rotate, Duplicate, Move, Copy, Cut, Delete, Deselect |
+| several selected items | Rotate, Duplicate, Move, Copy, Cut, Delete, Deselect, Create subcircuit from selection |
 | empty place | Add component here (placed at the clicked point), Paste, Select all, Fit view, Back one level (in a subcircuit), simulation controls |
 
 - A component or wire that is not selected gets selected first by the right-click.

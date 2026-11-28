@@ -12,6 +12,7 @@ Hotové programy ke stažení: [Releases](https://github.com/SJFidrmuc/LogicFlow
 ## [Nevydáno]
 
 ### Přidáno
+- **Podobvod z výběru** (Ctrl+G, kontextová nabídka, nabídka Úpravy): vybraná hradla a bloky se přesunou do nového podobvodu a na jejich místo se postaví jeho značka. Vstupy a výstupy vzniknou samy z vodičů, které z výběru vedou ven, a značka se k nim hned připojí – obvod počítá stejně jako předtím. Přepínače, tlačítka, hodiny, LED a zobrazovače zůstávají venku a dávají vývodům popisky.
 - **Import hotového obvodu jako podobvodu** (Soubor → Importovat jako podobvod…, Ctrl+I): obvod ze souboru `.logicflow` se vloží do projektu jako podobvod i s podobvody, které používá, a jeho značka se umístí kliknutím. Název podle vlastností obvodu, jinak podle souboru; stejné podobvody se nezdvojují.
 - **Barva LED** – červená, zelená, žlutá, modrá nebo bílá (Vlastnosti a kontextová nabídka); zhasnutá LED má tmavý odstín své barvy. **LED se dvěma vývody – anodou a katodou:** svítí jen při A = 1 a K = 0 jako skutečná dioda, hodí se pro maticová zapojení; přepíná se volbou Vývody nebo se přidá z Shift+A → Výstupy. Do pravdivostní tabulky ani do vývodů podobvodu se nepočítá.
 - **Vlastnosti obvodu** (Soubor → Vlastnosti obvodu…): název, autoři, popis, licence a škola/třída se ukládají do souboru obvodu (část `info`, stejné klíče jako v online knihovně obvodů; neznámé klíče se zachovají). Nový obvod dostane autora a licenci z nastavení, uložení zapíše datum úpravy, u cizího obvodu se můžete přidat jako spoluautor. Informace jsou vidět nahoře v Hierarchii a v náhledu v okně pro otevření souboru.
@@ -137,7 +138,7 @@ Orientační – pořadí a obsah se mohou změnit. Podrobný plán vede autor p
 ### 0.6 (2027)
 - Paměti ROM, RAM, EEPROM s hex editorem.
 - Panel nástrojů s ikonami ve dvou podobách: kompaktní a velké ikony se záložkami (dotyk, projektor).
-- Plošky rozhraní podobvodu (vstupy a výstupy podobvodu s názvem a pořadím, i sběrnicové) a návěští sítí – propojení podle názvu bez vodičů, i pro VCC a GND.
+- Plošky rozhraní podobvodu (vstupy a výstupy podobvodu s názvem a pořadím, i sběrnicové), LED uvnitř podobvodu jako indikátory na jeho značce (malá tečka u popisku) a návěští sítí – propojení podle názvu bez vodičů, i pro VCC a GND.
 - **Maticová zapojení:** maticová klávesnice 4×4 a 3×4, bodová matice LED 5×7 a 8×8 s dosvitem (skenování a multiplexování displejů).
 
 ### 0.7 (2027)

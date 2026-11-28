@@ -25,6 +25,7 @@
 pub mod block;
 pub mod circuit;
 pub mod gate;
+pub mod group;
 pub mod library;
 pub mod sim;
 pub mod value;

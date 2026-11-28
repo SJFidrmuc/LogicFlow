@@ -117,7 +117,7 @@
   <rect x="950" y="165" width="420" height="645" rx="14" class="grp"/>
   <text x="964" y="184" class="g">Jádro – crate logicflow-core (bez grafiky)</text>
 
-  <rect x="970" y="195" width="380" height="215" rx="10" class="co"/>
+  <rect x="970" y="195" width="380" height="225" rx="10" class="co"/>
   <text x="986" y="218" class="h">Circuit <tspan class="s m">(circuit.rs)</tspan> – model schématu</text>
   <g class="s">
     <text x="986" y="242"><tspan class="m">components</tspan>: Component { id, kind, pos,</text>
@@ -128,6 +128,7 @@
     <text x="986" y="344"><tspan class="m">SubcircuitDef</tspan> { id, name, circuit }</text>
     <text x="986" y="366"><tspan class="m">ProjectFile</tspan> – převod do a z JSON</text>
     <text x="986" y="388">úpravy: moved(), reroute(), merge_collinear()</text>
+    <text x="986" y="406"><tspan class="m">group.rs</tspan>: podobvod z výběru (Ctrl+G)</text>
   </g>
 
   <rect x="970" y="450" width="380" height="270" rx="10" class="co"/>
