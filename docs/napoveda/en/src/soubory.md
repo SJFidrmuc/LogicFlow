@@ -7,6 +7,7 @@
 - The file browser has buttons for the home folder and Documents; you can type any folder into the path line. The **+ New folder** button creates a subfolder (e.g. for a class or an assignment) and opens it.
 - Before closing the program or opening another circuit, the program asks about unsaved changes.
 - A file can also be opened from the command line: `logicflow circuit.logicflow`
+- **File → Import as subcircuit…** (**Ctrl+I**) inserts a saved circuit into the open project as a subcircuit (see [Subcircuits](podobvody.md)).
 
 ## Which program version opens a file
 

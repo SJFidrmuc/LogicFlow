@@ -26,5 +26,6 @@
 | Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y | undo, redo |
 | Ctrl+N, Ctrl+O, Ctrl+S | new, open, save |
 | Ctrl+Shift+S | save as |
+| Ctrl+I | import a circuit as a subcircuit |
 | Ctrl+PageUp, Ctrl+PageDown | previous, next workspace |
 | Ctrl+Q | quit |

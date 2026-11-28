@@ -21,6 +21,19 @@ Podobvod je samostatný obvod, který vložíte do jiného jako jednu součástk
 - Simulace zachovává zpoždění hradel i uvnitř podobvodů a každá instance má vlastní stav (např. vlastní klopné obvody).
 - Celý projekt včetně všech podobvodů se ukládá do jednoho souboru.
 
+## Hotový obvod jako podobvod
+
+Obvod, který už máte uložený v souboru `.logicflow` (třeba vyzkoušenou poloviční sčítačku nebo úlohu z online knihovny obvodů), vložíte do projektu jako podobvod:
+
+1. **Soubor → Importovat jako podobvod…** (**Ctrl+I**) a vyberte soubor. Náhled ukáže název, autora a licenci obvodu.
+2. Značka podobvodu se objeví u ukazatele myši – kliknutím ji položíte (Esc vkládání zruší, podobvod v projektu zůstane).
+
+- Podobvod dostane **název obvodu** z jeho vlastností (Soubor → Vlastnosti obvodu), jinak název souboru. Když už projekt podobvod se stejným názvem má, přidá se číslo, např. „Sčítačka (2)“.
+- Vstupy jsou přepínače a tlačítka importovaného obvodu, výstupy jeho LED – stejně jako u každého podobvodu.
+- Importuje se **kopie**: pozdější úpravy souboru se do projektu nepromítnou a úpravy podobvodu soubor nezmění.
+- Podobvody, které importovaný obvod používá, se přidají s ním. Stejné podobvody, které už projekt má, se použijí znovu.
+- V režimu simulace import nejde – nejdřív simulaci zastavte (Esc).
+
 ## Knihovny prvků
 
 Hotová zapojení najdete v oblasti **Knihovna součástek** pod nadpisem **Knihovny prvků**. Prvky jsou rozdělené podle kategorií (Kombinační obvody, Aritmetika, Sekvenční obvody…) a hledání je najde podle názvu i kategorie.
